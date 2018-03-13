@@ -36,8 +36,14 @@ GETTING STARTED
 PROCESS NEW GALAXY DATA
 ====================================================================================================================
 
-1) Edit 
+1) Edit parameter.txt
 
+2) Edit module_user.f90
+
+3) Produce mock observing cone
+   > ./stingray make.all
+   
+4) e.g. display in R
 
 
 ARGUMENTS
