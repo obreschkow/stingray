@@ -43,7 +43,7 @@ PROCESS NEW GALAXY DATA
 3) Produce mock observing cone
    > ./stingray make.all
    
-4) e.g. display in R
+4) e.g. display cone in R
 
 
 ARGUMENTS
