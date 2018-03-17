@@ -111,7 +111,7 @@ recursive subroutine add_box(ix)
    box(nbox)%dmax = min(para%dc_max/para%L,d+h3)
    if (para%rotate) then
       call random_number(rand)
-      box(nbox)%rotation = min(6,floor(rand*6.0))
+      box(nbox)%rotation = max(1,min(6,ceiling(rand*6.0)))
    else
       box(nbox)%rotation = 1
    end if

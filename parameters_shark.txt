@@ -1,0 +1,40 @@
+# Paths
+path_output             /Users/do/Data/SURFS/stingray/shark/output/
+path_input              /Users/do/Data/SURFS/stingray/shark/input/
+
+# Snapshot parameters
+# L               (drawn from HDF5 galaxy snapshots) side-length of simulation box in simulation units
+length_unit       4.40811083e22 [m] Mpc/h
+snapshot_min      55
+snapshot_max      199
+subsnapshot_min   0
+subsnapshot_max   0
+
+# Cosmology
+# h       (drawn from HDF5 galaxy snapshots)
+# OmegaL  (drawn from HDF5 galaxy snapshots)
+# OmegaM  (drawn from HDF5 galaxy snapshots)
+
+# Geometry of observing cone
+# Either specify a cone angle and/or the values x_min/x_max/y_min/y_max delimiting a rectangular box at the maximum distance
+angle          0.1 [rad] half the aperture
+# x_min        -0.5 [box side lengths] minimal value of x-coordinate at the maximum distance
+# x_max        +0.5 [box side lengths] maximal value of x-coordinate at the maximum distance
+# y_min        -0.5 [box side lengths] minimal value of y-coordinate at the maximum distance
+# y_max        +0.5 [box side lengths] maximal value of y-coordinate at the maximum distance
+dc_min         200 [simulation units] minimal comoving distance
+dc_max         1950 [simulation units] maximal comoving distance
+axis.x         1 [arbitrary units, but same for x,y,z] vector pointing along the cone axis in comoving coordinate
+axis.y         1
+axis.z         1
+
+# Geometric details
+translate            1
+rotate               1
+invert               1
+preserve_groups      1
+
+# Observer
+velocity.x  0  
+velocity.y  0
+velocity.z  0

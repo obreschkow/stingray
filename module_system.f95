@@ -1,13 +1,13 @@
 module module_system
    
-! screen output
-character(len=255)      :: logfilename
-logical                 :: opt_logfile
+   ! screen output
+   character(len=255)      :: logfilename
+   logical                 :: opt_logfile
 
-! computation time evaluation
-integer*8               :: tstart_total
-integer*8               :: tstart
-integer*8               :: trate
+   ! computation time evaluation
+   integer*8               :: tstart_total
+   integer*8               :: tstart
+   integer*8               :: trate
 
 contains
 

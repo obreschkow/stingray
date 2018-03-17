@@ -5,6 +5,7 @@ use module_types
 use module_system
 use module_parameters
 use module_cosmology
+use module_conversion
 
 ! ==============================================================================================================
 ! VARIABLE TYPES
@@ -19,10 +20,10 @@ type type_galaxy_sam
    integer*8   :: id             ! unique galaxy ID
    integer*8   :: haloid         ! unique ID of parent halo
    real*4      :: position(3)    ! [Mpc/h] position of galaxy centre in simulation box
-   real*4      :: magR           ! absolute r-band magnitude
+   real*4      :: mag            ! absolute magnitude (generic band)
+   real*4      :: MHI            ! [Msun] HI mass
    real*4      :: v(3)           ! [proper km/s] peculiar velocity 
    real*4      :: j(3)           ! [proper kpc km/s] specific angular momentum
-   real*4      :: MHI            ! [Msun] HI mass
 
 end type type_galaxy_sam
 
@@ -34,25 +35,15 @@ type type_galaxy_cone
    integer*8   :: id             ! unique galaxy ID
    integer*4   :: snapshot       ! snapshot
    real*4      :: z              ! apparent redshift
-   real*4      :: dc             ! [Mpc] comoving distance
+   real*4      :: dc             ! [simulation units = Mpc/h] comoving distance
    real*4      :: ra             ! [rad] right ascension
    real*4      :: decl           ! [rad] declination
-   real*4      :: magR           ! apparent r-band magnitude
+   real*4      :: mag            ! apparent magnitude (generic band)
+   real*8      :: SHI            ! [W/m^2] integrated HI line flux
    real*4      :: v(3)           ! [proper km/s] peculiar velocity
    real*4      :: j(3)           ! [proper kpc km/s] specific angular momentum
-   real*8      :: SHI            ! [W/m^2] integrated HI line flux
 
 end type type_galaxy_cone
-
-! all galaxy properties ine one type; do not modify this type
-
-type type_galaxy_all
-   
-   type(type_galaxy_base)  :: base
-   type(type_galaxy_sam)   :: sam
-   type(type_galaxy_cone)  :: cone
-
-end type type_galaxy_all
 
 contains
 
@@ -99,41 +90,97 @@ end function post_selection
 
 
 ! ==============================================================================================================
+! Mock Cone Parameters
+! ==============================================================================================================
+
+subroutine make_parameters(parameter_filename_custom)
+   
+   implicit none
+   
+   character(len=255),intent(in) :: parameter_filename_custom
+   character(len=255),parameter  :: parameter_filename_default = 'parameters_default.txt'
+   character(len=255)            :: parameter_filename
+   
+   ! Normally, do not edit the following lines:
+   
+   if (len(trim(parameter_filename_custom))>0) then
+      parameter_filename = parameter_filename_custom
+   else
+      parameter_filename = parameter_filename_default
+   end if
+   
+   call initialize_default_parameters
+   call load_parameters(parameter_filename)
+   call check_and_adjust_parameters
+   
+   ! Here, parameters can be overwritten by the user
+   ! ...
+   
+end subroutine make_parameters
+
+
+! ==============================================================================================================
 ! IO routines
 ! ==============================================================================================================
 
 ! write mock-cone galaxy into binary file
 ! this function allows the user to select only certain properties, if needed, and/or add intrinsic properties
 
-subroutine write_galaxy(galaxy)
+subroutine write_galaxy(cone)
 
-   ! choose which variables of the structure 'galaxy' to save. this structure has the substructures
-   ! galaxy%base  = basic cone geometry properties
-   ! galaxy%sam   = SAM output, mainly intrinsic galaxy properties
-   ! galaxy%cone  = apparent galaxy properties in the cone
-
+   ! choose which variables of the structure 'cone' to save
    implicit none
-   type(type_galaxy_all),intent(in) :: galaxy
-   write(1) galaxy%cone
+   type(type_galaxy_cone),intent(in) :: cone
+   write(1) cone
    
 end subroutine write_galaxy
 
+! load redshifts
+
+subroutine load_redshifts(snapshot)
+
+   implicit none
+   type(type_snapshot),intent(inout),allocatable   :: snapshot(:)
+   integer*4                           :: isnapshot,i
+   real*4                              :: redshift
+
+   allocate(snapshot(para%snapshot_min:para%snapshot_max))
+
+   open(1,file=trim(para%path_input)//'redshifts.txt',form="formatted")
+   do isnapshot = para%snapshot_min,para%snapshot_max
+      read(1,*) i,redshift
+      if (isnapshot.ne.i) then
+         call out('ERROR: snapshot_min and snapshot_max inconsistent with snapshots in redshift file.')
+         close(1)
+         stop
+      else
+         snapshot(isnapshot)%redshift = redshift
+      end if
+   end do
+   close(1)
+    
+end subroutine load_redshifts
+
 ! load SAM snapshot file
 
-subroutine load_sam_snapshot(index,sam)
+subroutine load_sam_snapshot(index,subindex,sam)
 
    ! variable declaration
    implicit none
-   integer*4,intent(in)                            :: index
+   integer*4,intent(in)                            :: index,subindex
    type(type_galaxy_sam),allocatable,intent(inout) :: sam(:)
    character(len=255)                              :: filename
    integer*8                                       :: i,n
    integer*4                                       :: bytesgal
    integer*8                                       :: bytestot
    
+   if (.false.) write(*,*) subindex ! avoids compiler warning if argument unused
+   
+   ! construct filename
+   write(filename,'(A,A,I0.3)') trim(para%path_input),'snapshot_',index
+   
    ! determine number of galaxies from file size
    bytesgal = bytes_per_galaxy_sam()
-   filename = trim(snapshot_filename(index))
    inquire(file=trim(filename), size=bytestot)
    if (modulo(bytestot,bytesgal).ne.0) then
       call out('ERROR: Size of snapshot file inconsistent with type_galaxy_sam.')
@@ -210,75 +257,108 @@ function convert_properties(base,sam) result(cone)
    cone%decl   = asin(base%xcone(2)/norm)
    
    ! convert intrinsic to apparent properties
-   cone%magR   = convert_abs2appmag(sam%magR,dl)
+   cone%mag    = convert_abs2appmag(sam%mag,dl)
    cone%v      = convert_vector(sam%v,base%rotation)
    cone%j      = convert_pseudovector(sam%j,base%rotation)
    cone%SHI    = convert_luminosity2flux(real(sam%MHI,8)*real(LMratioHI,8)*Lsun,dl)
    
+end function convert_properties
+
+
+! ==============================================================================================================
+! MAKE FAKE DATA
+! ==============================================================================================================
+
+subroutine make_fake_data(ngalaxies)
+
+   implicit none
+   integer*4,intent(in)    :: ngalaxies
+   integer*4               :: snapshot
+   integer*4               :: i
+   
+   call tic
+   call out('MAKE FAKE DATA')
+
+   if (allocated(galaxy)) deallocate(galaxy)
+   allocate(galaxy(ngalaxies))
+   
+   do snapshot = para%snapshot_min,para%snapshot_max
+   
+      call set_seed(snapshot)
+      do i = 1,ngalaxies
+         call random_number(galaxy(i)%position)
+         galaxy(i)%id = i+int(1e5)*snapshot
+         galaxy(i)%haloid = galaxy(i)%haloid
+         galaxy(i)%position = galaxy(i)%position*para%L
+         galaxy(i)%mag  = get_normal_random_number(-23.0,1.0)
+         galaxy(i)%MHI  = 10.0**(get_normal_random_number(9.0,1.0))
+         galaxy(i)%v(1) = get_normal_random_number(0.0,1e2)
+         galaxy(i)%v(2) = get_normal_random_number(0.0,1e2)
+         galaxy(i)%v(3) = get_normal_random_number(0.0,1e2)
+         galaxy(i)%j(1) = get_normal_random_number(0.0,1e3)
+         galaxy(i)%j(2) = get_normal_random_number(0.0,1e3)
+         galaxy(i)%j(3) = get_normal_random_number(0.0,1e3)
+      end do
+      call save_snapshot(snapshot)
+      
+   end do
+   
+   call save_redshifts
+   
+   call toc
+   
    contains
    
-   ! Hereafter follows the library of basic conversion functions.
-   ! Make sure to check these functions before writing your own.
-
-   function convert_luminosity2flux(L,dl) result(S)
+   subroutine save_redshifts
 
       implicit none
-      real*8,intent(in) :: L     ! [W] Luminosity
-      real*4,intent(in) :: dl    ! [Mpc] luminosity distance
-      real*8            :: S     ! [W/m^2] Flux
+      integer*4   :: isnapshot
    
-      S = L/real(dl,8)**2/ASphereMpc
-   
-   end function
-   
-   function convert_abs2appmag(M,dl) result(mag)
+      call out('Save redshifts')
 
+      open(1,file=trim(para%path_input)//'redshifts.txt',action='write',form='formatted',status='replace')
+      do isnapshot = para%snapshot_min,para%snapshot_max
+         write(1,*) isnapshot,(para%snapshot_max-isnapshot)*0.1
+      end do
+      close(1)
+    
+   end subroutine save_redshifts
+
+   subroutine save_snapshot(index)
+
+      ! variable declaration
       implicit none
-      real*4,intent(in) :: M     ! absolute magnitude
-      real*4,intent(in) :: dl    ! [Mpc] luminosity distance
-      real*4            :: mag   ! apparent magnitude
+      integer*4,intent(in) :: index
+      character(len=255)   :: fn,txt
+      integer*8            :: i,n
    
-      mag = M+5*log10(dl)+25
+      ! write user info
+      write(fn,'(A,A,I0.3)') trim(para%path_input),'snapshot_',index
+      call out('Save snapshot '//trim(fn))
    
-   end function convert_abs2appmag
-
-   function convert_vector(x,rotation) result(y)
-
-      implicit none
-      real*4,intent(in)    :: x(3)
-      integer*4,intent(in) :: rotation
-      real*4               :: y(3)
+      ! write header
+      open(1,file=trim(fn),action='write',form='unformatted',status='replace',access='stream')
    
-      select case (abs(rotation))
-         case (1) ! identity
-            y = x
-         case(2) ! invert x-axis, while permuting y and z
-            y = (/-x(1),x(3),x(2)/)
-         case(3) ! invert y-axis, while permuting z and x
-            y = (/x(3),-x(2),x(1)/)
-         case(4) ! invert z-axis, while permuting x and y
-            y = (/x(2),x(1),-x(3)/)
-         case(5) ! permute (x,y,z) -> (y,z,x)
-            y = (/x(2),x(3),x(1)/)
-         case(6) ! permute (x,y,z) -> (z,x,y)
-            y = (/x(3),x(1),x(2)/)
-      end select
+      ! write IDs and positions
+      n = size(galaxy)
+      do i = 1,n
+         write(1) galaxy(i)
+      end do
    
-      if (rotation<0) y = -y ! inversion
+      ! read IDs
+      close(1)
    
-   end function convert_vector
-
-   function convert_pseudovector(x,rotation) result(y)
-
-      implicit none
-      real*4,intent(in)    :: x(3)
-      integer*4,intent(in) :: rotation
-      real*4               :: y(3)
+      ! output basic statistics
+      call out('Number of galaxies:',n)
+      write(txt,'(A,F0.4,A,F0.4)') 'Position range: ',minval((/minval(galaxy(:)%position(1)),minval(galaxy(:)%position(2)), &
+      & minval(galaxy(:)%position(3))/)) &
+      &,' to ',maxval((/maxval(galaxy(:)%position(1)),maxval(galaxy(:)%position(2)),maxval(galaxy(:)%position(3))/))
+      call out(txt)
+      write(txt,'(A,I0,A,I0)')     'Identifier range: ',minval(galaxy%id),' to ',maxval(galaxy%id)
+      call out(txt)
    
-      y = convert_vector(x,abs(rotation))
+   end subroutine save_snapshot
    
-   end function convert_pseudovector
-   
-end function convert_properties
+end subroutine make_fake_data
 
 end module module_user

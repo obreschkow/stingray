@@ -2,16 +2,16 @@ program surfsuite
 
    use module_system
    use module_parameters
+   use module_user
    use module_geometry
    use module_cone_intrinsic
    use module_cone_apparent
-   use module_developer
 
    implicit none
    
    character(*),parameter  :: version = '0.1'
 
-   character(len=255)      :: parameterfile
+   character(len=255)      :: parameter_filename_custom
    character(len=255)      :: arg_task
    character(len=255)      :: arg_option
    character(len=255)      :: arg_value
@@ -35,7 +35,7 @@ program surfsuite
    end if
    
    ! Change default options
-   parameterfile = 'parameters.txt'
+   parameter_filename_custom = ''
    opt_logfile = .false.
    seed = 1
    ngalaxies = 100
@@ -49,7 +49,7 @@ program surfsuite
          call getarg(i+1,arg_value)
          select case (trim(arg_option))
          case ('-parameterfile')
-            parameterfile = trim(arg_value)
+            parameter_filename_custom = trim(arg_value)
          case ('-logfile')
             logfilename = trim(arg_value)
             opt_logfile = .true.
@@ -64,10 +64,14 @@ program surfsuite
       end do
    end if
    
+   ! Initialize verbose
    call out_open(version)
-   call make_parameters(parameterfile)
    
-   ! TASKS
+   ! Load parameters
+   call make_parameters(parameter_filename_custom)
+   call save_parameters
+   
+   ! Execute tasks
    call getarg(1,arg_task)
    select case (trim(arg_task))
    case ('make.all')
@@ -87,6 +91,7 @@ program surfsuite
       stop
    end select
    
+   ! Finalize verbose
    call out_close
    
    contains

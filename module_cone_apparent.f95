@@ -21,7 +21,10 @@ subroutine make_cone_apparent
    type(type_galaxy_base)  :: base
    type(type_galaxy_sam)   :: sam   ! intrinsic galaxy properties from SAM
    type(type_galaxy_cone)  :: cone  ! apparent galaxy properties
-   type(type_galaxy_all)   :: galaxy
+   
+   ! write user info
+   call tic
+   call out('CONVERT INTRINSIC CONE TO APPARENT CONE')
    
    ! determine number of bytes per galaxy in intrinsic cone
    filename = trim(para%path_output)//'.tmpsizeof'
@@ -47,7 +50,6 @@ subroutine make_cone_apparent
    open(1,file=trim(filename),action='write',form="unformatted",status='replace',access='stream')
    
    ! write user info
-   call out('CONVERT INTRINSIC CONE TO APPARENT CONE')
    call out('Number of galaxies in intrinsic cone:',n)
    
    ! convert galaxy properties and write master cone
@@ -57,10 +59,7 @@ subroutine make_cone_apparent
       cone = convert_properties(base,sam)
       if (post_selection(cone)) then
          m = m+1
-         galaxy%base = base
-         galaxy%sam = sam
-         galaxy%cone = cone
-         call write_galaxy(galaxy)
+         call write_galaxy(cone)
       end if
    end do
    
@@ -68,11 +67,18 @@ subroutine make_cone_apparent
    close(1)
    close(2)
    
+   ! write info
+   inquire(file=filename, size=bytes)
+   filename = trim(para%path_output)//'cone_apparent_info.txt'
+   open(1,file=trim(filename),action='write',form="formatted",status='replace')
+   write(1,'(A,I10)') 'Number.of.galaxies.in.apparent.cone        ',m
+   write(1,'(A,I10)') 'Number.of.bytes.per.galaxy.in.apparent.cone',bytes/m
+   close(1)
+   
    ! user output
    call out('Number of galaxies in apparent cone:',m)
-   inquire(file=filename, size=bytes)
    call out('Number of bytes per galaxy in apparent cone:',bytes/m)
-   call hline
+   call toc
    
 end subroutine make_cone_apparent
 

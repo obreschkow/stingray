@@ -1,9 +1,12 @@
+# User module
+USERMODULE = module_user_shark.o
+
 # compiler
 FC = gfortran
 
 # compiler flags (try dfferent ones, if the default line does not work)
-FCFLAGS = -g -O0 -fbounds-check -fwhole-file -ffpe-trap=invalid,zero,overflow -Wall -Wunused -Wuninitialized -Wsurprising -Wconversion
-#FCFLAGS = -O3 -fopenmp
+FCFLAGS = -g -O0 -I/usr/local/lib/hdf5/include -L/usr/local/lib/hdf5/lib -lhdf5_fortran -lhdf5 -fbounds-check -fwhole-file -ffpe-trap=invalid,zero,overflow -Wall -Wunused -Wuninitialized -Wsurprising -Wconversion
+FCFLAGS = -O3 -fopenmp -I/usr/local/lib/hdf5/include -L/usr/local/lib/hdf5/lib -lhdf5_fortran -lhdf5
 
 # List of executables to be built within the package
 PROGRAMS = stingray
@@ -16,21 +19,23 @@ stingray.o:    module_constants.o \
                module_system.o \
                module_parameters.o \
                module_cosmology.o \
-               module_user.o \
+               module_conversion.o \
+               module_hdf5_utilities.o \
+               $(USERMODULE) \
                module_geometry.o \
                module_cone_intrinsic.o \
-               module_cone_apparent.o \
-               module_developer.o
+               module_cone_apparent.o
 stingray: 	   module_constants.o \
                module_types.o \
                module_system.o \
                module_parameters.o \
                module_cosmology.o \
-               module_user.o \
+               module_conversion.o \
+               module_hdf5_utilities.o \
+               $(USERMODULE) \
                module_geometry.o \
                module_cone_intrinsic.o \
-               module_cone_apparent.o \
-               module_developer.o
+               module_cone_apparent.o
 
 # ======================================================================
 # And now the general rules, these should not require modification

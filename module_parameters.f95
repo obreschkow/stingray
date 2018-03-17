@@ -8,19 +8,7 @@ module module_parameters
    
 contains
 
-subroutine make_parameters(parameterfile)
-
-   implicit none
-   character(255),intent(in)  :: parameterfile
-   
-   call initialize_parameters
-   call load_parameters(parameterfile)
-   call check_and_adjust_parameters
-   call save_parameters
-
-end subroutine make_parameters
-
-subroutine initialize_parameters
+subroutine initialize_default_parameters
 
    implicit none
    para%x_min = -1e20
@@ -33,9 +21,10 @@ subroutine initialize_parameters
    para%rotate = .true.
    para%preserve_groups = .true.
    para%velocity = (/0,0,0/)
+   para%subsnapshot_min = 0
+   para%subsnapshot_max = 0
 
-end subroutine initialize_parameters
-
+end subroutine initialize_default_parameters
 
 subroutine check_and_adjust_parameters
 
@@ -77,10 +66,6 @@ subroutine load_parameters(parameterfile)
             case ('path_input')
                para%path_input = trim(noslash(var_value))//'/'
                call system('mkdir -p '//trim(para%path_input))
-            case ('file_snapshot')
-               para%file_snapshot = trim(var_value)
-            case ('file_redshifts ')
-               para%file_redshifts  = trim(var_value)
             case ('L')
                read(var_value,*) para%L
             case ('length_unit')
@@ -89,6 +74,10 @@ subroutine load_parameters(parameterfile)
                read(var_value,*) para%snapshot_min
             case ('snapshot_max')
                read(var_value,*) para%snapshot_max
+            case ('subsnapshot_min')
+               read(var_value,*) para%subsnapshot_min
+            case ('subsnapshot_max')
+               read(var_value,*) para%subsnapshot_max
             case ('h')
                read(var_value,*) para%h
             case ('OmegaL')
@@ -157,14 +146,14 @@ subroutine save_parameters
    ! file names
    write(txt,*)  trim(para%path_output);              call line('path_output',txt)
    write(txt,*)  trim(para%path_input);               call line('path_input',txt)
-   write(txt,*)  trim(para%file_snapshot);            call line('file_snapshot',txt)
-   write(txt,*)  trim(para%file_redshifts);           call line('file_redshifts',txt)
    
    ! simulation box
    write(txt,'(E14.7)')  para%L;                      call line('L',txt)
    write(txt,'(E14.7)')  para%length_unit;            call line('length_unit',txt)
    write(txt,'(I6)')  para%snapshot_min;              call line('snapshot_min',txt)
    write(txt,'(I6)')  para%snapshot_max;              call line('snapshot_max',txt)
+   write(txt,'(I6)')  para%subsnapshot_min;           call line('subsnapshot_min',txt)
+   write(txt,'(I6)')  para%subsnapshot_max;           call line('subsnapshot_max',txt)
    
    ! cosmology
    write(txt,'(E14.7)')  para%h;                      call line('h',txt)
@@ -216,26 +205,5 @@ subroutine save_parameters
    end function log2int
 
 end subroutine save_parameters
-
-function snapshot_filename(index) result(str)
-   implicit none
-   integer*4,intent(in) :: index
-   character(len=255)   :: str
-   character(len=255)   :: file_snapshot_base
-   character(len=4)     :: file_snapshot_extension
-   integer*4            :: ndigits
-   integer*4            :: l,i
-   file_snapshot_base = trim(para%file_snapshot)
-   l = len(trim(file_snapshot_base))
-   ndigits = 0
-   do i = 1,l
-      if (file_snapshot_base(i:i)=='#') then
-         ndigits = ndigits+1
-         file_snapshot_base(i:i) = ' '
-      end if
-   end do
-   write(file_snapshot_extension,'(A,I1)') 'I0.',ndigits
-   write(str,'(A,A,'//trim(file_snapshot_extension)//')') trim(para%path_input),trim(file_snapshot_base),index
-end function snapshot_filename  
 
 end module module_parameters

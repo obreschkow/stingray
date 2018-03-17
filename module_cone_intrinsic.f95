@@ -18,13 +18,14 @@ contains
 subroutine make_cone_intrinsic
 
    implicit none
-   integer*4            :: isnapshot,ibox
+   integer*4            :: isnapshot,isubsnapshot,ibox
+   character(len=100)   :: snapshotname
    
    call tic
    call out('MAKE INTRINSIC CONE')
    
    call load_geometry
-   call load_redshifts
+   call load_redshifts(snapshot)
    call assign_distance_ranges
    
    ! create new file
@@ -36,21 +37,22 @@ subroutine make_cone_intrinsic
    nmockgalaxies = 0
    do isnapshot = para%snapshot_min,para%snapshot_max
       if ((snapshot(isnapshot)%dmax>=minval(box%dmin)).and.(snapshot(isnapshot)%dmin<=maxval(box%dmax))) then
-         call out('Process snapshot ',isnapshot*1_8)
-         call load_sam_snapshot(isnapshot,sam)
-         call initialize_base_properties(isnapshot)
-         do ibox = 1,size(box)
-            if ((snapshot(isnapshot)%dmax>=box(ibox)%dmin).and.(snapshot(isnapshot)%dmin<=box(ibox)%dmax)) then
-               call translate_and_rotate_snapshot(ibox)
-               call distribute_snapshot_into_box(isnapshot)
-            end if
+         do isubsnapshot = para%subsnapshot_min,para%subsnapshot_max
+            call load_sam_snapshot(isnapshot,isubsnapshot,sam,snapshotname)
+            call out('Process snapshot '//trim(snapshotname))
+            call initialize_base_properties(isnapshot,isubsnapshot)
+            do ibox = 1,size(box)
+               if ((snapshot(isnapshot)%dmax>=box(ibox)%dmin).and.(snapshot(isnapshot)%dmin<=box(ibox)%dmax)) then
+                  call translate_and_rotate_snapshot(ibox)
+                  call write_subsnapshot_into_box(isnapshot)
+               end if
+            end do
          end do
       end if
    end do
    
    ! finalize output
    call out('Number of galaxies in intrinsic cone:',nmockgalaxies)
-   
    call toc
    
 end subroutine make_cone_intrinsic
@@ -119,7 +121,7 @@ subroutine translate_and_rotate_snapshot(ibox)
 
 end subroutine translate_and_rotate_snapshot
 
-subroutine distribute_snapshot_into_box(isnapshot)
+subroutine write_subsnapshot_into_box(isnapshot)
 
    implicit none
    integer*4,intent(in)                :: isnapshot
@@ -177,7 +179,7 @@ subroutine distribute_snapshot_into_box(isnapshot)
       
    end function geometry_selection
 
-end subroutine distribute_snapshot_into_box
+end subroutine write_subsnapshot_into_box
 
 subroutine assign_distance_ranges
 
@@ -205,32 +207,9 @@ subroutine assign_distance_ranges
 
 end subroutine assign_distance_ranges
 
-subroutine load_redshifts
-
+subroutine initialize_base_properties(index,subindex)
    implicit none
-   integer*4   :: isnapshot,i
-   real*4      :: redshift
-
-   allocate(snapshot(para%snapshot_min:para%snapshot_max))
-
-   open(1,file=trim(para%path_input)//trim(para%file_redshifts),form="formatted")
-   do isnapshot = para%snapshot_min,para%snapshot_max
-      read(1,*) i,redshift
-      if (isnapshot.ne.i) then
-         call out('ERROR: snapshot_min and snapshot_max inconsistent with snapshots in redshift file.')
-         close(1)
-         stop
-      else
-         snapshot(isnapshot)%redshift = redshift
-      end if
-   end do
-   close(1)
-    
-end subroutine load_redshifts
-
-subroutine initialize_base_properties(index)
-   implicit none
-   integer*4,intent(in)    :: index
+   integer*4,intent(in)    :: index,subindex
    integer*8   :: i,n
    n = size(sam)
    if (allocated(base)) deallocate(base)
@@ -239,6 +218,7 @@ subroutine initialize_base_properties(index)
       base(i) = extract_base(sam(i))
    end do
    base%snapshot = index
+   base%subsnapshot = subindex
 end subroutine initialize_base_properties
    
 end module module_cone_intrinsic

@@ -8,17 +8,17 @@ type type_para
    !       subroutine load_parameters
    !       subroutine save_parameters
 
-   ! file names
+   ! paths
    character(len=255)   :: path_output
    character(len=255)   :: path_input
-   character(len=255)   :: file_snapshot
-   character(len=255)   :: file_redshifts
    
    ! simulation box
    real*4               :: L ! box side length in simulation units
    real*4               :: length_unit ! [m]
    integer*4            :: snapshot_min
    integer*4            :: snapshot_max
+   integer*4            :: subsnapshot_min
+   integer*4            :: subsnapshot_max
    
    ! cosmology
    real*4               :: h
@@ -50,6 +50,7 @@ type type_galaxy_base
    integer*8            :: groupid        ! unique identifier of group
    real*4               :: xbox(3)        ! [simulation length unit] position in snapshot
    integer*4            :: snapshot       ! snapshot index
+   integer*4            :: subsnapshot    ! sub-snapshot index
    integer*4            :: box            ! unique identifier of box in mock cone
    integer*4            :: rotation       ! 1...6, describing the type of proper 90-rotation, 1 being the identity; if negative with inversion
    real*4               :: xcone(3)       ! [units of side-length] position in mock cone
