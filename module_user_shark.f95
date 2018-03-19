@@ -1,10 +1,3 @@
-! Claudia:
-! + include L in hdf5, currently computed from effective volumes
-! + some positions are just above 210 (assume these are groups or trees that have moved out)
-! + many positions -1
-! + add units in dataset headers
-! + track galaxy axes
-
 module module_user
 
 ! ==============================================================================================================

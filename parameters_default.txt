@@ -15,7 +15,7 @@ h                       0.7
 OmegaL                  0.7
 OmegaM                  0.3
 
-# Geometry of observing cone
+# Geometry of cone
 angle                   0.1            [rad] half the aperture
 square_base             0              0: circular cone, 1: square cone, where the half-diagonal spanns an angle 'angle'
 dc_min                  200            [simulation units] minimal comoving distance
@@ -24,7 +24,7 @@ axis.x                  1              [arbitrary units] x-component of vector p
 axis.y                  1              [arbitrary units] y-component of vector pointing along the cone axis
 axis.z                  1              [arbitrary units] z-component of vector pointing along the cone axis
 
-# Geometric details
+# Galaxy mapping
 translate               1
 rotate                  1
 invert                  1
