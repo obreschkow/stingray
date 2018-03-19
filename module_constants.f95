@@ -1,4 +1,12 @@
+! This module initializes and defines global constants shared by different modules
+
 module module_constants
+
+   use module_types
+
+   public
+   
+   ! Universal constants
    
    real*4,parameter        :: pi = 3.14159265359
    real*8,parameter        :: Msun = 1.989e30 ! [kg] solar mass
@@ -10,5 +18,9 @@ module module_constants
    real*4,parameter        :: c = 299792458 ! [m/s] light speed
    real*8,parameter        :: ASphereMpc = 1.1964952e+46_8 ! [m^2] surface area of a sphere with 1 Mpc radius (=4*pi*(Mpc/m)^2)
    real*4,parameter        :: LMratioHI = 6.27e-9 ! (LHI/Lsun)/(MHI/Msun)
+   
+   ! Constant parameters, specific to a mock cone
+   
+   type(type_para)         :: para
 
 end module module_constants

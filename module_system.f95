@@ -1,8 +1,11 @@
 module module_system
+
+   public
    
    ! screen output
    character(len=255)      :: logfilename
    logical                 :: opt_logfile
+   logical                 :: opt_logscreen
 
    ! computation time evaluation
    integer*8               :: tstart_total
@@ -62,7 +65,8 @@ subroutine out(txt,i)
          write(999,'(A)') trim(txt)
       end if
       close(999)
-   else
+   end if
+   if (opt_logscreen) then
       if (present(i)) then
          write(*,'(A,I0)') trim(txt)//' ',i
       else
@@ -70,6 +74,13 @@ subroutine out(txt,i)
       end if
    end if
 end subroutine out
+
+subroutine error(txt)
+   implicit none
+   character(*),intent(in) :: txt
+   call out('ERROR: '//txt)
+   stop
+end subroutine error
 
 subroutine hline
    implicit none
@@ -159,5 +170,23 @@ function noslash(strin) result(strout)
       strout = strin
    end if
 end function noslash
+
+function exists(filename,do_not_stop) result(res)
+   implicit none
+   character(len=*),intent(in)   :: filename
+   logical,intent(in),optional   :: do_not_stop
+   logical                       :: res
+   inquire(file=trim(filename), exist=res)
+   if ((.not.res).and.(.not.present(do_not_stop))) then
+      call out('ERROR: File does not exist: '//trim(filename))
+      stop
+   end if
+end function exists
+
+subroutine check_exists(filename)
+   implicit none
+   character(*),intent(in) :: filename
+   if (.not.exists(filename)) stop
+end subroutine check_exists
 
 end module module_system

@@ -1,6 +1,10 @@
+! This module is old and needs to be checked and partially rewritten
+
 module module_cosmology
 
-   use module_parameters
+   use module_constants
+   
+   public
 
 contains
 

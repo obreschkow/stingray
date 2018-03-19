@@ -1,26 +1,32 @@
 module module_geometry
 
-   use module_parameters
+   use module_constants
    use module_system
+   use module_parameters
    
-   type(type_box),allocatable          :: box(:)
+   private
+   public   :: make_geometry, load_geometry, make_cone_basis
+   
+   type(type_box),allocatable :: box(:)
    
 contains
 
-subroutine make_mock_geometry(seed)
+subroutine make_geometry(seed)
 
    implicit none
    integer*4,intent(in) :: seed
    
    call tic
    call out('MAKE BOX GEOMETRY')
+   call load_parameters
    call set_seed(seed)
    call add_box(nint(para%axis*para%dc_min/para%L))
    call save_geometry
-   call out('Nboxes = ',size(box)*1_8)
+   call out('Number of boxes = ',size(box)*1_8)
+   if (allocated(box)) deallocate(box)
    call toc
    
-end subroutine make_mock_geometry
+end subroutine make_geometry
 
 subroutine save_geometry
 
@@ -30,6 +36,7 @@ subroutine save_geometry
    
    ! write to ascii file
    filename = trim(para%path_output)//'geometry.txt'
+   call check_exists(filename)
    open(1,file=trim(filename),action='write',form="formatted",status='replace')
    write(1,'(A)') 'Stingray Box-geometry'
    write(1,'(A)') '--------------------------------------------------------------------------------'
@@ -60,13 +67,15 @@ subroutine save_geometry
 
 end subroutine save_geometry
 
-subroutine load_geometry
+subroutine load_geometry(box)
 
    implicit none
-   character(len=255)   :: filename
-   integer*4            :: i,nbox
+   type(type_box),intent(out),allocatable :: box(:)
+   character(len=255)                     :: filename
+   integer*4                              :: i,nbox
    
    filename = trim(para%path_output)//'geometry.bin'
+   call check_exists(filename)
    open(1,file=trim(filename),action='read',form='unformatted')
    read(1) nbox
    if (allocated(box)) deallocate(box)
@@ -109,17 +118,17 @@ recursive subroutine add_box(ix)
    d = sqrt(real(sum(ix**2)))
    box(nbox)%dmin = max(para%dc_min/para%L,d-h3)
    box(nbox)%dmax = min(para%dc_max/para%L,d+h3)
-   if (para%rotate) then
+   if (para%rotate==1) then
       call random_number(rand)
       box(nbox)%rotation = max(1,min(6,ceiling(rand*6.0)))
    else
       box(nbox)%rotation = 1
    end if
-   if (para%invert) then
+   if (para%invert==1) then
       call random_number(rand)
       if (rand<0.5) box(nbox)%rotation = -box(nbox)%rotation
    end if
-   if (para%translate) then
+   if (para%translate==1) then
       call random_number(box(nbox)%translation)
    else
       box(nbox)%translation = (/0,0,0/)
@@ -173,10 +182,10 @@ function box_intersects(ix) result(output)
    real*4               :: alpha,beta ! angles
    real*4               :: a(3),b(3),c(3)
    real*4               :: center(3),e1(3),e2(3) ! center position of and unit vectors on square
-   real*4               :: v1,v2,v(3),p(3)
-   integer*4            :: i,j
-   integer*4,parameter  :: npoints = 1000
-   real*4               :: norm,vectnorm
+   real*4               :: v1,v2,v(3),a1(3),a2(3)
+   integer*4            :: i,j1,j2
+   integer*4,parameter  :: npoints = 50
+   real*4               :: norm,vectnorm,alpha1,alpha2
    
    ! check distance range
    dmin = para%dc_min/para%L
@@ -194,15 +203,15 @@ function box_intersects(ix) result(output)
    end if
    alpha = acos(sum(para%axis*ix)/d) ! angle between cone axis and line-of-sight to the box center
    beta = asin(h3/d) ! apparent angle of circumscribed sphere of the box
-   if (alpha-beta>para%angle) then
+   if (alpha-beta>para%angle*sqrt(2.0)) then ! factor sqrt(2) needed in case of a cone with square base
       output = .false.
       return
    end if
    
-   ! check if the cone axis passes through any of the squares
+   ! check if the cone axis passes through any of the cube's faces
    do i = 1,6
 
-      ! make square
+      ! parametrize square face
       select case(i)
          case(1)
             center = (/real(ix(1))+0.5,real(ix(2)),real(ix(3))/)
@@ -250,64 +259,60 @@ function box_intersects(ix) result(output)
    
    end do
    
-   ! since the cone axis did not pass through any square, check if any point on the of the cube's edge crosses the cone AND lies in the distance range
-   do i = 1,12
+   ! make orthogonal unit vectors, perpendicular to the cone axis
+   if (para%square_base==1) call make_cone_basis(a1,a2)
    
-      ! make edge
+   ! since the cone axis did not pass through any cube face, check if any point on the face lines inside the cone
+   
+   do i = 1,6
+   
+      ! parametrize square face
       select case(i)
-      case(1)
-         p = ix+(/0.5,0.5,0.5/)
-         v = (/-1,0,0/)
-      case(2)
-         p = ix+(/0.5,0.5,0.5/)
-         v = (/0,-1,0/)
-      case(3)
-         p = ix+(/0.5,0.5,0.5/)
-         v = (/0,0,-1/)
-      case(4)
-         p = ix+(/-0.5,-0.5,0.5/)
-         v = (/1,0,0/)
-      case(5)
-         p = ix+(/-0.5,-0.5,0.5/)
-         v = (/0,1,0/)
-      case(6)
-         p = ix+(/-0.5,-0.5,0.5/)
-         v = (/0,0,-1/)
-      case(7)
-         p = ix+(/-0.5,0.5,-0.5/)
-         v = (/1,0,0/)
-      case(8)
-         p = ix+(/-0.5,0.5,-0.5/)
-         v = (/0,-1,0/)
-      case(9)
-         p = ix+(/-0.5,0.5,-0.5/)
-         v = (/0,0,1/)
-      case(10)
-         p = ix+(/0.5,-0.5,-0.5/)
-         v = (/-1,0,0/)
-      case(11)
-         p = ix+(/0.5,-0.5,-0.5/)
-         v = (/0,1,0/)
-      case(12)
-         p = ix+(/0.5,-0.5,-0.5/)
-         v = (/0,0,1/)
+         case(1)
+            center = (/real(ix(1))+0.5,real(ix(2)),real(ix(3))/)
+            e1 = (/0,1,0/)
+            e2 = (/0,0,1/)
+         case(2)
+            center = (/real(ix(1))-0.5,real(ix(2)),real(ix(3))/)
+            e1 = (/0,1,0/)
+            e2 = (/0,0,1/)
+         case(3)
+            center = (/real(ix(1)),real(ix(2))+0.5,real(ix(3))/)
+            e1 = (/1,0,0/)
+            e2 = (/0,0,1/)
+         case(4)
+            center = (/real(ix(1)),real(ix(2))-0.5,real(ix(3))/)
+            e1 = (/1,0,0/)
+            e2 = (/0,0,1/)
+         case(5)
+            center = (/real(ix(1)),real(ix(2)),real(ix(3))+0.5/)
+            e1 = (/1,0,0/)
+            e2 = (/0,1,0/)
+         case(6)
+            center = (/real(ix(1)),real(ix(2)),real(ix(3))-0.5/)
+            e1 = (/1,0,0/)
+            e2 = (/0,1,0/)
       end select
       
-      ! check if the edge i crosses the cone
-      do j = 0,npoints
-         a = p+real(j)/real(npoints)*v
-         norm = sqrt(sum(a**2))
-         alpha = acos(min(1.0,sum(a*para%axis)/norm))
-         if ((a(1)*dmax>para%x_min*norm).and.(a(1)*dmax<para%x_max*norm)) then
-            if ((a(2)*dmax>para%y_min*norm).and.(a(2)*dmax<para%y_max*norm)) then
-               if (alpha<=para%angle) then
-                  if ((norm>=dmin).and.(norm<=dmax)) then
-                     output = .true.
-                     return
-                  end if
+      ! check if any point on face i lies inside the cone
+      do j1 = -npoints,npoints
+         do j2 = -npoints,npoints
+            a = center+0.5*real(j1)/real(npoints)*e1+0.5*real(j2)/real(npoints)*e2
+            norm = sqrt(sum(a**2))
+            if (para%square_base==1) then
+               alpha1 = abs(atan2(sum(a*a1),sum(a*para%axis)))
+               alpha2 = abs(atan2(sum(a*a2),sum(a*para%axis)))
+               alpha = max(alpha1,alpha2)
+            else
+               alpha = acos(min(1.0,sum(a*para%axis)/norm))
+            end if
+            if (alpha<=para%angle) then
+               if ((norm>=dmin).and.(norm<=dmax)) then
+                  output = .true.
+                  return
                end if
             end if
-         end if
+         end do
       end do
    
    end do
@@ -316,5 +321,21 @@ function box_intersects(ix) result(output)
    return
    
 end function box_intersects
+
+subroutine make_cone_basis(a1,a2)
+   implicit none
+   real*4,intent(out)   :: a1(3),a2(3) ! two orthonormal basis vectors, orthogonal to the cone axis
+   if (para%axis(3)>0.5) then
+      a1 = crossproduct(para%axis,(/0.0,1.0,0.0/))
+      a1 = a1/sqrt(sum(a1**2))
+      a2 = crossproduct(para%axis,a1)
+      a2 = a2/sqrt(sum(a2**2))
+   else
+      a1 = crossproduct(para%axis,(/0.0,0.0,1.0/))
+      a1 = a1/sqrt(sum(a1**2))
+      a2 = crossproduct(para%axis,a1)
+      a2 = a2/sqrt(sum(a2**2))
+   end if
+end subroutine make_cone_basis
    
 end module module_geometry

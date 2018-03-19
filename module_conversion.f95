@@ -4,6 +4,8 @@ module module_conversion
 
    use module_constants
    use module_system
+   
+   public
 
 contains
 
@@ -13,11 +15,21 @@ function convert_stellarmass2absmag(M,M2L) result(mag)
    real*4,intent(in)    :: M     ! [Msun] stellar mass
    real*4,intent(in)    :: M2L   ! [Msun/Lsun] stellar mass-to-light ratio
    real*4               :: mag   ! absolute magnitude
-   real*4,parameter     :: magSun = 4.83 ! absolute magnitude of sun
    
-   mag = magSun-2.5*real(log10(M/M2L),4)
+   mag = convert_luminosity2absmag(M/M2L)
 
 end function convert_stellarmass2absmag
+
+function convert_luminosity2absmag(L) result(mag)
+      
+   implicit none
+   real*4,intent(in)    :: L              ! [Lsun] luminosity
+   real*4               :: mag   ! absolute magnitude
+   real*4,parameter     :: magSun = 4.83  ! absolute magnitude of sun
+   
+   mag = magSun-2.5*log10(L)
+
+end function convert_luminosity2absmag
 
 function convert_luminosity2flux(L,dl) result(S)
 
@@ -28,18 +40,18 @@ function convert_luminosity2flux(L,dl) result(S)
 
    S = L/real(dl,8)**2/ASphereMpc
 
-end function
+end function convert_luminosity2flux
 
-function convert_abs2appmag(M,dl) result(mag)
+function convert_absmag2appmag(absmag,dl) result(appmag)
 
    implicit none
-   real*4,intent(in) :: M     ! absolute magnitude
-   real*4,intent(in) :: dl    ! [Mpc] luminosity distance
-   real*4            :: mag   ! apparent magnitude
+   real*4,intent(in) :: absmag   ! absolute magnitude
+   real*4,intent(in) :: dl       ! [Mpc] luminosity distance
+   real*4            :: appmag   ! apparent magnitude
 
-   mag = M+5*log10(dl)+25
+   appmag = absmag+5*log10(dl)+25
 
-end function convert_abs2appmag
+end function convert_absmag2appmag
 
 function convert_vector(x,rotation) result(y)
 

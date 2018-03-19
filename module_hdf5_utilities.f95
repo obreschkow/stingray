@@ -1,6 +1,10 @@
 module module_hdf5_utilities
 
    use hdf5
+   use module_system
+   
+   private 
+   public   :: hdf5_open, hdf5_close, hdf5_read_dataset, hdf5_dataset_size
 
    interface hdf5_read_dataset
       module procedure read_dataset_0d_int4
@@ -15,9 +19,6 @@ module module_hdf5_utilities
    
    integer(hid_t) :: file_id
    
-   private 
-   public   :: hdf5_open, hdf5_close, hdf5_read_dataset, hdf5_dataset_size
-   
 contains
 
    subroutine hdf5_open(filename)
@@ -26,8 +27,10 @@ contains
       character(*),intent(in)    :: filename
       integer*4                  :: status
 
-      call h5open_f(status) ! Initialize the Fortran interface
-      call h5fopen_f(filename,H5F_ACC_RDWR_F,file_id,status) ! Open an hdf5 file
+      if (exists(filename)) then
+         call h5open_f(status) ! Initialize the Fortran interface
+         call h5fopen_f(filename,H5F_ACC_RDWR_F,file_id,status) ! Open an hdf5 file
+      end if
       
    end subroutine hdf5_open
    

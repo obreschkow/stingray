@@ -7,16 +7,27 @@
 
 module module_user
 
+! ==============================================================================================================
+! IMPORT MODULES
+! ==============================================================================================================
+
 ! default modules, do not edit
 use module_constants
 use module_types
 use module_system
-use module_parameters
 use module_cosmology
 use module_conversion
 
 ! custom modules
 use module_hdf5_utilities
+
+
+! ==============================================================================================================
+! SET DEFAULT PARAMETER FILENAME
+! ==============================================================================================================
+
+character(len=255),parameter  :: parameter_filename_default = 'parameters_shark.txt'
+
 
 ! ==============================================================================================================
 ! VARIABLE TYPES
@@ -104,29 +115,43 @@ end function post_selection
 ! IO routines
 ! ==============================================================================================================
 
-! load parameters
+! Set parameters automatically (e.g. from information provided with the snapshot files).
+! These automatic parameters are only adopted if the values in the parameter files are set to 'auto'.
+! Otherwise the parameter-file overwrites these values.
 
-subroutine make_parameters(parameter_filename_custom)
+subroutine make_automatic_parameters
    
    implicit none
    
-   character(len=255),intent(in) :: parameter_filename_custom
-   character(len=255),parameter  :: parameter_filename_default = 'parameters_shark.txt'
-   character(len=255)            :: parameter_filename
-   character(len=255)            :: filename
-   real*4                        :: Veff
+   character(len=255)   :: filename
+   real*4               :: Veff
+   integer*4            :: isnapshot,isubsnapshot
    
-   ! load parameters from parameter file (normally don't edit this part)
-   if (len(trim(parameter_filename_custom))>0) then
-      parameter_filename = parameter_filename_custom
-   else
-      parameter_filename = parameter_filename_default
-   end if
-   call initialize_default_parameters
-   call load_parameters(parameter_filename)
-   call check_and_adjust_parameters
+   isnapshot = -1
+   filename = ''
+   do while (.not.exists(filename,.true.))
+      isnapshot = isnapshot+1
+      write(filename,'(A,I0,A)') trim(para%path_input),isnapshot,'/0/galaxies.hdf5'
+   end do
+   para%snapshot_min = isnapshot
+   do while (exists(filename,.true.))
+      isnapshot = isnapshot+1
+      write(filename,'(A,I0,A)') trim(para%path_input),isnapshot,'/0/galaxies.hdf5'
+   end do
+   para%snapshot_max = isnapshot-1
    
-   ! set parameters automatically (e.g. from information provided with the snapshot files)
+   isubsnapshot = -1
+   do while (.not.exists(filename,.true.))
+      isubsnapshot = isubsnapshot+1
+      write(filename,'(A,I0,A,I0,A)') trim(para%path_input),para%snapshot_max,'/',isubsnapshot,'/galaxies.hdf5'
+   end do
+   para%subsnapshot_min = isubsnapshot
+   do while (exists(filename,.true.))
+      isubsnapshot = isubsnapshot+1
+      write(filename,'(A,I0,A,I0,A)') trim(para%path_input),para%snapshot_max,'/',isubsnapshot,'/galaxies.hdf5'
+   end do
+   para%subsnapshot_max = isubsnapshot-1
+   
    write(filename,'(A,I0,A)') trim(para%path_input),para%snapshot_min,'/0/galaxies.hdf5'
    call hdf5_open(filename)
    call hdf5_read_dataset('/Cosmology/h',para%h)
@@ -136,7 +161,7 @@ subroutine make_parameters(parameter_filename_custom)
    para%L = (Veff*64)**(1.0/3.0)
    call hdf5_close()
    
-end subroutine make_parameters
+end subroutine make_automatic_parameters
 
 ! write mock-cone galaxy into binary file
 
@@ -163,7 +188,7 @@ subroutine load_redshifts(snapshot)
    do isnapshot = para%snapshot_min,para%snapshot_max
    
       write(filename,'(A,I0,A)') trim(para%path_input),isnapshot,'/0/galaxies.hdf5'
-      call hdf5_open(filename)
+      call hdf5_open(filename) ! NB: this routine also checks if the file exists
       call hdf5_read_dataset('/runInfo/redshift',z)
       snapshot(isnapshot)%redshift = real(z,4)
       call hdf5_close()
@@ -178,16 +203,17 @@ subroutine load_sam_snapshot(index,subindex,sam,snapshotname)
 
    ! variable declaration
    implicit none
-   integer*4,intent(in)                            :: index,subindex
-   type(type_galaxy_sam),allocatable,intent(out)   :: sam(:)
-   character(len=100),intent(out)                  :: snapshotname
+   integer*4,intent(in)                            :: index             ! snapshot index
+   integer*4,intent(in)                            :: subindex          ! subindex, if the snapshot is split into several files
+   type(type_galaxy_sam),allocatable,intent(out)   :: sam(:)            ! derived type of all the relevant SAM properties
+   character(len=100),intent(out)                  :: snapshotname      ! snapshot name to be returned for user display
    character(len=255)                              :: filename
    integer*8                                       :: n
-   character(*),parameter                          :: g = '/Galaxies/' ! group name
+   character(*),parameter                          :: g = '/Galaxies/'  ! group name
    
    ! open file
    write(filename,'(A,I0,A,I0,A)') trim(para%path_input),index,'/',subindex,'/galaxies.hdf5'
-   call hdf5_open(filename)
+   call hdf5_open(filename) ! NB: this routine also checks if the file exists
    
    ! determine number of galaxies in this (sub)snapshot
    n = hdf5_dataset_size(g//'id_galaxy')
@@ -214,7 +240,7 @@ subroutine load_sam_snapshot(index,subindex,sam,snapshotname)
    call hdf5_close()
    
    ! return snapshot name for screen output
-   write(snapshotname,'(I0,A,I0,A,I0,A)') index,', subindex ',subindex,' (',n,' galaxies)'
+   write(snapshotname,'(A,I0,A,I0,A,I0,A)') 'snapshot ',index,', subindex ',subindex,' (',n,' galaxies)'
    
 end subroutine load_sam_snapshot
 
@@ -263,7 +289,7 @@ function convert_properties(base,sam) result(cone)
    cone%decl   = asin(base%xcone(2)/norm)
    
    ! convert intrinsic to apparent properties
-   cone%mag    = convert_abs2appmag(convert_stellarmass2absmag(sam%mstars_disk+sam%mstars_bulge,1.0),dl)
+   cone%mag    = convert_absmag2appmag(convert_stellarmass2absmag(sam%mstars_disk+sam%mstars_bulge,1.0),dl)
    cone%v      = vpec
    cone%SHI    = convert_luminosity2flux(real(sam%matom_disk+sam%matom_bulge,8)*real(LMratioHI,8)*Lsun,dl)
    
@@ -271,19 +297,26 @@ end function convert_properties
 
 
 ! ==============================================================================================================
-! MAKE FAKE DATA
+! HANDLE CUSTOM TASKS (= optional subroutines and arguments)
 ! ==============================================================================================================
 
-subroutine make_fake_data(ngalaxies)
+subroutine handle_custom_arguments(task,custom_option,success)
 
    implicit none
-   integer*4,intent(in)    :: ngalaxies
+   character(*),intent(in) :: task
+   character(*),intent(in) :: custom_option
+   logical,intent(out)     :: success
    
-   call out('ERROR: No instructions for building fake data have been provided.')
-   stop
+   ! custom task handler
+   success = .true.
+   select case (trim(task))
+   case ('my.task')
+      call out('Here, specify what to do as "my.task"')
+      if (len(custom_option)>0) call out('Using the custom option: '//custom_option)
+   case default
+      success = .false.
+   end select
    
-   if (.false.) write(*,*) ngalaxies ! avoids compiler warning if argument unused
-   
-end subroutine make_fake_data
+end subroutine handle_custom_arguments
 
 end module module_user

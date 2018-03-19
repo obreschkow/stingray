@@ -15,9 +15,11 @@ program surfsuite
    character(len=255)      :: arg_task
    character(len=255)      :: arg_option
    character(len=255)      :: arg_value
+   character(len=255)      :: custom_option
    integer*4               :: i,narg
-   integer*4               :: seed,ngalaxies
-   
+   integer*4               :: seed
+   logical                 :: success
+      
    narg = iargc() ! number of arguments
    
    if (narg==0) then
@@ -36,27 +38,27 @@ program surfsuite
    
    ! Change default options
    parameter_filename_custom = ''
-   opt_logfile = .false.
+   opt_logscreen = .true.
+   opt_logfile = .true.
    seed = 1
-   ngalaxies = 100
+   custom_option = ''
    if (narg>1) then
       if (mod(narg,2)==0) then
          call out('ERROR: wrong input format. Each option needs to be given an argument.')
          stop
       end if
-      do i = 2,narg-1
+      do i = 2,narg-1,2
          call getarg(i,arg_option)
          call getarg(i+1,arg_value)
          select case (trim(arg_option))
          case ('-parameterfile')
             parameter_filename_custom = trim(arg_value)
-         case ('-logfile')
-            logfilename = trim(arg_value)
-            opt_logfile = .true.
+         case ('-verbose')
+            opt_logscreen = (arg_value=='0')
          case ('-seed')
             read(arg_value,*) seed
-         case ('-ngalaxies')
-            read(arg_value,*) ngalaxies
+         case ('-option')
+            custom_option = trim(arg_value)
          case default
             call out('ERROR: '//trim(arg_option)//' is an unknown option.')
             stop
@@ -64,31 +66,37 @@ program surfsuite
       end do
    end if
    
+   ! Load paths
+   call load_paths(parameter_filename_custom)
+   logfilename = trim(para%path_output)//'log.txt'
+   
    ! Initialize verbose
    call out_open(version)
-   
-   ! Load parameters
-   call make_parameters(parameter_filename_custom)
-   call save_parameters
    
    ! Execute tasks
    call getarg(1,arg_task)
    select case (trim(arg_task))
    case ('make.all')
-      call make_mock_geometry(seed)
+      call make_parameters(parameter_filename_custom)
+      call make_geometry(seed)
       call make_cone_intrinsic
       call make_cone_apparent
+   case ('make.parameters')
+      call make_parameters(parameter_filename_custom)
    case ('make.geometry')
-      call make_mock_geometry(seed)
+      call make_parameters(parameter_filename_custom)
+      call make_geometry(seed)
    case ('make.intrinsic.cone')
       call make_cone_intrinsic
    case ('make.apparent.cone')
       call make_cone_apparent
-   case ('make.fake.data')
-      call make_fake_data(ngalaxies)
    case default
-      call out('ERROR: '//trim(arg_task)//' is an unknown task.')
-      stop
+      call set_seed(seed)
+      call handle_custom_arguments(trim(arg_task),trim(custom_option),success)
+      if (.not.success) then
+         call out('ERROR: '//trim(arg_task)//' is an unknown task.')
+         stop
+      end if
    end select
    
    ! Finalize verbose

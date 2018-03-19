@@ -1,13 +1,14 @@
 module module_cone_apparent
 
-use module_parameters
-use module_system
-use module_cosmology
-use module_user
-use module_geometry
-
-type(type_snapshot),allocatable     :: snapshot(:)
-integer*8                           :: nmockgalaxies
+   use module_constants
+   use module_system
+   use module_cosmology
+   use module_user
+   use module_parameters
+   use module_geometry
+   
+   private
+   public   :: make_cone_apparent
    
 contains
 
@@ -25,6 +26,9 @@ subroutine make_cone_apparent
    ! write user info
    call tic
    call out('CONVERT INTRINSIC CONE TO APPARENT CONE')
+   
+   ! load parameters
+   call load_parameters
    
    ! determine number of bytes per galaxy in intrinsic cone
    filename = trim(para%path_output)//'.tmpsizeof'

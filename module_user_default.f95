@@ -1,11 +1,26 @@
 module module_user
 
+! ==============================================================================================================
+! IMPORT MODULES
+! ==============================================================================================================
+
+! default modules, do not edit
 use module_constants
 use module_types
 use module_system
-use module_parameters
 use module_cosmology
 use module_conversion
+
+! custom modules
+! ...
+
+
+! ==============================================================================================================
+! SET DEFAULT PARAMETER FILENAME
+! ==============================================================================================================
+
+character(len=255),parameter  :: parameter_filename_default = 'parameters_default.txt'
+
 
 ! ==============================================================================================================
 ! VARIABLE TYPES
@@ -90,38 +105,20 @@ end function post_selection
 
 
 ! ==============================================================================================================
-! Mock Cone Parameters
+! IO routines
 ! ==============================================================================================================
 
-subroutine make_parameters(parameter_filename_custom)
+! set parameters automatically (e.g. from information provided with the snapshot files)
+! this overwrites parameters specified in the parameter textfile
+
+subroutine make_automatic_parameters
    
    implicit none
    
-   character(len=255),intent(in) :: parameter_filename_custom
-   character(len=255),parameter  :: parameter_filename_default = 'parameters_default.txt'
-   character(len=255)            :: parameter_filename
-   
-   ! Normally, do not edit the following lines:
-   
-   if (len(trim(parameter_filename_custom))>0) then
-      parameter_filename = parameter_filename_custom
-   else
-      parameter_filename = parameter_filename_default
-   end if
-   
-   call initialize_default_parameters
-   call load_parameters(parameter_filename)
-   call check_and_adjust_parameters
-   
-   ! Here, parameters can be overwritten by the user
+   ! Here, specify how certain parameters, if any, are to be set automatically
    ! ...
    
-end subroutine make_parameters
-
-
-! ==============================================================================================================
-! IO routines
-! ==============================================================================================================
+end subroutine make_automatic_parameters
 
 ! write mock-cone galaxy into binary file
 ! this function allows the user to select only certain properties, if needed, and/or add intrinsic properties
@@ -141,12 +138,17 @@ subroutine load_redshifts(snapshot)
 
    implicit none
    type(type_snapshot),intent(inout),allocatable   :: snapshot(:)
-   integer*4                           :: isnapshot,i
-   real*4                              :: redshift
-
+   integer*4                                       :: isnapshot,i
+   character(len=255)                              :: filename
+   real*4                                          :: redshift
+   
+   ! make filename
+   write(filename,'(A)') trim(para%path_input)//'redshifts.txt'
+   call check_exists(trim(filename))
+   
+   ! read redshifts into snapshot structure
    allocate(snapshot(para%snapshot_min:para%snapshot_max))
-
-   open(1,file=trim(para%path_input)//'redshifts.txt',form="formatted")
+   open(1,file=trim(filename),action='read',form="formatted")
    do isnapshot = para%snapshot_min,para%snapshot_max
       read(1,*) i,redshift
       if (isnapshot.ne.i) then
@@ -163,12 +165,14 @@ end subroutine load_redshifts
 
 ! load SAM snapshot file
 
-subroutine load_sam_snapshot(index,subindex,sam)
+subroutine load_sam_snapshot(index,subindex,sam,snapshotname)
 
    ! variable declaration
    implicit none
-   integer*4,intent(in)                            :: index,subindex
-   type(type_galaxy_sam),allocatable,intent(inout) :: sam(:)
+   integer*4,intent(in)                            :: index          ! snapshot index
+   integer*4,intent(in)                            :: subindex       ! subindex, if the snapshot is split into several files
+   type(type_galaxy_sam),allocatable,intent(out)   :: sam(:)         ! derived type of all the relevant SAM properties
+   character(len=100),intent(out)                  :: snapshotname   ! snapshot name to be returned for user display
    character(len=255)                              :: filename
    integer*8                                       :: i,n
    integer*4                                       :: bytesgal
@@ -176,8 +180,9 @@ subroutine load_sam_snapshot(index,subindex,sam)
    
    if (.false.) write(*,*) subindex ! avoids compiler warning if argument unused
    
-   ! construct filename
+   ! make filename
    write(filename,'(A,A,I0.3)') trim(para%path_input),'snapshot_',index
+   call check_exists(trim(filename))
    
    ! determine number of galaxies from file size
    bytesgal = bytes_per_galaxy_sam()
@@ -198,6 +203,9 @@ subroutine load_sam_snapshot(index,subindex,sam)
       read(1) sam(i)
    end do
    close(1)
+   
+   ! return snapshot name for screen output
+   write(snapshotname,'(A,I0,A,I0,A)') 'snapshot ',index,' (',n,' galaxies)'
    
    contains
    
@@ -257,7 +265,7 @@ function convert_properties(base,sam) result(cone)
    cone%decl   = asin(base%xcone(2)/norm)
    
    ! convert intrinsic to apparent properties
-   cone%mag    = convert_abs2appmag(sam%mag,dl)
+   cone%mag    = convert_absmag2appmag(sam%mag,dl)
    cone%v      = convert_vector(sam%v,base%rotation)
    cone%j      = convert_pseudovector(sam%j,base%rotation)
    cone%SHI    = convert_luminosity2flux(real(sam%MHI,8)*real(LMratioHI,8)*Lsun,dl)
@@ -266,25 +274,53 @@ end function convert_properties
 
 
 ! ==============================================================================================================
-! MAKE FAKE DATA
+! HANDLE CUSTOM TASKS (= optional subroutines and arguments)
 ! ==============================================================================================================
+
+subroutine handle_custom_arguments(task,custom_option,success)
+
+   implicit none
+   character(*),intent(in) :: task
+   character(*),intent(in) :: custom_option
+   logical,intent(out)     :: success
+   integer*4               :: ngalaxies
+   
+   if (.false.) write(*,*) custom_option ! avoids compiler warning if argument unused
+   
+   ! custom task handler
+   success = .true.
+   select case (trim(task))
+   case ('my.task')
+      call out('Here, specify what to do as "my.task"')
+      if (len(custom_option)>0) call out('Using the custom option: '//custom_option)
+   case ('make.fake.data')
+      if (len(custom_option)>0) then
+         read(custom_option,*) ngalaxies
+      else
+         ngalaxies = 100
+      end if
+      call make_fake_data(ngalaxies)
+   case default
+      success = .false.
+   end select
+   
+end subroutine handle_custom_arguments
 
 subroutine make_fake_data(ngalaxies)
 
    implicit none
-   integer*4,intent(in)    :: ngalaxies
-   integer*4               :: snapshot
-   integer*4               :: i
+   integer*4,intent(in)                :: ngalaxies
+   integer*4                           :: snapshot
+   integer*4                           :: i
+   type(type_galaxy_sam),allocatable   :: galaxy(:)
    
    call tic
    call out('MAKE FAKE DATA')
 
-   if (allocated(galaxy)) deallocate(galaxy)
    allocate(galaxy(ngalaxies))
    
    do snapshot = para%snapshot_min,para%snapshot_max
    
-      call set_seed(snapshot)
       do i = 1,ngalaxies
          call random_number(galaxy(i)%position)
          galaxy(i)%id = i+int(1e5)*snapshot
@@ -315,7 +351,7 @@ subroutine make_fake_data(ngalaxies)
       integer*4   :: isnapshot
    
       call out('Save redshifts')
-
+      
       open(1,file=trim(para%path_input)//'redshifts.txt',action='write',form='formatted',status='replace')
       do isnapshot = para%snapshot_min,para%snapshot_max
          write(1,*) isnapshot,(para%snapshot_max-isnapshot)*0.1

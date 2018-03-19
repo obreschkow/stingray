@@ -3,38 +3,34 @@ path_output             /Users/do/Data/SURFS/stingray/shark/output/
 path_input              /Users/do/Data/SURFS/stingray/shark/input/
 
 # Snapshot parameters
-# L               (drawn from HDF5 galaxy snapshots) side-length of simulation box in simulation units
-length_unit       4.40811083e22 [m] Mpc/h
-snapshot_min      55
-snapshot_max      199
-subsnapshot_min   0
-subsnapshot_max   0
+L                       auto           [simulation units] side-length of simulation box
+length_unit             4.40811083e22  [m] Mpc/h
+snapshot_min            auto
+snapshot_max            auto
+subsnapshot_min         auto
+subsnapshot_max         auto
 
 # Cosmology
-# h       (drawn from HDF5 galaxy snapshots)
-# OmegaL  (drawn from HDF5 galaxy snapshots)
-# OmegaM  (drawn from HDF5 galaxy snapshots)
+h                       auto
+OmegaL                  auto
+OmegaM                  auto
 
 # Geometry of observing cone
-# Either specify a cone angle and/or the values x_min/x_max/y_min/y_max delimiting a rectangular box at the maximum distance
-angle          0.1 [rad] half the aperture
-# x_min        -0.5 [box side lengths] minimal value of x-coordinate at the maximum distance
-# x_max        +0.5 [box side lengths] maximal value of x-coordinate at the maximum distance
-# y_min        -0.5 [box side lengths] minimal value of y-coordinate at the maximum distance
-# y_max        +0.5 [box side lengths] maximal value of y-coordinate at the maximum distance
-dc_min         200 [simulation units] minimal comoving distance
-dc_max         1950 [simulation units] maximal comoving distance
-axis.x         1 [arbitrary units, but same for x,y,z] vector pointing along the cone axis in comoving coordinate
-axis.y         1
-axis.z         1
+angle                   0.05           [rad] half the aperture
+square_base             0              [-] 0: circular cone, 1: square cone, where the half-diagonal spanns an angle 'angle'
+dc_min                  190            [simulation units] minimal comoving distance
+dc_max                  1950           [simulation units] maximal comoving distance
+axis.x                  1              [arbitrary units] x-component of vector pointing along the cone axis
+axis.y                  1              [arbitrary units] y-component of vector pointing along the cone axis
+axis.z                  1              [arbitrary units] z-component of vector pointing along the cone axis
 
 # Geometric details
-translate            1
-rotate               1
-invert               1
-preserve_groups      1
+translate               1
+rotate                  1
+invert                  1
+preserve_groups         1
 
 # Observer
-velocity.x  0  
-velocity.y  0
-velocity.z  0
+velocity.x              0  
+velocity.y              0
+velocity.z              0

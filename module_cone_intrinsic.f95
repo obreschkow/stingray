@@ -1,17 +1,22 @@
 module module_cone_intrinsic
 
-use module_constants
-use module_parameters
-use module_system
-use module_cosmology
-use module_user
-use module_geometry
-
-type(type_galaxy_base),allocatable  :: base(:)
-type(type_galaxy_sam),allocatable   :: sam(:)
-type(type_snapshot),allocatable     :: snapshot(:)
-integer*8                           :: nmockgalaxies
-character(len=255)                  :: filename_cone_intrinsic
+   use module_constants
+   use module_system
+   use module_cosmology
+   use module_user
+   use module_parameters
+   use module_geometry
+   
+   private
+   public   :: make_cone_intrinsic
+   
+   type(type_box),allocatable          :: box(:)
+   type(type_snapshot),allocatable     :: snapshot(:)
+   type(type_galaxy_base),allocatable  :: base(:)
+   type(type_galaxy_sam),allocatable   :: sam(:)
+   integer*8                           :: nmockgalaxies
+   character(len=255)                  :: filename_cone_intrinsic
+   real*4                              :: a1(3),a2(3) ! two orthonormal basis vectors, orthogonal to the cone axis
    
 contains
 
@@ -20,11 +25,16 @@ subroutine make_cone_intrinsic
    implicit none
    integer*4            :: isnapshot,isubsnapshot,ibox
    character(len=100)   :: snapshotname
+   integer*8            :: bytes
    
    call tic
    call out('MAKE INTRINSIC CONE')
    
-   call load_geometry
+   ! load previous steps
+   call load_parameters
+   call load_geometry(box)
+   
+   ! make snapshot properties
    call load_redshifts(snapshot)
    call assign_distance_ranges
    
@@ -34,12 +44,13 @@ subroutine make_cone_intrinsic
    close(1)
    
    ! fill galaxies with intrinsic properties into cone
+   if (para%square_base==1) call make_cone_basis(a1,a2)
    nmockgalaxies = 0
    do isnapshot = para%snapshot_min,para%snapshot_max
       if ((snapshot(isnapshot)%dmax>=minval(box%dmin)).and.(snapshot(isnapshot)%dmin<=maxval(box%dmax))) then
          do isubsnapshot = para%subsnapshot_min,para%subsnapshot_max
             call load_sam_snapshot(isnapshot,isubsnapshot,sam,snapshotname)
-            call out('Process snapshot '//trim(snapshotname))
+            call out('Process '//trim(snapshotname))
             call initialize_base_properties(isnapshot,isubsnapshot)
             do ibox = 1,size(box)
                if ((snapshot(isnapshot)%dmax>=box(ibox)%dmin).and.(snapshot(isnapshot)%dmin<=box(ibox)%dmax)) then
@@ -50,6 +61,19 @@ subroutine make_cone_intrinsic
          end do
       end if
    end do
+   
+   ! deallocate arrays
+   if (allocated(box)) deallocate(box)
+   if (allocated(snapshot)) deallocate(snapshot)
+   if (allocated(base)) deallocate(base)
+   if (allocated(sam)) deallocate(sam)
+   
+   ! write info
+   inquire(file=filename_cone_intrinsic, size=bytes)
+   open(1,file=trim(para%path_output)//'cone_intrinsic_info.txt',action='write',form="formatted",status='replace')
+   write(1,'(A,I10)') 'Number.of.galaxies.in.intrinsic.cone        ',nmockgalaxies
+   write(1,'(A,I10)') 'Number.of.bytes.per.galaxy.in.intrinsic.cone',bytes/nmockgalaxies
+   close(1)
    
    ! finalize output
    call out('Number of galaxies in intrinsic cone:',nmockgalaxies)
@@ -153,28 +177,25 @@ subroutine write_subsnapshot_into_box(isnapshot)
    
       implicit none
       type(type_galaxy_base),intent(in)   :: base
-      real*4                              :: d,dmax,dc,alpha
+      real*4                              :: d,dc,alpha,a(3),alpha1,alpha2
       
-      dmax = para%dc_max/para%L
-      
-      if ((base%xcone(1)*dmax>para%x_max*base%xcone(3)).or.(base%xcone(1)*dmax<para%x_min*base%xcone(3))) then
-         geometry_selection = .false.
-         return
-      end if
-      
-      if ((base%xcone(2)*dmax>para%y_max*base%xcone(3)).or.(base%xcone(2)*dmax<para%y_min*base%xcone(3))) then
-         geometry_selection = .false.
-         return
-      end if
-      
-      d = sqrt(real(sum(base%xcone**2))) ! distance to the galaxy in box side lengths
-      dc = d*para%L
+      ! check distance
+      d = sqrt(real(sum(base%xcone**2)))  ! distance to the galaxy in box side lengths
+      dc = d*para%L                       ! distance in simulation units
       if ((dc>para%dc_max).or.(dc<para%dc_min)) then
          geometry_selection = .false.
          return
       end if
       
-      alpha = acos(sum(para%axis*base%xcone)/d) ! angle between cone axis and line-of-sight to the galaxy centre
+      ! check cone
+      if (para%square_base==1) then
+         a = base%xcone
+         alpha1 = abs(atan2(sum(a*a1),sum(a*para%axis)))
+         alpha2 = abs(atan2(sum(a*a2),sum(a*para%axis)))
+         alpha = max(alpha1,alpha2)
+      else
+         alpha = acos(sum(para%axis*base%xcone)/d) ! angle between cone axis and line-of-sight to the galaxy centre
+      end if
       geometry_selection = alpha<=para%angle
       
    end function geometry_selection
@@ -208,6 +229,7 @@ subroutine assign_distance_ranges
 end subroutine assign_distance_ranges
 
 subroutine initialize_base_properties(index,subindex)
+
    implicit none
    integer*4,intent(in)    :: index,subindex
    integer*8   :: i,n
@@ -219,6 +241,7 @@ subroutine initialize_base_properties(index,subindex)
    end do
    base%snapshot = index
    base%subsnapshot = subindex
+   
 end subroutine initialize_base_properties
    
 end module module_cone_intrinsic

@@ -1,11 +1,15 @@
-- change parameter names to make them more consistent (i.e. _min vs min)
-- check if files exist
-- harmonize screen output
++ check if files exist
++ harmonize screen output
++ change parameter names to make them more consistent (i.e. _min vs min)
++ parameter input checks
+
 - document
-- introduce steps
+- s3sax module
+- multi-threading
 - add lots of standard conversions (e.g. HI line properties, radio continuum, k-corrections)
 - chat to Aaron about SEDs
 - keep clusters together
 - think about where/how to interpolate galaxy properties
 - readme file
 - lots of checks in R
+- check/improve cosmology model
