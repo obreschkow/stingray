@@ -41,8 +41,7 @@ subroutine make_cone_apparent
    filename = trim(para%path_output)//'cone_intrinsic.bin'
    inquire(file=filename, size=bytes)
    if (modulo(bytes,bytespergalaxy).ne.0) then
-      call out('ERROR: Size of intrinsic cone file inconsistent with type_galaxy_base and/or type_galaxy_sam.')
-      stop
+      call error('Size of intrinsic cone file inconsistent with type_galaxy_base and/or type_galaxy_sam.')
    end if
    n = bytes/bytespergalaxy
    

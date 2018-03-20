@@ -205,8 +205,7 @@ subroutine load_user_parameters(parameter_filename)
                if (manual) read(var_value,*) para%velocity(3)
             case default
                if ((trim(var_name).ne.'path_input').and.(trim(var_name).ne.'path_output')) then
-                  call out('ERROR: '//trim(var_name)//' is an unknown parameter.')
-                  stop
+                  call error(trim(var_name)//' is an unknown parameter.')
                end if
          end select
       end if
@@ -247,17 +246,11 @@ subroutine load_paths(parameter_filename_custom)
          select case (trim(var_name))
             case ('path_output')
                para%path_output = trim(noslash(var_value))//'/'
-               if (len(trim(para%path_output))==0) then
-                  call out('ERROR: Output path cannot be found in parameter file.')
-                  stop
-               end if
+               if (len(trim(para%path_output))==0) call error('Output path cannot be found in parameter file.')
                call system('mkdir -p '//trim(para%path_output))
             case ('path_input')
                para%path_input = trim(noslash(var_value))//'/'
-               if (len(trim(para%path_input))==0) then
-                  call out('ERROR: Input path cannot be found in parameter file.')
-                  stop
-               end if
+               if (len(trim(para%path_input))==0) call error('Input path cannot be found in parameter file.')
                call system('mkdir -p '//trim(para%path_input))
          end select
       end if

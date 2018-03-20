@@ -74,8 +74,7 @@ function convert_vector(x,rotation) result(y)
       case(6) ! permute (x,y,z) -> (z,x,y)
          y = (/x(3),x(1),x(2)/)
       case default
-         call out('ERROR: Unknown rotation.')
-         stop
+         call error('Unknown rotation')
    end select
 
    if (rotation<0) y = -y ! inversion

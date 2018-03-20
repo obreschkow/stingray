@@ -38,8 +38,8 @@ contains
    
       implicit none
       integer*4                  :: status
-      integer*4                  :: error
-      call h5fclose_f(file_id,error) ! Terminate access to the file
+      integer*4                  :: err
+      call h5fclose_f(file_id,err) ! Terminate access to the file
       call h5close_f(status) ! Close the Fortran interface
       
    end subroutine hdf5_close
@@ -48,17 +48,17 @@ contains
    
       implicit none
       character(*),intent(in)    :: dataset
-      integer*4                  :: error
+      integer*4                  :: err
       integer(hid_t)             :: dataset_id
       integer(hid_t)             :: type_id
       integer(hsize_t)           :: size,bytespervar
    
       ! determine number of galaxies
-      call h5dopen_f(file_id, dataset, dataset_id, error) ! Open dataset
-      call h5dget_storage_size_f(dataset_id, size, error)
-      call h5dget_type_f(dataset_id, type_id, error)
-      call h5tget_size_f(type_id, bytespervar, error)
-      call h5dclose_f(dataset_id, error) ! Terminate access to the dataset
+      call h5dopen_f(file_id, dataset, dataset_id, err) ! Open dataset
+      call h5dget_storage_size_f(dataset_id, size, err)
+      call h5dget_type_f(dataset_id, type_id, err)
+      call h5tget_size_f(type_id, bytespervar, err)
+      call h5dclose_f(dataset_id, err) ! Terminate access to the dataset
       hdf5_dataset_size = size/bytespervar
       
    end function hdf5_dataset_size
@@ -68,13 +68,13 @@ contains
       implicit none
       character(*),intent(in)    :: dataset
       integer*4,intent(inout)    :: dat
-      integer*4                  :: error
+      integer*4                  :: err
       integer(hsize_t)           :: size(2)
       integer(hid_t)             :: dataset_id
       
-      call h5dopen_f(file_id, dataset, dataset_id, error)
-      call h5dread_f(dataset_id, get_mem_type_id(dataset_id,'int*4'), dat, size, error)
-      call h5dclose_f(dataset_id, error)
+      call h5dopen_f(file_id, dataset, dataset_id, err)
+      call h5dread_f(dataset_id, get_mem_type_id(dataset_id,'int*4'), dat, size, err)
+      call h5dclose_f(dataset_id, err)
    
    end subroutine read_dataset_0d_int4
    
@@ -83,13 +83,13 @@ contains
       implicit none
       character(*),intent(in)    :: dataset
       integer*8,intent(inout)    :: dat
-      integer*4                  :: error
+      integer*4                  :: err
       integer(hsize_t)           :: size(2)
       integer(hid_t)             :: dataset_id
       
-      call h5dopen_f(file_id, dataset, dataset_id, error)
-      call h5dread_f(dataset_id, get_mem_type_id(dataset_id,'int*8'), dat, size, error)
-      call h5dclose_f(dataset_id, error)
+      call h5dopen_f(file_id, dataset, dataset_id, err)
+      call h5dread_f(dataset_id, get_mem_type_id(dataset_id,'int*8'), dat, size, err)
+      call h5dclose_f(dataset_id, err)
    
    end subroutine read_dataset_0d_int8
    
@@ -98,13 +98,13 @@ contains
       implicit none
       character(*),intent(in)    :: dataset
       real*4,intent(inout)       :: dat
-      integer*4                  :: error
+      integer*4                  :: err
       integer(hsize_t)           :: size(2)
       integer(hid_t)             :: dataset_id
       
-      call h5dopen_f(file_id, dataset, dataset_id, error)
-      call h5dread_f(dataset_id, get_mem_type_id(dataset_id,'real*4'), dat, size, error)
-      call h5dclose_f(dataset_id, error)
+      call h5dopen_f(file_id, dataset, dataset_id, err)
+      call h5dread_f(dataset_id, get_mem_type_id(dataset_id,'real*4'), dat, size, err)
+      call h5dclose_f(dataset_id, err)
    
    end subroutine read_dataset_0d_real4
    
@@ -113,13 +113,13 @@ contains
       implicit none
       character(*),intent(in)    :: dataset
       real*8,intent(inout)       :: dat
-      integer*4                  :: error
+      integer*4                  :: err
       integer(hsize_t)           :: size(2)
       integer(hid_t)             :: dataset_id
       
-      call h5dopen_f(file_id, dataset, dataset_id, error)
-      call h5dread_f(dataset_id, get_mem_type_id(dataset_id,'real*8'), dat, size, error)
-      call h5dclose_f(dataset_id, error)
+      call h5dopen_f(file_id, dataset, dataset_id, err)
+      call h5dread_f(dataset_id, get_mem_type_id(dataset_id,'real*8'), dat, size, err)
+      call h5dclose_f(dataset_id, err)
    
    end subroutine read_dataset_0d_real8
    
@@ -128,13 +128,13 @@ contains
       implicit none
       character(*),intent(in)    :: dataset
       integer*4,intent(inout)    :: dat(:)
-      integer*4                  :: error
+      integer*4                  :: err
       integer(hsize_t)           :: size(2)
       integer(hid_t)             :: dataset_id
       
-      call h5dopen_f(file_id, dataset, dataset_id, error)
-      call h5dread_f(dataset_id, get_mem_type_id(dataset_id,'int*4'), dat, size, error)
-      call h5dclose_f(dataset_id, error)
+      call h5dopen_f(file_id, dataset, dataset_id, err)
+      call h5dread_f(dataset_id, get_mem_type_id(dataset_id,'int*4'), dat, size, err)
+      call h5dclose_f(dataset_id, err)
    
    end subroutine read_dataset_1d_int4
    
@@ -143,13 +143,13 @@ contains
       implicit none
       character(*),intent(in)    :: dataset
       integer*8,intent(inout)    :: dat(:)
-      integer*4                  :: error
+      integer*4                  :: err
       integer(hsize_t)           :: size(2)
       integer(hid_t)             :: dataset_id
       
-      call h5dopen_f(file_id, dataset, dataset_id, error)
-      call h5dread_f(dataset_id, get_mem_type_id(dataset_id,'int*8'), dat, size, error)
-      call h5dclose_f(dataset_id, error)
+      call h5dopen_f(file_id, dataset, dataset_id, err)
+      call h5dread_f(dataset_id, get_mem_type_id(dataset_id,'int*8'), dat, size, err)
+      call h5dclose_f(dataset_id, err)
    
    end subroutine read_dataset_1d_int8
    
@@ -158,13 +158,13 @@ contains
       implicit none
       character(*),intent(in)    :: dataset
       real*4,intent(inout)       :: dat(:)
-      integer*4                  :: error
+      integer*4                  :: err
       integer(hsize_t)           :: size(2)
       integer(hid_t)             :: dataset_id
       
-      call h5dopen_f(file_id, dataset, dataset_id, error)
-      call h5dread_f(dataset_id, get_mem_type_id(dataset_id,'real*4'), dat, size, error)
-      call h5dclose_f(dataset_id, error)
+      call h5dopen_f(file_id, dataset, dataset_id, err)
+      call h5dread_f(dataset_id, get_mem_type_id(dataset_id,'real*4'), dat, size, err)
+      call h5dclose_f(dataset_id, err)
    
    end subroutine read_dataset_1d_real4
    
@@ -173,13 +173,13 @@ contains
       implicit none
       character(*),intent(in)    :: dataset
       real*8,intent(inout)       :: dat(:)
-      integer*4                  :: error
+      integer*4                  :: err
       integer(hsize_t)           :: size(2)
       integer(hid_t)             :: dataset_id
       
-      call h5dopen_f(file_id, dataset, dataset_id, error)
-      call h5dread_f(dataset_id, get_mem_type_id(dataset_id,'real*8'), dat, size, error)
-      call h5dclose_f(dataset_id, error)
+      call h5dopen_f(file_id, dataset, dataset_id, err)
+      call h5dread_f(dataset_id, get_mem_type_id(dataset_id,'real*8'), dat, size, err)
+      call h5dclose_f(dataset_id, err)
    
    end subroutine read_dataset_1d_real8
    
@@ -190,14 +190,14 @@ contains
       integer(hid_t),intent(in)        :: dataset_id
       character(*),intent(in),optional :: expected_fortran_type ! Must be 'int*4','int*8','real*4','real*8'
       character(6)                     :: fortran_type
-      integer*4                        :: error, class, sign
+      integer*4                        :: err, class, sign
       integer(size_t)                  :: size
       integer(hid_t)                   :: datatype_id
 
-      call h5dget_type_f(dataset_id, datatype_id, error)
-      call h5tget_class_f(datatype_id, class, error)
-      call h5tget_size_f(datatype_id, size, error) 
-      call h5tget_sign_f(datatype_id, sign, error)
+      call h5dget_type_f(dataset_id, datatype_id, err)
+      call h5tget_class_f(datatype_id, class, err)
+      call h5tget_size_f(datatype_id, size, err) 
+      call h5tget_sign_f(datatype_id, sign, err)
       
       if (class == 0) then ! integer
          if (size == 4) then
@@ -206,7 +206,7 @@ contains
             else if (sign == 1) then
                get_mem_type_id = H5T_STD_I32LE
             else
-               stop('ERROR: Unknown type.')
+               call error('Unknown type')
             end if
          else if (size == 8) then
             if (sign == 0) then
@@ -214,10 +214,10 @@ contains
             else if (sign == 1) then
                get_mem_type_id = H5T_STD_I64LE
             else
-               stop('ERROR: Unknown type.')
+               call error('Unknown type')
             end if
          else
-            stop('ERROR: Unknown type.')
+            call error('Unknown type')
          end if
       else if (class == 1) then ! floating point
          if (size == 4) then
@@ -225,10 +225,10 @@ contains
          else if (size == 8) then
             get_mem_type_id = H5T_IEEE_F64LE
          else
-            stop('ERROR: Unknown type.')
+            call error('Unknown type')
          end if
       else
-         stop('ERROR: Unknown type.')
+         call error('Unknown type')
       end if
       
       if (present(expected_fortran_type)) then
