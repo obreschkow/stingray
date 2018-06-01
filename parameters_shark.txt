@@ -23,14 +23,14 @@ OmegaM                  auto
 dc_min                  0              [simulation units] minimal comoving distance
 dc_max                  4000           [simulation units] maximal comoving distance
 
-# Footprint on the sky, specify either center/angle or ra/dec ranges
-#ra                      35.53      [deg] right ascension of cone center
-#dec                     -4.7    [deg] declination of cone center
-#angle                   1.600503   [deg] half the aperture
-ra_min                  34
-ra_max                  37.05
-dec_min                 -5.2
-dec_max                 -4.2
+# Footprint on the sky, specify either center+angle or ra+dec-ranges
+#ra                      35.53          [deg] right ascension of cone center
+#dec                     -4.7           [deg] declination of cone center
+#angle                   1.600503       [deg] half the aperture
+ra_min                  34             [deg]
+ra_max                  37.05          [deg]
+dec_min                 -5.2           [deg]
+dec_max                 -4.2           [deg]
 
 # Central axis and rotation
 axis.x                  0.5791042516   [arbitrary units] x-component of vector pointing along the cone axis
@@ -39,7 +39,7 @@ axis.z                  0.8111253581   [arbitrary units] z-component of vector p
 turn                    0              [rad]
 
 # Galaxy mapping
-seed                    2
+seed                    1
 translate               1
 rotate                  1
 invert                  1
