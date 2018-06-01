@@ -17,7 +17,6 @@ program surfsuite
    character(len=255)      :: arg_value
    character(len=255)      :: custom_option
    integer*4               :: i,narg
-   integer*4               :: seed
    logical                 :: success
       
    narg = iargc() ! number of arguments
@@ -40,7 +39,6 @@ program surfsuite
    parameter_filename_custom = ''
    opt_logscreen = .true.
    opt_logfile = .true.
-   seed = 1
    custom_option = ''
    if (narg>1) then
       if (mod(narg,2)==0) then
@@ -55,8 +53,6 @@ program surfsuite
             parameter_filename_custom = trim(arg_value)
          case ('-verbose')
             opt_logscreen = (arg_value=='0')
-         case ('-seed')
-            read(arg_value,*) seed
          case ('-option')
             custom_option = trim(arg_value)
          case default
@@ -66,32 +62,33 @@ program surfsuite
       end do
    end if
    
-   ! Load paths
+   ! Load/create paths
    call load_paths(parameter_filename_custom)
    logfilename = trim(para%path_output)//'log.txt'
    
    ! Initialize verbose
    call out_open(version)
    
+   ! Initialize rotation matrices
+   call initialize_constants
+   
    ! Execute tasks
    call getarg(1,arg_task)
    select case (trim(arg_task))
    case ('make.all')
       call make_parameters(parameter_filename_custom)
-      call make_geometry(seed)
+      call make_geometry
       call make_cone_intrinsic
       call make_cone_apparent
    case ('make.parameters')
       call make_parameters(parameter_filename_custom)
    case ('make.geometry')
-      call make_parameters(parameter_filename_custom)
-      call make_geometry(seed)
+      call make_geometry
    case ('make.intrinsic.cone')
       call make_cone_intrinsic
    case ('make.apparent.cone')
       call make_cone_apparent
    case default
-      call set_seed(seed)
       call handle_custom_arguments(trim(arg_task),trim(custom_option),success)
       if (.not.success) then
          call out('ERROR: '//trim(arg_task)//' is an unknown task.')

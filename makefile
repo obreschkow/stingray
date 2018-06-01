@@ -18,6 +18,7 @@ all: $(PROGRAMS)
 
 stingray.o:    module_types.o \
                module_constants.o \
+               module_linalg.o \
                module_system.o \
                module_cosmology.o \
                module_conversion.o \
@@ -30,6 +31,7 @@ stingray.o:    module_types.o \
                
 stingray: 	   module_types.o \
                module_constants.o \
+               module_linalg.o \
                module_system.o \
                module_cosmology.o \
                module_conversion.o \

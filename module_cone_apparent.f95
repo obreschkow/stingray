@@ -15,20 +15,22 @@ contains
 subroutine make_cone_apparent
 
    implicit none
-   character(len=255)      :: filename
-   integer*8               :: n,i,m
-   integer*4               :: bytespergalaxy
-   integer*8               :: bytes
-   type(type_galaxy_base)  :: base
-   type(type_galaxy_sam)   :: sam   ! intrinsic galaxy properties from SAM
-   type(type_galaxy_cone)  :: cone  ! apparent galaxy properties
+   character(len=255)         :: filename
+   integer*8                  :: n,i,m
+   integer*4                  :: bytespergalaxy
+   integer*8                  :: bytes
+   type(type_box),allocatable :: box(:)
+   type(type_galaxy_base)     :: base
+   type(type_galaxy_sam)      :: sam   ! intrinsic galaxy properties from SAM
+   type(type_galaxy_cone)     :: cone  ! apparent galaxy properties
    
    ! write user info
    call tic
    call out('CONVERT INTRINSIC CONE TO APPARENT CONE')
    
-   ! load parameters
+   ! load previous steps
    call load_parameters
+   call load_geometry(box)
    
    ! determine number of bytes per galaxy in intrinsic cone
    filename = trim(para%path_output)//'.tmpsizeof'
@@ -59,8 +61,11 @@ subroutine make_cone_apparent
    m = 0
    do i = 1,n
       read(2) base,sam
+      Rvector = box(base%box)%Rvector
+      Rpseudo = box(base%box)%Rpseudo
+      call rotate_vectors(sam)
       cone = convert_properties(base,sam)
-      if (post_selection(cone)) then
+      if (apparent_selection(cone)) then
          m = m+1
          call write_galaxy(cone)
       end if
@@ -70,6 +75,8 @@ subroutine make_cone_apparent
    close(1)
    close(2)
    
+   if (m==0) call error('No galaxies in the apparent cone. Consider changing selection function.')
+     
    ! write info
    inquire(file=filename, size=bytes)
    filename = trim(para%path_output)//'cone_apparent_info.txt'

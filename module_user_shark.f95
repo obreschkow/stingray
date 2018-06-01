@@ -1,3 +1,8 @@
+! Notes:
+! Download from hyades
+! rsync -av --exclude 'star_formation_histories.hdf5' dobreschkow@hyades.icrar.org:/mnt/su3ctm/clagos/SHArk_Out/medi-SURFS/SHArk/19* ~/Data/SURFS/stingray/shark/input/
+! rsync -av --include '*/0/g*' --exclude '*/*/*' dobreschkow@hyades.icrar.org:/mnt/su3ctm/clagos/SHArk_Out/medi-SURFS/SHArk/ ~/Data/SURFS/stingray/shark/input/
+
 module module_user
 
 ! ==============================================================================================================
@@ -7,6 +12,7 @@ module module_user
 ! default modules, do not edit
 use module_constants
 use module_types
+use module_linalg
 use module_system
 use module_cosmology
 use module_conversion
@@ -34,12 +40,18 @@ type type_galaxy_sam
 
    integer*8   :: id_galaxy      ! unique galaxy ID
    integer*8   :: id_halo        ! unique ID of parent halo
+   integer*4   :: typ            ! galaxy type (0=central, 1=satellite in halo, 2=orphan)
    real*4      :: position(3)    ! [Mpc/h] position of galaxy centre in simulation box
    real*4      :: velocity(3)    ! [proper km/s] peculiar velocity
+   real*4      :: J(3)           ! [proper Msun/h Mpc/h km/s ?] angular momentum
    real*4      :: mstars_disk    ! [Msun] stellar mass disk
    real*4      :: mstars_bulge   ! [Msun] stellar mass bulge
    real*4      :: matom_disk     ! [Msun] atomic gas mass disk
    real*4      :: matom_bulge    ! [Msun] atomic gas mass bulge
+   real*4      :: rdisk_star     ! [cMpc/h] half-mass of stars in the disk
+   real*4      :: rbulge_star    ! [cMpc/h] half-mass of stars in the bulge
+   real*4      :: rdisk_gas      ! [cMpc/h] half-mass of gas in the disk
+   real*4      :: rbulge_gas     ! [cMpc/h] half-mass of gas in the bulge
 
 end type type_galaxy_sam
 
@@ -50,29 +62,33 @@ type type_galaxy_cone
 
    integer*8   :: id             ! unique galaxy ID
    integer*4   :: snapshot       ! snapshot
+   integer*4   :: subsnapshot    ! subsnapshot
+   integer*4   :: typ            ! galaxy type (0=central, 1=satellite in halo, 2=orphan)
    real*4      :: z              ! apparent redshift
    real*4      :: dc             ! [simulation units = Mpc/h] comoving distance
    real*4      :: ra             ! [rad] right ascension
-   real*4      :: decl           ! [rad] declination
+   real*4      :: dec            ! [rad] declination
+   real*4      :: inclination    ! [rad] inclination
+   real*4      :: pa             ! [rad] position angle from North to East
    real*4      :: mag            ! apparent magnitude (generic band)
    real*8      :: SHI            ! [W/m^2] integrated HI line flux
-   real*4      :: v(3)           ! [proper km/s] peculiar velocity
+   real*4      :: vrad           ! [proper km/s] radial peculiar velocity
 
 end type type_galaxy_cone
 
 contains
 
-! mapping from type_galaxy_sam onto three basic properties of type_galaxy_base
+! mapping from type_galaxy_sam onto three basic properties of type_galaxy_base,
+! needed internally to place the galaxy in the cone
 
 function extract_base(sam) result(base)
    
    implicit none
-   type(type_galaxy_sam)   :: sam
-   type(type_galaxy_base)  :: base
+   type(type_galaxy_sam),intent(in) :: sam
+   type(type_galaxy_base)           :: base
    
-   base%id        = sam%id_galaxy
-   base%groupid   = sam%id_halo
-   base%xbox      = sam%position
+   base%groupid   = sam%id_halo     ! unique group or parent halo identifier
+   base%xbox      = sam%position    ! [length_unit of simulation] position if the galaxy in the box
 
 end function extract_base
 
@@ -81,27 +97,36 @@ end function extract_base
 ! SELECTION OF GALAXIES IN THE MOCK OBSERVING CONE FILE
 ! ==============================================================================================================
 
-! selection function applied to SAM-properties, *before* producing intrinsic cone
+! selection function acting on intrinsic properties and position in the cone, applied when producing the intrinsic cone
 
-logical function pre_selection(sam)
-
-   implicit none
-   type(type_galaxy_sam)   :: sam
-   
-   pre_selection = (sam%position(1)>=0.0) .and. (sam%mstars_disk>1e9)
-
-end function pre_selection
-
-! selection function applied to SAM-properties, when converting the intrinsic cone into the apparent cone
-
-logical function post_selection(cone)
+logical function intrinsic_selection(sam)
 
    implicit none
-   type(type_galaxy_cone)  :: cone
+   type(type_galaxy_sam),intent(in)   :: sam
    
-   post_selection = cone%id>-1
+   if (.false.) then; write(*) sam; end if ! dummy statement to avoid compiler warnings for unused arguments
+   
+   intrinsic_selection = (sam%mstars_disk>1e9)
+   
+end function intrinsic_selection
 
-end function post_selection
+! selection function acting on apparent properties, applied when producing the apparent cone
+
+logical function apparent_selection(cone)
+
+   implicit none
+   type(type_galaxy_cone),intent(in)  :: cone
+   
+   if (.false.) then; write(*) cone; end if ! dummy statement to avoid compiler warnings for unused arguments
+   
+   apparent_selection = .true.
+   
+   apparent_selection = (cone%ra>=34.1*degree)
+   apparent_selection = apparent_selection .and. (cone%ra<=37.05*degree)
+   apparent_selection = apparent_selection .and. (cone%dec>=-5.2*degree)
+   apparent_selection = apparent_selection .and. (cone%dec<=-4.2*degree)
+
+end function apparent_selection
 
 
 ! ==============================================================================================================
@@ -110,23 +135,24 @@ end function post_selection
 
 ! Set parameters automatically (e.g. from information provided with the snapshot files).
 ! These automatic parameters are only adopted if the values in the parameter files are set to 'auto'.
-! Otherwise the parameter-file overwrites these values.
+! Otherwise the parameter file overwrites these values.
 
 subroutine make_automatic_parameters
    
    implicit none
    
    character(len=255)   :: filename
-   real*4               :: Veff
    integer*4            :: isnapshot,isubsnapshot
    
    isnapshot = -1
    filename = ''
-   do while (.not.exists(filename,.true.))
+   do while (.not.exists(filename,.true.).and.(isnapshot<10000))
       isnapshot = isnapshot+1
       write(filename,'(A,I0,A)') trim(para%path_input),isnapshot,'/0/galaxies.hdf5'
    end do
+   if (isnapshot==10000) call error('No snapshots found in '//trim(para%path_input))
    para%snapshot_min = isnapshot
+   
    do while (exists(filename,.true.))
       isnapshot = isnapshot+1
       write(filename,'(A,I0,A)') trim(para%path_input),isnapshot,'/0/galaxies.hdf5'
@@ -150,8 +176,8 @@ subroutine make_automatic_parameters
    call hdf5_read_dataset('/Cosmology/h',para%h)
    call hdf5_read_dataset('/Cosmology/OmegaL',para%OmegaL)
    call hdf5_read_dataset('/Cosmology/OmegaM',para%OmegaM)
-   call hdf5_read_dataset('/runInfo/EffectiveVolume',Veff)
-   para%L = (Veff*64)**(1.0/3.0)
+   call hdf5_read_dataset('/runInfo/lbox',para%L)
+   para%length_unit = Mpc/para%h
    call hdf5_close()
    
 end subroutine make_automatic_parameters
@@ -178,14 +204,13 @@ subroutine load_redshifts(snapshot)
    real*8                                          :: z
 
    allocate(snapshot(para%snapshot_min:para%snapshot_max))
-   do isnapshot = para%snapshot_min,para%snapshot_max
    
+   do isnapshot = para%snapshot_min,para%snapshot_max
       write(filename,'(A,I0,A)') trim(para%path_input),isnapshot,'/0/galaxies.hdf5'
       call hdf5_open(filename) ! NB: this routine also checks if the file exists
       call hdf5_read_dataset('/runInfo/redshift',z)
       snapshot(isnapshot)%redshift = real(z,4)
       call hdf5_close()
-      
    end do
    
 end subroutine load_redshifts
@@ -218,16 +243,24 @@ subroutine load_sam_snapshot(index,subindex,sam,snapshotname)
    ! read file
    call hdf5_read_dataset(g//'id_galaxy',sam%id_galaxy)
    call hdf5_read_dataset(g//'id_halo',sam%id_halo)
+   call hdf5_read_dataset(g//'type',sam%typ)
    call hdf5_read_dataset(g//'position_x',sam%position(1))
    call hdf5_read_dataset(g//'position_y',sam%position(2))
    call hdf5_read_dataset(g//'position_z',sam%position(3))
    call hdf5_read_dataset(g//'velocity_x',sam%velocity(1))
    call hdf5_read_dataset(g//'velocity_y',sam%velocity(2))
    call hdf5_read_dataset(g//'velocity_z',sam%velocity(3))
+   call hdf5_read_dataset(g//'L_x',sam%J(1))
+   call hdf5_read_dataset(g//'L_y',sam%J(2))
+   call hdf5_read_dataset(g//'L_z',sam%J(3))
    call hdf5_read_dataset(g//'mstars_disk',sam%mstars_disk)
    call hdf5_read_dataset(g//'mstars_bulge',sam%mstars_bulge)
    call hdf5_read_dataset(g//'matom_disk',sam%matom_disk)
    call hdf5_read_dataset(g//'matom_bulge',sam%matom_bulge)
+   call hdf5_read_dataset(g//'rdisk_star',sam%rdisk_star)
+   call hdf5_read_dataset(g//'rbulge_star',sam%rbulge_star)
+   call hdf5_read_dataset(g//'rdisk_gas',sam%rdisk_gas)
+   call hdf5_read_dataset(g//'rbulge_gas',sam%rbulge_gas)
    
    ! close file
    call hdf5_close()
@@ -242,48 +275,55 @@ end subroutine load_sam_snapshot
 ! CONVERSION BETWEEN INTRINSIC AND APPARENT GALAXY PROPERTIES
 ! ==============================================================================================================
 
-function convert_properties(base,sam) result(cone)
+subroutine rotate_vectors(sam)
+
+   ! This function rotates all the vector-properties of the galaxy, except for the position, which has already
+   ! been processed when producing the intrinsic cone.
 
    implicit none
-   type(type_galaxy_base),intent(in)      :: base
+   type(type_galaxy_sam),intent(inout)    :: sam
+   
+   sam%velocity   = rotate(sam%velocity,.false.)
+   sam%J          = rotate(sam%J,.true.)
+   
+end subroutine rotate_vectors
+
+function convert_properties(base,sam) result(cone)
+
+   ! NB: All vectors in sam have been rotated via rotate_vectors, before this function is called
+   !     except for the galaxy position. The correct position (rotated+translated) is provided in the vector
+   !     base%xcone in units of box side-lengths. Only use this position vector, not the position vector of the
+   !     SAM to compute sky coordinates etc.
+
+   implicit none
+   
+   type(type_galaxy_base),intent(in)      :: base     ! base properties of galaxy in the cone
    type(type_galaxy_sam),intent(in)       :: sam      ! intrinsic galaxy properties from SAM
    type(type_galaxy_cone)                 :: cone     ! apparent galaxy properties
-   real*4                                 :: zcos     ! cosmological redshift due to Hubble flow
-   real*4                                 :: zpec     ! redshift due to the peculiar motion of object relative to Hubble flow
-   real*4                                 :: zobs     ! redshift due to the peculiar motion of the observer relative to the Hubble flow
-   real*4                                 :: z        ! total redshift
-   real*4                                 :: dc       ! [simulation length units] comoving distance to observer
    real*4                                 :: dl       ! [simulation length units] luminosity distance to observer
-   real*4                                 :: da       ! [simulation length units] angular diameter distance to observer
-   real*4                                 :: norm     ! [box side-length] comoving distance to observer
    real*4                                 :: elos(3)  ! unit vector pointing from the observer to the object in comoving space
-   real*4                                 :: vpec(3)  ! peculiar velocity
    
-   ! compute basic redshift and distance
-   norm = sqrt(sum(base%xcone**2))
-   elos = base%xcone/norm ! unit-vector along the line of slight
-   dc = norm*para%L*(para%length_unit/Mpc) ! [Mpc]
-   zcos = dc_to_redshift(dc)
-   vpec = convert_vector(sam%velocity,base%rotation)
-   zpec = min(0.1,max(-0.1,sum(vpec*elos)/c*1e3)) ! limited to 0.1 to avoid relativistic regime, ok for all practical purposes
-   zobs = min(0.1,max(-0.1,-sum(para%velocity*base%xcone)/c*1e3)) ! limited to 0.1 to avoid relativistic regime, ok for all practical purposes
-   z = (1+zcos)*(1+zpec)*(1+zobs)-1 ! following Davis & Scrimgeour 2014
-   dl = dc*(1+z)
-   da = dc/(1+z)
+   ! make sky coordinates
+   cone%dc  = base%dc
+   cone%ra  = base%ra
+   cone%dec = base%dec
    
-   ! copy basic variables
-   cone%id        = sam%id_galaxy
-   cone%snapshot  = base%snapshot
+   ! make distances and redshift, provided the position x and galaxy-velocity in km/s
+   call make_redshift(base%xcone,sam%velocity,z=cone%z)
    
-   ! make geometric properties
-   cone%z      = z
-   cone%dc     = norm*para%L ! [simulation units] comoving distance
-   cone%ra     = atan2(base%xcone(1),base%xcone(3))
-   cone%decl   = asin(base%xcone(2)/norm)
+   ! make inclination and position angle
+   call make_inclination_and_pa(base%xcone,sam%J,inclination=cone%inclination,pa=cone%pa)
+   
+   ! copy basic constants
+   cone%snapshot     = base%snapshot
+   cone%subsnapshot  = base%subsnapshot
+   cone%id           = sam%id_galaxy
+   cone%typ          = sam%typ
    
    ! convert intrinsic to apparent properties
+   dl = cone%dc*(1+cone%z)
    cone%mag    = convert_absmag2appmag(convert_stellarmass2absmag(sam%mstars_disk+sam%mstars_bulge,1.0),dl)
-   cone%v      = vpec
+   cone%vrad   = sum(sam%velocity*elos)
    cone%SHI    = convert_luminosity2flux(real(sam%matom_disk+sam%matom_bulge,8)*real(LMratioHI,8)*Lsun,dl)
    
 end function convert_properties

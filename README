@@ -15,7 +15,7 @@ GETTING STARTED
 
 2) Compile Stingray using
    > make clean
-   > make (edit make file, if needed)
+   > make (edit make file, if needed) 
    
 3) In the file parameters.txt, adjust the paths path_output and path_input to the preferred directories for output
    and input data. Both directories should be empty and their permission must be set such that Stingray can read

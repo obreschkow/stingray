@@ -1,30 +1,45 @@
+# Parameters given a value 'auto' or 'a' must be set programmatically in the user module.
+# If parameters are set in the user model *and* given a numerical value in this parameter file,
+# the parameter file takes priority.
+
 # Paths
 path_output             /Users/do/Data/SURFS/stingray/shark/output/
 path_input              /Users/do/Data/SURFS/stingray/shark/input/
 
 # Snapshot parameters
-L                       auto           [simulation units] side-length of simulation box
-length_unit             4.40811083e22  [m] Mpc/h
+L                       auto           [length_unit] side-length of simulation box
+length_unit             auto           [m] SI-value of comoving length unit, here Mpc/h
 snapshot_min            auto
 snapshot_max            auto
-subsnapshot_min         auto
-subsnapshot_max         auto
+subsnapshot_min         0
+subsnapshot_max         0
 
 # Cosmology
 h                       auto
 OmegaL                  auto
 OmegaM                  auto
 
-# Geometry of cone
-angle                   0.05           [rad] half the aperture
-square_base             0              [-] 0: circular cone, 1: square cone, where the half-diagonal spanns an angle 'angle'
-dc_min                  190            [simulation units] minimal comoving distance
-dc_max                  1950           [simulation units] maximal comoving distance
-axis.x                  1              [arbitrary units] x-component of vector pointing along the cone axis
-axis.y                  1              [arbitrary units] y-component of vector pointing along the cone axis
-axis.z                  1              [arbitrary units] z-component of vector pointing along the cone axis
+# Distance range
+dc_min                  0              [simulation units] minimal comoving distance
+dc_max                  4000           [simulation units] maximal comoving distance
+
+# Footprint on the sky, specify either center/angle or ra/dec ranges
+#ra                      35.53      [deg] right ascension of cone center
+#dec                     -4.7    [deg] declination of cone center
+#angle                   1.600503   [deg] half the aperture
+ra_min                  34
+ra_max                  37.05
+dec_min                 -5.2
+dec_max                 -4.2
+
+# Central axis and rotation
+axis.x                  0.5791042516   [arbitrary units] x-component of vector pointing along the cone axis
+axis.y                  -0.0819385086  [arbitrary units] y-component of vector pointing along the cone axis
+axis.z                  0.8111253581   [arbitrary units] z-component of vector pointing along the cone axis
+turn                    0              [rad]
 
 # Galaxy mapping
+seed                    2
 translate               1
 rotate                  1
 invert                  1

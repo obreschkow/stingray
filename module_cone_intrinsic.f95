@@ -16,7 +16,6 @@ module module_cone_intrinsic
    type(type_galaxy_sam),allocatable   :: sam(:)
    integer*8                           :: nmockgalaxies
    character(len=255)                  :: filename_cone_intrinsic
-   real*4                              :: a1(3),a2(3) ! two orthonormal basis vectors, orthogonal to the cone axis
    
 contains
 
@@ -44,7 +43,6 @@ subroutine make_cone_intrinsic
    close(1)
    
    ! fill galaxies with intrinsic properties into cone
-   if (para%square_base==1) call make_cone_basis(a1,a2)
    nmockgalaxies = 0
    do isnapshot = para%snapshot_min,para%snapshot_max
       if ((snapshot(isnapshot)%dmax>=minval(box%dmin)).and.(snapshot(isnapshot)%dmin<=maxval(box%dmax))) then
@@ -68,6 +66,11 @@ subroutine make_cone_intrinsic
    if (allocated(base)) deallocate(base)
    if (allocated(sam)) deallocate(sam)
    
+   ! check number of galaxies
+   if (nmockgalaxies==0) then
+      call error('No galaxy in cone. Consider widening the cone geometry or relaxing the selection criteria.')
+   end if
+   
    ! write info
    inquire(file=filename_cone_intrinsic, size=bytes)
    open(1,file=trim(para%path_output)//'cone_intrinsic_info.txt',action='write',form="formatted",status='replace')
@@ -86,61 +89,24 @@ subroutine translate_and_rotate_snapshot(ibox)
    implicit none
    integer*4,intent(in) :: ibox
    integer*4            :: i
-   real*4,allocatable   :: tmp(:)
    
-   ! save box-properties
+   ! save box index
    base%box = ibox
-   base%rotation = box(ibox)%rotation
    
-   ! copy xbox -> xcone and normalize to box side-length
-   do i = 1,3
-      base%xcone(i) = base%xbox(i)/para%L
-   end do
+   do i = 1,size(base)
    
-   ! inversion
-   if (box(ibox)%rotation<0) then
-      do i = 1,3
-         base%xcone(i) = 1.0-base%xcone(i)
-      end do
-   end if
+      ! copy xbox -> xcone and normalize to box side-length
+      base(i)%xcone = base(i)%xbox/para%L
    
-   ! proper rotation (case 1 = identity)
-   select case(abs(box(ibox)%rotation))
-      case(2) ! invert x-axis, while permuting y and z
-         base%xcone(1) = 1.0-base%xcone(1)
-         tmp = base%xcone(2)
-         base%xcone(2) = base%xcone(3)
-         base%xcone(3) = tmp
-      case(3) ! invert y-axis, while permuting z and x
-         base%xcone(2) = 1.0-base%xcone(2)
-         tmp = base%xcone(3)
-         base%xcone(3) = base%xcone(1)
-         base%xcone(1) = tmp
-      case(4) ! invert z-axis, while permuting x and y
-         base%xcone(3) = 1.0-base%xcone(3)
-         tmp = base%xcone(1)
-         base%xcone(1) = base%xcone(2)
-         base%xcone(2) = tmp
-      case(5) ! permute (x,y,z) -> (y,z,x)
-         tmp = base%xcone(1)
-         base%xcone(1) = base%xcone(2)
-         base%xcone(2) = base%xcone(3)
-         base%xcone(3) = tmp
-      case(6) ! permute (x,y,z) -> (z,x,y)
-         tmp = base%xcone(1)
-         base%xcone(1) = base%xcone(3)
-         base%xcone(3) = base%xcone(2)
-         base%xcone(2) = tmp
-   end select
+      ! rotation
+      base(i)%xcone = matmul(rot(:,:,box(ibox)%rotation),base(i)%xcone)
+   
+      ! periodic translation
+      base(i)%xcone = modulo(base(i)%xcone+box(ibox)%translation,1.0)
+   
+      ! translate to apparent position
+      base(i)%xcone = base(i)%xcone+box(ibox)%ix-0.5
       
-   ! periodic translation
-   do i = 1,3
-      base%xcone(i) = modulo(base%xcone(i)+box(ibox)%translation(i),1.0)
-   end do
-   
-   ! translate to apparent position
-   do i = 1,3
-      base%xcone(i) = base%xcone(i)+box(ibox)%ix(i)-0.5
    end do
 
 end subroutine translate_and_rotate_snapshot
@@ -150,19 +116,33 @@ subroutine write_subsnapshot_into_box(isnapshot)
    implicit none
    integer*4,intent(in)                :: isnapshot
    integer*4                           :: igalaxy
-   real*4                              :: d
+   real*4                              :: d,dc
    
    ! open file
    open(1,file=trim(filename_cone_intrinsic),action='write',form='unformatted',status='old',position='append',access='stream')
    
    ! write mock galaxies
    do igalaxy = 1,size(base)
-      d = sqrt(sum(base(igalaxy)%xcone**2))
+      d = norm(base(igalaxy)%xcone)
+      
+      ! check distance
       if ((d>=snapshot(isnapshot)%dmin).and.(d<snapshot(isnapshot)%dmax)) then
-         if (geometry_selection(base(igalaxy))) then
-            if (pre_selection(sam(igalaxy))) then
-               nmockgalaxies = nmockgalaxies+1
-               write(1) base(igalaxy),sam(igalaxy)
+         dc = d*para%L ! comoving distance in simulation units
+         if ((dc>=para%dc_min).or.(dc<=para%dc_max)) then
+         
+            ! check footprint on sky (ra,dec)
+            base(igalaxy)%xcone = matmul(para%sky_rotation,base(igalaxy)%xcone) ! rotates cone axis onto central RA, Dec
+            call make_sky_coordinates(base(igalaxy)%xcone,base(igalaxy)%dc,base(igalaxy)%ra,base(igalaxy)%dec)
+            if (check_footprint(base(igalaxy))) then
+            
+               ! user checks
+               if (intrinsic_selection(sam(igalaxy))) then
+                  
+                  ! write selected galaxy into intrinsic cone file
+                  nmockgalaxies = nmockgalaxies+1
+                  write(1) base(igalaxy),sam(igalaxy)
+                  
+               end if
             end if
          end if
       end if
@@ -173,32 +153,23 @@ subroutine write_subsnapshot_into_box(isnapshot)
    
    contains
    
-   logical function geometry_selection(base)
+   logical function check_footprint(b)
    
       implicit none
-      type(type_galaxy_base),intent(in)   :: base
-      real*4                              :: d,dc,alpha,a(3),alpha1,alpha2
+      type(type_galaxy_base),intent(in)   :: b
+      real*4                              :: d
       
-      ! check distance
-      d = sqrt(real(sum(base%xcone**2)))  ! distance to the galaxy in box side lengths
-      dc = d*para%L                       ! distance in simulation units
-      if ((dc>para%dc_max).or.(dc<para%dc_min)) then
-         geometry_selection = .false.
-         return
-      end if
-      
-      ! check cone
-      if (para%square_base==1) then
-         a = base%xcone
-         alpha1 = abs(atan2(sum(a*a1),sum(a*para%axis)))
-         alpha2 = abs(atan2(sum(a*a2),sum(a*para%axis)))
-         alpha = max(alpha1,alpha2)
+      if (para%dec_min>pi) then
+         ! check circular cone
+         d = norm(b%xcone)
+         check_footprint = acos(min(1.0,sum(para%axis*b%xcone)/d))<=para%angle
       else
-         alpha = acos(sum(para%axis*base%xcone)/d) ! angle between cone axis and line-of-sight to the galaxy centre
+         ! check ra and dec range
+         check_footprint = (b%ra>=para%ra_min).and.(b%ra<=para%ra_max).and. &
+         & (b%dec>=para%dec_min).and.(b%dec<=para%dec_max)
       end if
-      geometry_selection = alpha<=para%angle
-      
-   end function geometry_selection
+                  
+   end function check_footprint
 
 end subroutine write_subsnapshot_into_box
 

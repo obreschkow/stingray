@@ -10,11 +10,16 @@ module module_parameters
    
 contains
 
+! Note: the routine make_automatic_parameters needs to be specified in the user module
+
 subroutine make_parameters(parameter_filename_custom)
 
    implicit none
    character(255),intent(in)  :: parameter_filename_custom
    character(255)             :: parameter_filename
+   
+   call tic
+   call out('MAKE PARAMETERS')
    
    if (len(trim(parameter_filename_custom))>0) then
       parameter_filename = parameter_filename_custom
@@ -22,17 +27,21 @@ subroutine make_parameters(parameter_filename_custom)
       parameter_filename = parameter_filename_default
    end if
    call check_exists(parameter_filename)
-   
    call reset_parameters
    call make_automatic_parameters
    call load_user_parameters(parameter_filename)
    call check_parameters
    call adjust_parameters
+   call make_derived_parameters
    call save_parameters
+   
+   call toc
 
 end subroutine make_parameters
 
 subroutine reset_parameters
+
+   ! resets all parameters other than path_output and path_input
 
    implicit none
    para%L = huge(para%L)
@@ -44,11 +53,18 @@ subroutine reset_parameters
    para%h = huge(para%h)
    para%OmegaL = huge(para%OmegaL)
    para%OmegaM = huge(para%OmegaM)
+   para%ra = huge(para%ra)
+   para%dec = huge(para%dec)
    para%angle = huge(para%angle)
-   para%square_base = huge(para%square_base)
+   para%ra_min = huge(para%ra_min)
+   para%ra_max = huge(para%ra_max)
+   para%dec_min = huge(para%dec_min)
+   para%dec_max = huge(para%dec_max)
    para%dc_min = huge(para%dc_min)
    para%dc_max = huge(para%dc_max)
    para%axis = huge(para%axis)
+   para%turn = huge(para%turn)
+   para%seed = huge(para%seed)
    para%translate = huge(para%translate)
    para%rotate = huge(para%rotate)
    para%invert = huge(para%invert)
@@ -60,8 +76,11 @@ end subroutine reset_parameters
 subroutine check_parameters
 
    implicit none
+   integer*4   :: mode1,mode2
    
    ! check if all parameters have been initialized
+   if (trim(para%path_output)=='') call wrong('path_output')
+   if (trim(para%path_input)=='') call wrong('path_input')
    if (para%L == huge(para%L)) call wrong('L')
    if (para%length_unit == huge(para%length_unit)) call wrong('length_unit')
    if (para%snapshot_min == huge(para%snapshot_min)) call wrong('snapshot_min')
@@ -71,13 +90,13 @@ subroutine check_parameters
    if (para%h == huge(para%h)) call wrong('h')
    if (para%OmegaL == huge(para%OmegaL)) call wrong('OmegaL')
    if (para%OmegaM == huge(para%OmegaM)) call wrong('OmegaM')
-   if (para%angle == huge(para%angle)) call wrong('angle')
-   if (para%square_base == huge(para%square_base)) call wrong('square_base')
    if (para%dc_min == huge(para%dc_min)) call wrong('dc_min')
    if (para%dc_max == huge(para%dc_max)) call wrong('dc_max')
    if (para%axis(1) == huge(para%axis)) call wrong('axis_x')
    if (para%axis(2) == huge(para%axis)) call wrong('axis_y')
    if (para%axis(3) == huge(para%axis)) call wrong('axis_z')
+   if (para%turn == huge(para%turn)) call wrong('turn')
+   if (para%seed == huge(para%seed)) call wrong('seed')
    if (para%translate == huge(para%translate)) call wrong('translate')
    if (para%rotate == huge(para%rotate)) call wrong('rotate')
    if (para%invert == huge(para%invert)) call wrong('invert')
@@ -96,17 +115,43 @@ subroutine check_parameters
    if (para%OmegaM<0) call error('OmegaM must be >=0.')
    if (para%OmegaL>1) call error('OmegaL must be <=1.')
    if (para%OmegaM>1) call error('OmegaM must be <=1.')
-   if (para%angle<=0) call error('angle must be larger than 0.')
-   if (.not.islogical(para%square_base)) call error('square_base can only be 0 or 1.')
    if (para%dc_min<0) call error('dc_min must be >=0.')
    if (para%dc_max<=0) call error('dc_min must be >0.')
    if (para%dc_max<=para%dc_min) call error('dc_min must smaller than dc_max.')
-   if (sqrt(sum(para%axis**2))<epsilon(para%axis)) call error('The cone axis is ill-defined.')
+   if (norm(para%axis)<epsilon(para%axis)) call error('The cone axis is ill-defined.')
+   if (para%seed<=0) call error('seed must be a positive integer.')
    if (.not.islogical(para%translate)) call error('translate can only be 0 or 1.')
    if (.not.islogical(para%rotate)) call error('rotate can only be 0 or 1.')
    if (.not.islogical(para%invert)) call error('invert can only be 0 or 1.')
    if (.not.islogical(para%preserve_groups)) call error('preserve_groups can only be 0 or 1.')
-   if (sqrt(sum(para%velocity**2))>0.1*c) call error('The observer velocity cannot exceed 0.1*c.')
+   if (norm(para%velocity)>0.1*c) call error('The observer velocity cannot exceed 0.1*c.')
+   
+   ! handle foot print on the sky
+   mode1 = 0
+   if (para%ra .ne. huge(para%ra)) mode1 = mode1+1
+   if (para%dec .ne. huge(para%dec)) mode1 = mode1+1
+   if (para%angle .ne. huge(para%angle)) mode1 = mode1+1
+   
+   mode2 = 0
+   if (para%ra_min .ne. huge(para%ra_min)) mode2 = mode2+1
+   if (para%ra_max .ne. huge(para%ra_max)) mode2 = mode2+1
+   if (para%dec_min .ne. huge(para%dec_min)) mode2 = mode2+1
+   if (para%dec_max .ne. huge(para%dec_max)) mode2 = mode2+1
+   
+   if ((mode1==3).and.(mode2==0)) then
+      if ((para%ra<0).or.(para%ra>=360.0)) call error('ra must lie between 0 and 360')
+      if ((para%dec<-180.0).or.(para%dec>180.0)) call error('dec must lie between -180 and 180')
+      if (para%angle<=0) call error('angle must be larger than 0.')
+   else if ((mode1==0).and.(mode2==4)) then
+      if ((para%ra_min<0).or.(para%ra_min>360.0)) call error('ra_min must lie between 0 and 360')
+      if ((para%ra_max<0).or.(para%ra_max>360.0)) call error('ra_max must lie between 0 and 360')
+      if (para%ra_min>=para%ra_max) call error('ra_min must smaller than ra_max')
+      if ((para%dec_min<-180.0).or.(para%dec_min>180.0)) call error('dec_min must lie between -180 and 180')
+      if ((para%dec_max<-180.0).or.(para%dec_max>180.0)) call error('dec_max must lie between -180 and 180')
+      if (para%dec_min>=para%dec_max) call error('dec_min must smaller than dec_max')
+   else
+      call error('Specify all of ra/dec/angle or all of ra_min,ra_max,dec_min,dec_max, but not both.')
+   end if
    
    contains
    
@@ -127,9 +172,42 @@ end subroutine check_parameters
 subroutine adjust_parameters
 
    implicit none
-   para%angle = min(2*pi,para%angle)
+   real*4   :: angle(4)
+   real*4   :: xcenter(3)
+   real*4   :: xcorner(3)
+   
    para%dc_min = max(0.0,para%dc_min)
-   para%axis = para%axis/sqrt(sum(para%axis**2))
+   para%axis = para%axis/norm(para%axis)
+   para%turn = para%turn*degree
+   
+   ! make ra,dec,angle if ra/dec range are provide as input
+   if (para%dec_min<=180.0) then
+      ! convert deg to rad
+      para%ra_min = para%ra_min*degree
+      para%ra_max = para%ra_max*degree
+      para%dec_min = para%dec_min*degree
+      para%dec_max = para%dec_max*degree
+      
+      ! make cone parameters
+      para%ra = (para%ra_min+para%ra_max)/2
+      para%dec = (para%dec_min+para%dec_max)/2
+      xcenter = (/cos(para%dec)*sin(para%ra),sin(para%dec),cos(para%dec)*cos(para%ra)/)
+      xcorner = (/cos(para%dec_min)*sin(para%ra_min),sin(para%dec_min),cos(para%dec_min)*cos(para%ra_min)/)
+      angle(1) = acos(min(1.0,sum(xcenter*xcorner)))
+      xcorner = (/cos(para%dec_min)*sin(para%ra_max),sin(para%dec_min),cos(para%dec_min)*cos(para%ra_max)/)
+      angle(2) = acos(min(1.0,sum(xcenter*xcorner)))
+      xcorner = (/cos(para%dec_max)*sin(para%ra_min),sin(para%dec_max),cos(para%dec_max)*cos(para%ra_min)/)
+      angle(3) = acos(min(1.0,sum(xcenter*xcorner)))
+      xcorner = (/cos(para%dec_max)*sin(para%ra_max),sin(para%dec_max),cos(para%dec_max)*cos(para%ra_max)/)
+      angle(4) = acos(min(1.0,sum(xcenter*xcorner)))
+      para%angle = maxval(angle)
+   else
+      ! convert deg to rad
+      para%ra = para%ra*degree
+      para%dec = para%dec*degree
+      para%angle = para%angle*degree
+      para%angle = min(pi,para%angle)
+   end if
 
 end subroutine adjust_parameters
 
@@ -155,7 +233,9 @@ subroutine load_user_parameters(parameter_filename)
          read(line,*) var_name
          var_value = adjustl(line(len(trim(var_name))+1:len(line)))
          read(var_value,*) var_value_first
-         manual = (trim(var_value_first).ne.'auto')
+         manual = (trim(var_value_first).ne.'auto').and.(trim(var_value_first).ne.'Auto') &
+         & .and.(trim(var_value_first).ne.'AUTO').and.(trim(var_value_first).ne.'a') &
+         & .and.(trim(var_value_first).ne.'A')
          select case (trim(var_name))
             case ('L')
                if (manual) read(var_value,*) para%L
@@ -175,10 +255,20 @@ subroutine load_user_parameters(parameter_filename)
                if (manual) read(var_value,*) para%OmegaL
             case ('OmegaM')
                if (manual) read(var_value,*) para%OmegaM
+            case ('ra')
+               if (manual) read(var_value,*) para%ra
+            case ('dec')
+               if (manual) read(var_value,*) para%dec
             case ('angle')
                if (manual) read(var_value,*) para%angle
-            case ('square_base')
-               read(var_value,*) para%square_base
+            case ('ra_min')
+               if (manual) read(var_value,*) para%ra_min
+            case ('ra_max')
+               if (manual) read(var_value,*) para%ra_max
+            case ('dec_min')
+               if (manual) read(var_value,*) para%dec_min
+            case ('dec_max')
+               if (manual) read(var_value,*) para%dec_max
             case ('dc_max')
                if (manual) read(var_value,*) para%dc_max
             case ('dc_min')
@@ -189,6 +279,10 @@ subroutine load_user_parameters(parameter_filename)
                if (manual) read(var_value,*) para%axis(2)
             case ('axis.z')
                if (manual) read(var_value,*) para%axis(3)
+            case ('turn')
+               if (manual) read(var_value,*) para%turn
+            case ('seed')
+               if (manual) read(var_value,*) para%seed
             case ('translate')
                if (manual) read(var_value,*) para%translate
             case ('rotate')
@@ -245,17 +339,36 @@ subroutine load_paths(parameter_filename_custom)
          var_value = adjustl(line(len(trim(var_name))+1:len(line)))
          select case (trim(var_name))
             case ('path_output')
+               if (len(trim(var_value))==0) then
+                  write(*,*) 'ERROR: parameter path_output empty.'
+                  stop
+               end if
                para%path_output = trim(noslash(var_value))//'/'
-               if (len(trim(para%path_output))==0) call error('Output path cannot be found in parameter file.')
                call system('mkdir -p '//trim(para%path_output))
             case ('path_input')
+               if (len(trim(var_value))==0) then
+                  write(*,*) 'ERROR: parameter path_input empty.'
+                  stop
+               end if
                para%path_input = trim(noslash(var_value))//'/'
-               if (len(trim(para%path_input))==0) call error('Input path cannot be found in parameter file.')
-               call system('mkdir -p '//trim(para%path_input))
+               if (.not.exists(trim(para%path_input),.true.)) then
+                  write(*,*) 'ERROR: Input path cannot be found: '//trim(para%path_input)
+                  stop
+               end if
          end select
       end if
    end do
    close(1)
+   
+   ! check if paths set   
+   if (trim(para%path_output)=='') then
+      write(*,*) 'ERROR: parameter path_output missing in parameter file.'
+      stop
+   end if
+   if (trim(para%path_input)=='') then
+      write(*,*) 'ERROR: parameter path_input missing in parameter file.'
+      stop
+   end if
    
 end subroutine load_paths
 
@@ -284,7 +397,7 @@ subroutine save_parameters
    write(1) para
    close(1)
    
-   ! open ascii file
+   ! open ascii file (only for non-derived parameters)
    filename = trim(para%path_output)//'parameters.txt'
    open(1,file=trim(filename),action='write',form="formatted",status='replace')
    
@@ -306,15 +419,25 @@ subroutine save_parameters
    write(txt,'(E14.7)') para%OmegaM;            call line('OmegaM',txt)
    
    ! cone geometry
-   write(txt,'(E14.7)') para%angle;             call line('angle',txt)
-   write(txt,'(I1)')    para%square_base;       call line('square_base',txt)
+   if (para%dec_max<=180.0) then
+      write(txt,'(E14.7)') para%ra_min/degree;  call line('ra_min',txt)
+      write(txt,'(E14.7)') para%ra_max/degree;  call line('ra_max',txt)
+      write(txt,'(E14.7)') para%dec_min/degree; call line('dec_min',txt)
+      write(txt,'(E14.7)') para%dec_max/degree; call line('dec_max',txt)
+   else
+      write(txt,'(E14.7)') para%ra/degree;      call line('ra',txt)
+      write(txt,'(E14.7)') para%dec/degree;     call line('dec',txt)
+      write(txt,'(E14.7)') para%angle/degree;   call line('angle',txt)
+   end if
    write(txt,'(E14.7)') para%dc_min;            call line('dc_min',txt)
    write(txt,'(E14.7)') para%dc_max;            call line('dc_max',txt)
    write(txt,'(E14.7)') para%axis(1);           call line('axis.x',txt)
    write(txt,'(E14.7)') para%axis(2);           call line('axis.y',txt)
    write(txt,'(E14.7)') para%axis(3);           call line('axis.z',txt)
+   write(txt,'(E14.7)') para%turn/degree;       call line('turn',txt)
 
    ! cone parameters
+   write(txt,'(I1)')    para%seed;              call line('seed',txt)
    write(txt,'(I1)')    para%translate;         call line('translate',txt)
    write(txt,'(I1)')    para%rotate;            call line('rotate',txt)
    write(txt,'(I1)')    para%invert;            call line('invert',txt)
@@ -351,5 +474,36 @@ subroutine save_parameters
    end function log2int
 
 end subroutine save_parameters
+
+subroutine make_derived_parameters
+
+   call make_sky_rotation
+
+contains
+
+   subroutine make_sky_rotation
+
+      implicit none
+      real*4      :: rotationvector(3)
+      real*4      :: coneaxis(3)
+      real*4      :: angle
+      real*4      :: nrot
+      
+      ! turn around cone axis
+      para%sky_rotation = rotation_matrix(para%axis,para%turn)
+      
+      ! rotate cone axis onto central RA and DEC
+      coneaxis = (/cos(para%dec)*sin(para%ra),sin(para%dec),cos(para%dec)*cos(para%ra)/)
+      rotationvector = cross_product(para%axis,coneaxis)
+      nrot = norm(rotationvector)
+      if ((nrot>epsilon(nrot)).and.(sum(coneaxis*para%axis)<1.0)) then
+         rotationvector = rotationvector/nrot
+         angle = acos(sum(coneaxis*para%axis))
+         para%sky_rotation = matmul(rotation_matrix(rotationvector,angle),para%sky_rotation)
+      end if
+   
+   end subroutine make_sky_rotation
+
+end subroutine make_derived_parameters
 
 end module module_parameters

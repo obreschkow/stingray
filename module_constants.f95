@@ -17,10 +17,38 @@ module module_constants
    real*4,parameter        :: kpc = 3.0856776e+19 ! [m]
    real*4,parameter        :: Mpc = 3.0856776e+22 ! [m]
    real*4,parameter        :: Gpc = 3.0856776e+25 ! [m]
+   real*4,parameter        :: degree = pi/180.0 ! [rad]
    real*8,parameter        :: ASphereMpc = 1.1964952e+46_8 ! [m^2] surface area of a sphere with 1 Mpc radius (=4*pi*(Mpc/m)^2)
    real*4,parameter        :: LMratioHI = 6.27e-9 ! (LHI/Lsun)/(MHI/Msun)
    
    ! Constant parameters, specific to a mock cone
    type(type_para)         :: para
+   
+   ! 90-degree rotation matrices
+   real*4                  :: rot(3,3,-6:6)
+   
+contains
+
+   subroutine initialize_constants
+   
+      implicit none
+      integer*4 :: i
+      
+      rot(:,:,0) = 0
+      
+      ! proper rotations
+      rot(:,:,1) = reshape((/+1,+0,+0,+0,+1,+0,+0,+0,+1/),(/3,3/))   ! identity
+      rot(:,:,2) = reshape((/-1,+0,+0,+0,+0,+1,+0,+1,+0/),(/3,3/))   ! invert x-axis, while permuting y and z
+      rot(:,:,3) = reshape((/+0,+0,+1,+0,-1,+0,+1,+0,+0/),(/3,3/))   ! invert y-axis, while permuting z and x
+      rot(:,:,4) = reshape((/+0,+1,+0,+1,+0,+0,+0,+0,-1/),(/3,3/))   ! invert z-axis, while permuting x and y
+      rot(:,:,5) = reshape((/+0,+1,+0,+0,+0,+1,+1,+0,+0/),(/3,3/))   ! permute (x,y,z) -> (y,z,x)
+      rot(:,:,6) = reshape((/+0,+0,+1,+1,+0,+0,+0,+1,+0/),(/3,3/))   ! permute (x,y,z) -> (z,x,y)
+      
+      ! improper rotations (with axis flip)
+      do i = 1,6
+         rot(:,:,-i) = -rot(:,:,i)
+      end do
+      
+   end subroutine initialize_constants
 
 end module module_constants

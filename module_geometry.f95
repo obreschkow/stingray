@@ -2,6 +2,7 @@ module module_geometry
 
    use module_constants
    use module_system
+   use module_linalg
    use module_parameters
    
    private
@@ -11,17 +12,18 @@ module module_geometry
    
 contains
 
-subroutine make_geometry(seed)
+subroutine make_geometry
 
    implicit none
-   integer*4,intent(in) :: seed
    
    call tic
    call out('MAKE BOX GEOMETRY')
+   
    call load_parameters
-   call set_seed(seed)
+   call set_seed(para%seed)
    call add_box(nint(para%axis*para%dc_min/para%L))
    call save_geometry
+   
    call out('Number of boxes = ',size(box)*1_8)
    if (allocated(box)) deallocate(box)
    call toc
@@ -36,7 +38,6 @@ subroutine save_geometry
    
    ! write to ascii file
    filename = trim(para%path_output)//'geometry.txt'
-   call check_exists(filename)
    open(1,file=trim(filename),action='write',form="formatted",status='replace')
    write(1,'(A)') 'Stingray Box-geometry'
    write(1,'(A)') '--------------------------------------------------------------------------------'
@@ -52,7 +53,7 @@ subroutine save_geometry
    write(1,'(A)') 'Col 10:  z-component of translation vector in units of L'
    write(1,'(A)') '--------------------------------------------------------------------------------'
    do i = 1,size(box)
-      write(1,'(I6,3I6,2F13.6,I3,3F9.5)') i,box(i)
+      write(1,'(I6,3I6,2F13.6,I3,3F9.5)') i,box(i)%ix,box(i)%dmin,box(i)%dmax,box(i)%rotation,box(i)%translation
    end do
    close(1)
    
@@ -113,21 +114,29 @@ recursive subroutine add_box(ix)
       allocate(box(1))
    end if
    
-   ! fill in box properties
+   ! fill in basic box properties
    box(nbox)%ix = ix
    d = sqrt(real(sum(ix**2)))
    box(nbox)%dmin = max(para%dc_min/para%L,d-h3)
    box(nbox)%dmax = min(para%dc_max/para%L,d+h3)
+   
+   ! choose random proper rotation
    if (para%rotate==1) then
       call random_number(rand)
       box(nbox)%rotation = max(1,min(6,ceiling(rand*6.0)))
    else
       box(nbox)%rotation = 1
    end if
+   box(nbox)%Rvector = matmul(para%sky_rotation,rot(:,:,box(nbox)%rotation))
+   
+   ! choose random inversion
    if (para%invert==1) then
       call random_number(rand)
       if (rand<0.5) box(nbox)%rotation = -box(nbox)%rotation
    end if
+   box(nbox)%Rpseudo = matmul(para%sky_rotation,rot(:,:,box(nbox)%rotation))
+   
+   ! choose random translation
    if (para%translate==1) then
       call random_number(box(nbox)%translation)
    else
@@ -162,15 +171,6 @@ function box_exists(ix) result(exists)
 
 end function box_exists
 
-function crossproduct(a,b) result(c)
-   implicit none
-   real*4,intent(in)    :: a(3),b(3)
-   real*4               :: c(3)
-   c(1) = a(2)*b(3)-a(3)*b(2)
-   c(2) = a(3)*b(1)-a(1)*b(3)
-   c(3) = a(1)*b(2)-a(2)*b(1)
-end function crossproduct
-
 function box_intersects(ix) result(output)
 
    implicit none
@@ -182,10 +182,10 @@ function box_intersects(ix) result(output)
    real*4               :: alpha,beta ! angles
    real*4               :: a(3),b(3),c(3)
    real*4               :: center(3),e1(3),e2(3) ! center position of and unit vectors on square
-   real*4               :: v1,v2,v(3),a1(3),a2(3)
+   real*4               :: v1,v2,v(3)
    integer*4            :: i,j1,j2
    integer*4,parameter  :: npoints = 50
-   real*4               :: norm,vectnorm,alpha1,alpha2
+   real*4               :: norm,vectnorm
    
    ! check distance range
    dmin = para%dc_min/para%L
@@ -240,11 +240,11 @@ function box_intersects(ix) result(output)
       end select
    
       ! check if cone axis passes through the particular square i 
-      v = crossproduct(e1,e2)
+      v = cross_product(e1,e2)
       if (abs(sum(para%axis*v))>1e-10) then ! to avoid a,e1,e2 being coplanar
-         a = crossproduct(para%axis,center)
-         b = crossproduct(para%axis,e1)
-         c = crossproduct(para%axis,e2)
+         a = cross_product(para%axis,center)
+         b = cross_product(para%axis,e1)
+         c = cross_product(para%axis,e2)
          v1 = (c(1)*a(2)-c(2)*a(1))/(b(1)*c(2)-b(2)*c(1))
          v2 = (a(1)*b(2)-a(2)*b(1))/(b(1)*c(2)-b(2)*c(1))
          if ((abs(v1)<=0.50001).and.(abs(v2)<=0.50001)) then
@@ -258,9 +258,6 @@ function box_intersects(ix) result(output)
       end if
    
    end do
-   
-   ! make orthogonal unit vectors, perpendicular to the cone axis
-   if (para%square_base==1) call make_cone_basis(a1,a2)
    
    ! since the cone axis did not pass through any cube face, check if any point on the face lines inside the cone
    
@@ -299,13 +296,7 @@ function box_intersects(ix) result(output)
          do j2 = -npoints,npoints
             a = center+0.5*real(j1)/real(npoints)*e1+0.5*real(j2)/real(npoints)*e2
             norm = sqrt(sum(a**2))
-            if (para%square_base==1) then
-               alpha1 = abs(atan2(sum(a*a1),sum(a*para%axis)))
-               alpha2 = abs(atan2(sum(a*a2),sum(a*para%axis)))
-               alpha = max(alpha1,alpha2)
-            else
-               alpha = acos(min(1.0,sum(a*para%axis)/norm))
-            end if
+            alpha = acos(min(1.0,sum(a*para%axis)/norm))
             if (alpha<=para%angle) then
                if ((norm>=dmin).and.(norm<=dmax)) then
                   output = .true.
@@ -321,21 +312,5 @@ function box_intersects(ix) result(output)
    return
    
 end function box_intersects
-
-subroutine make_cone_basis(a1,a2)
-   implicit none
-   real*4,intent(out)   :: a1(3),a2(3) ! two orthonormal basis vectors, orthogonal to the cone axis
-   if (para%axis(3)>0.5) then
-      a1 = crossproduct(para%axis,(/0.0,1.0,0.0/))
-      a1 = a1/sqrt(sum(a1**2))
-      a2 = crossproduct(para%axis,a1)
-      a2 = a2/sqrt(sum(a2**2))
-   else
-      a1 = crossproduct(para%axis,(/0.0,0.0,1.0/))
-      a1 = a1/sqrt(sum(a1**2))
-      a2 = crossproduct(para%axis,a1)
-      a2 = a2/sqrt(sum(a2**2))
-   end if
-end subroutine make_cone_basis
    
 end module module_geometry

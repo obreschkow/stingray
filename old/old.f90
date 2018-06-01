@@ -1,3 +1,19 @@
+subroutine make_cone_basis(a1,a2)
+   implicit none
+   real*4,intent(out)   :: a1(3),a2(3) ! two orthonormal basis vectors, orthogonal to the cone axis
+   if (para%axis(3)>0.5) then
+      a1 = cross_product(para%axis,(/0.0,1.0,0.0/))
+      a1 = a1/sqrt(sum(a1**2))
+      a2 = cross_product(para%axis,a1)
+      a2 = a2/sqrt(sum(a2**2))
+   else
+      a1 = cross_product(para%axis,(/0.0,0.0,1.0/))
+      a1 = a1/sqrt(sum(a1**2))
+      a2 = cross_product(para%axis,a1)
+      a2 = a2/sqrt(sum(a2**2))
+   end if
+end subroutine make_cone_basis
+
    ! Names (file and HDF5 objects)
       CHARACTER(LEN=15), PARAMETER :: filename = "/Users/do/Desktop/mytestfile.hdf5" ! File name
       CHARACTER(LEN=9), PARAMETER :: dsetname1 = "mydataset" ! Dataset name
