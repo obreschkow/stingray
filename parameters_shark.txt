@@ -11,8 +11,8 @@ L                       auto           [length_unit] side-length of simulation b
 length_unit             auto           [m] SI-value of comoving length unit, here Mpc/h
 snapshot_min            auto
 snapshot_max            auto
-subsnapshot_min         0
-subsnapshot_max         0
+subsnapshot_min         auto
+subsnapshot_max         auto
 
 # Cosmology
 h                       auto
@@ -21,7 +21,7 @@ OmegaM                  auto
 
 # Distance range
 dc_min                  0              [simulation units] minimal comoving distance
-dc_max                  4000           [simulation units] maximal comoving distance
+dc_max                  3000           [simulation units] maximal comoving distance
 
 # Footprint on the sky, specify either center+angle or ra+dec-ranges
 #ra                      35.53          [deg] right ascension of cone center

@@ -121,10 +121,10 @@ logical function apparent_selection(cone)
    
    apparent_selection = .true.
    
-   apparent_selection = (cone%ra>=34.1*degree)
-   apparent_selection = apparent_selection .and. (cone%ra<=37.05*degree)
-   apparent_selection = apparent_selection .and. (cone%dec>=-5.2*degree)
-   apparent_selection = apparent_selection .and. (cone%dec<=-4.2*degree)
+   !apparent_selection = (cone%ra>=34*degree)
+   !apparent_selection = apparent_selection .and. (cone%ra<=37.05*degree)
+   !apparent_selection = apparent_selection .and. (cone%dec>=-5.2*degree)
+   !apparent_selection = apparent_selection .and. (cone%dec<=-4.2*degree)
 
 end function apparent_selection
 
