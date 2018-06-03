@@ -77,12 +77,20 @@ subroutine make_cone_apparent
    
    if (m==0) call error('No galaxies in the apparent cone. Consider changing selection function.')
      
-   ! write info
+   ! write info (ascii)
    inquire(file=filename, size=bytes)
    filename = trim(para%path_output)//'cone_apparent_info.txt'
    open(1,file=trim(filename),action='write',form="formatted",status='replace')
    write(1,'(A,I10)') 'Number.of.galaxies.in.apparent.cone        ',m
    write(1,'(A,I10)') 'Number.of.bytes.per.galaxy.in.apparent.cone',bytes/m
+   close(1)
+   
+   ! write info (binary)
+   inquire(file=filename, size=bytes)
+   filename = trim(para%path_output)//'cone_apparent_info.bin'
+   open(1,file=trim(filename),action='write',form="unformatted",status='replace')
+   write(1) m
+   write(1) bytes/m
    close(1)
    
    ! user output

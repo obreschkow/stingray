@@ -79,7 +79,7 @@ subroutine make_inclination_and_pa(x,J,inclination,pa)
    eJ = J/normJ
    
    inclination = acos(sum(eLOS*eJ))
-   if (inclination>pi) inclination = 2*pi-inclination
+   if (inclination>pi/2.0) inclination = pi-inclination
    
    eMajor = cross_product(eLOS,eJ)
    eMajor = eMajor/norm(eMajor)
@@ -89,6 +89,7 @@ subroutine make_inclination_and_pa(x,J,inclination,pa)
    eEast = cross_product(eNorth,eLOS)
    
    pa = atan2(sum(eMajor*eEast),sum(eMajor*eNorth))
+   if (pa<0) pa = 2*pi-pa
    
 end subroutine make_inclination_and_pa
 

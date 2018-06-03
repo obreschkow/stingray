@@ -25,6 +25,9 @@ use module_hdf5_utilities
 ! SET DEFAULT PARAMETER FILENAME
 ! ==============================================================================================================
 
+! Here, specify the default parameter filename, used when stingray is called without the optional argument
+! "parameterfile"
+
 character(len=255),parameter  :: parameter_filename_default = 'parameters_shark.txt'
 
 
@@ -32,9 +35,9 @@ character(len=255),parameter  :: parameter_filename_default = 'parameters_shark.
 ! VARIABLE TYPES
 ! ==============================================================================================================
 
-! specify the galaxy properties output by the semi-analytic model
-! these are mostly intrinsic galaxy properties
-! they must be stored as fortran binary file exactly in this order
+! Here, specify the galaxy properties output by the semi-analytic model (SAM), which should be loaded
+! to make the mock cone. How these galaxies will be loaded will be specified in the subroutine
+! load_sam_snapshot below.
 
 type type_galaxy_sam
 
@@ -44,10 +47,10 @@ type type_galaxy_sam
    real*4      :: position(3)    ! [Mpc/h] position of galaxy centre in simulation box
    real*4      :: velocity(3)    ! [proper km/s] peculiar velocity
    real*4      :: J(3)           ! [proper Msun/h Mpc/h km/s ?] angular momentum
-   real*4      :: mstars_disk    ! [Msun] stellar mass disk
-   real*4      :: mstars_bulge   ! [Msun] stellar mass bulge
-   real*4      :: matom_disk     ! [Msun] atomic gas mass disk
-   real*4      :: matom_bulge    ! [Msun] atomic gas mass bulge
+   real*4      :: mstars_disk    ! [Msun/h] stellar mass disk
+   real*4      :: mstars_bulge   ! [Msun/h] stellar mass bulge
+   real*4      :: matom_disk     ! [Msun/h] atomic gas mass disk
+   real*4      :: matom_bulge    ! [Msun/h] atomic gas mass bulge
    real*4      :: rdisk_star     ! [cMpc/h] half-mass of stars in the disk
    real*4      :: rbulge_star    ! [cMpc/h] half-mass of stars in the bulge
    real*4      :: rdisk_gas      ! [cMpc/h] half-mass of gas in the disk
@@ -55,14 +58,14 @@ type type_galaxy_sam
 
 end type type_galaxy_sam
 
-! specify the galaxy properties in the mock cone
-! these are mostly apparent galaxy properties
+! Here, specify the galaxy properties in the mock cone. These are mostly apparent galaxy properties.
 
 type type_galaxy_cone
 
    integer*8   :: id             ! unique galaxy ID
-   integer*4   :: snapshot       ! snapshot
-   integer*4   :: subsnapshot    ! subsnapshot
+   integer*4   :: snapshot       ! snapshot ID
+   integer*4   :: subsnapshot    ! subsnapshot ID
+   integer*4   :: box            ! box ID
    integer*4   :: typ            ! galaxy type (0=central, 1=satellite in halo, 2=orphan)
    real*4      :: z              ! apparent redshift
    real*4      :: dc             ! [simulation units = Mpc/h] comoving distance
@@ -70,16 +73,18 @@ type type_galaxy_cone
    real*4      :: dec            ! [rad] declination
    real*4      :: inclination    ! [rad] inclination
    real*4      :: pa             ! [rad] position angle from North to East
-   real*4      :: mag            ! apparent magnitude (generic band)
+   real*4      :: mag            ! apparent magnitude (generic: M/L ratio of 1, no k-correction)
    real*8      :: SHI            ! [W/m^2] integrated HI line flux
    real*4      :: vrad           ! [proper km/s] radial peculiar velocity
+   real*4      :: mstars         ! [Msun/h] total stellar mass
 
 end type type_galaxy_cone
 
 contains
 
-! mapping from type_galaxy_sam onto three basic properties of type_galaxy_base,
-! needed internally to place the galaxy in the cone
+! In order to place the galaxies in the mock cone, the cone needs to access the groupid and position in the box
+! of each galaxy. The variables base%groupid and base%xbox(3). Specify below how these properties are obtained
+! from the SAM properties.
 
 function extract_base(sam) result(base)
    
@@ -124,7 +129,7 @@ logical function apparent_selection(cone)
    !apparent_selection = (cone%ra>=34*degree)
    !apparent_selection = apparent_selection .and. (cone%ra<=37.05*degree)
    !apparent_selection = apparent_selection .and. (cone%dec>=-5.2*degree)
-   !apparent_selection = apparent_selection .and. (cone%dec<=-4.2*degree)
+   !apparent_selection = apparent_selection .and. (cone%dec<=-4.21*degree)
 
 end function apparent_selection
 
@@ -173,10 +178,11 @@ subroutine make_automatic_parameters
    
    write(filename,'(A,I0,A)') trim(para%path_input),para%snapshot_min,'/0/galaxies.hdf5'
    call hdf5_open(filename)
-   call hdf5_read_dataset('/Cosmology/h',para%h)
-   call hdf5_read_dataset('/Cosmology/OmegaL',para%OmegaL)
-   call hdf5_read_dataset('/Cosmology/OmegaM',para%OmegaM)
-   call hdf5_read_dataset('/runInfo/lbox',para%L)
+   call hdf5_read_data('/Cosmology/h',para%h)
+   call hdf5_read_data('/Cosmology/OmegaL',para%OmegaL)
+   call hdf5_read_data('/Cosmology/OmegaM',para%OmegaM)
+   call hdf5_read_data('/Cosmology/OmegaB',para%OmegaB)
+   call hdf5_read_data('/runInfo/lbox',para%L)
    para%length_unit = Mpc/para%h
    call hdf5_close()
    
@@ -208,7 +214,7 @@ subroutine load_redshifts(snapshot)
    do isnapshot = para%snapshot_min,para%snapshot_max
       write(filename,'(A,I0,A)') trim(para%path_input),isnapshot,'/0/galaxies.hdf5'
       call hdf5_open(filename) ! NB: this routine also checks if the file exists
-      call hdf5_read_dataset('/runInfo/redshift',z)
+      call hdf5_read_data('/runInfo/redshift',z)
       snapshot(isnapshot)%redshift = real(z,4)
       call hdf5_close()
    end do
@@ -241,26 +247,26 @@ subroutine load_sam_snapshot(index,subindex,sam,snapshotname)
    allocate(sam(n))
    
    ! read file
-   call hdf5_read_dataset(g//'id_galaxy',sam%id_galaxy)
-   call hdf5_read_dataset(g//'id_halo',sam%id_halo)
-   call hdf5_read_dataset(g//'type',sam%typ)
-   call hdf5_read_dataset(g//'position_x',sam%position(1))
-   call hdf5_read_dataset(g//'position_y',sam%position(2))
-   call hdf5_read_dataset(g//'position_z',sam%position(3))
-   call hdf5_read_dataset(g//'velocity_x',sam%velocity(1))
-   call hdf5_read_dataset(g//'velocity_y',sam%velocity(2))
-   call hdf5_read_dataset(g//'velocity_z',sam%velocity(3))
-   call hdf5_read_dataset(g//'L_x',sam%J(1))
-   call hdf5_read_dataset(g//'L_y',sam%J(2))
-   call hdf5_read_dataset(g//'L_z',sam%J(3))
-   call hdf5_read_dataset(g//'mstars_disk',sam%mstars_disk)
-   call hdf5_read_dataset(g//'mstars_bulge',sam%mstars_bulge)
-   call hdf5_read_dataset(g//'matom_disk',sam%matom_disk)
-   call hdf5_read_dataset(g//'matom_bulge',sam%matom_bulge)
-   call hdf5_read_dataset(g//'rdisk_star',sam%rdisk_star)
-   call hdf5_read_dataset(g//'rbulge_star',sam%rbulge_star)
-   call hdf5_read_dataset(g//'rdisk_gas',sam%rdisk_gas)
-   call hdf5_read_dataset(g//'rbulge_gas',sam%rbulge_gas)
+   call hdf5_read_data(g//'id_galaxy',sam%id_galaxy)
+   call hdf5_read_data(g//'id_halo',sam%id_halo)
+   call hdf5_read_data(g//'type',sam%typ)
+   call hdf5_read_data(g//'position_x',sam%position(1))
+   call hdf5_read_data(g//'position_y',sam%position(2))
+   call hdf5_read_data(g//'position_z',sam%position(3))
+   call hdf5_read_data(g//'velocity_x',sam%velocity(1))
+   call hdf5_read_data(g//'velocity_y',sam%velocity(2))
+   call hdf5_read_data(g//'velocity_z',sam%velocity(3))
+   call hdf5_read_data(g//'L_x',sam%J(1))
+   call hdf5_read_data(g//'L_y',sam%J(2))
+   call hdf5_read_data(g//'L_z',sam%J(3))
+   call hdf5_read_data(g//'mstars_disk',sam%mstars_disk)
+   call hdf5_read_data(g//'mstars_bulge',sam%mstars_bulge)
+   call hdf5_read_data(g//'matom_disk',sam%matom_disk)
+   call hdf5_read_data(g//'matom_bulge',sam%matom_bulge)
+   call hdf5_read_data(g//'rdisk_star',sam%rdisk_star)
+   call hdf5_read_data(g//'rbulge_star',sam%rbulge_star)
+   call hdf5_read_data(g//'rdisk_gas',sam%rdisk_gas)
+   call hdf5_read_data(g//'rbulge_gas',sam%rbulge_gas)
    
    ! close file
    call hdf5_close()
@@ -278,7 +284,10 @@ end subroutine load_sam_snapshot
 subroutine rotate_vectors(sam)
 
    ! This function rotates all the vector-properties of the galaxy, except for the position, which has already
-   ! been processed when producing the intrinsic cone.
+   ! been processed when producing the intrinsic cone. For each such vector-property of the SAM, call
+   ! sam%vector = rotate(sam%vector,ps)
+   ! where ps is a logical argument that specifies whether the vector transforms like a normal vector,
+   ! or like a pseudo-vector (also known as axial vector)
 
    implicit none
    type(type_galaxy_sam),intent(inout)    :: sam
@@ -290,6 +299,9 @@ end subroutine rotate_vectors
 
 function convert_properties(base,sam) result(cone)
 
+   ! This is the central function of the user module. It makes the apparent properties of the galaxies
+   ! based on the intrinsic properties and the basic positional properties stored in base.
+   !
    ! NB: All vectors in sam have been rotated via rotate_vectors, before this function is called
    !     except for the galaxy position. The correct position (rotated+translated) is provided in the vector
    !     base%xcone in units of box side-lengths. Only use this position vector, not the position vector of the
@@ -304,17 +316,19 @@ function convert_properties(base,sam) result(cone)
    real*4                                 :: elos(3)  ! unit vector pointing from the observer to the object in comoving space
    
    ! make sky coordinates
+   elos     = base%xcone/norm(base%xcone) ! unit vector pointing along the line of slight
    cone%dc  = base%dc
    cone%ra  = base%ra
    cone%dec = base%dec
    
-   ! make distances and redshift, provided the position x and galaxy-velocity in km/s
+   ! make redshift, provided the galaxy position [simulation units] galaxy-velocity [km/s]
    call make_redshift(base%xcone,sam%velocity,z=cone%z)
    
    ! make inclination and position angle
    call make_inclination_and_pa(base%xcone,sam%J,inclination=cone%inclination,pa=cone%pa)
    
    ! copy basic constants
+   cone%box          = base%box
    cone%snapshot     = base%snapshot
    cone%subsnapshot  = base%subsnapshot
    cone%id           = sam%id_galaxy
@@ -322,7 +336,8 @@ function convert_properties(base,sam) result(cone)
    
    ! convert intrinsic to apparent properties
    dl = cone%dc*(1+cone%z)
-   cone%mag    = convert_absmag2appmag(convert_stellarmass2absmag(sam%mstars_disk+sam%mstars_bulge,1.0),dl)
+   cone%mstars = sam%mstars_disk+sam%mstars_bulge
+   cone%mag    = convert_absmag2appmag(convert_stellarmass2absmag(cone%mstars,1.0),dl)
    cone%vrad   = sum(sam%velocity*elos)
    cone%SHI    = convert_luminosity2flux(real(sam%matom_disk+sam%matom_bulge,8)*real(LMratioHI,8)*Lsun,dl)
    
@@ -346,9 +361,96 @@ subroutine handle_custom_arguments(task,custom_option,success)
    case ('my.task')
       call out('Here, specify what to do as "my.task"')
       if (len(custom_option)>0) call out('Using the custom option: '//custom_option)
+   case ('make.hdf5')
+      call make_hdf5
    case default
       success = .false.
    end select
+   
+contains
+
+subroutine make_hdf5
+   
+   implicit none
+   character(len=255)                  :: filename
+   real*4                              :: solidangle
+   real*4                              :: ra_min,ra_max
+   real*4                              :: dec_min,dec_max
+   type(type_galaxy_cone),allocatable  :: cone(:)
+   integer*8                           :: n,i
+   
+   ! load parameters
+   filename = trim(para%path_output)//'parameters.bin'
+   call check_exists(filename)
+   open(1,file=trim(filename),action='read',form="unformatted")
+   read(1) para
+   close(1)
+   
+   ! allocate galaxies
+   filename = trim(para%path_output)//'cone_apparent_info.bin'
+   call check_exists(filename)
+   open(1,file=trim(filename),action='read',form='unformatted')
+   read(1) n
+   close(1)
+   allocate(cone(n))
+   
+   ! load data
+   filename = trim(para%path_output)//'cone_apparent.bin'
+   open(1,file=trim(filename),action='read',form='unformatted',access='stream')
+   read(1) cone
+   close(1)
+   
+   ! create HDF5 file
+   write(filename,'(A,A)') trim(para%path_output),'cone_apparent.hdf5'
+   call hdf5_create(filename)
+   
+   ! open HDF5 file
+   call hdf5_open(filename)
+   
+   ! cosmology group
+   call hdf5_add_group('Cosmology')
+   call hdf5_write_data('Cosmology/OmegaL',para%OmegaL)
+   call hdf5_write_data('Cosmology/OmegaM',para%OmegaM)
+   call hdf5_write_data('Cosmology/OmegaB',para%OmegaB)
+   call hdf5_write_data('Cosmology/h',para%h,'Normalization of Hubble parameter H0 = h * 100 Mpc * km/s')
+   
+   ! galaxy group
+   call hdf5_add_group('Galaxies')
+   call hdf5_write_data('Galaxies/id',cone%id,'unique galaxy ID')
+   call hdf5_write_data('Galaxies/snapshot',cone%snapshot,'snapshot ID')
+   call hdf5_write_data('Galaxies/subsnapshot',cone%subsnapshot,'subsnapshot ID')
+   call hdf5_write_data('Galaxies/box',cone%box,'box ID in tiling array')
+   call hdf5_write_data('Galaxies/type',cone%typ,'galaxy type (0=central, 1=satellite in halo, 2=orphan)')
+   call hdf5_write_data('Galaxies/z',cone%z, &
+   & 'apparent redshift (Hubble flow + peculiar motion of galaxy and observer)')
+   call hdf5_write_data('Galaxies/dc',cone%dc,'[Mpc/h] comoving distance')
+   call hdf5_write_data('Galaxies/RA',cone%ra/degree,'[deg] right ascension')
+   call hdf5_write_data('Galaxies/DEC',cone%dec/degree,'[deg] declination')
+   call hdf5_write_data('Galaxies/inclination',cone%inclination/degree, &
+   & '[deg] inclination = angle between line-of-sight and spin axis')
+   call hdf5_write_data('Galaxies/pa',cone%pa/degree,'[deg] position angle from north to east')
+   call hdf5_write_data('Galaxies/mag',cone%mag, &
+   & 'apparent magnitude (generic: M/L ratio of 1, no k-correction)')
+   call hdf5_write_data('Galaxies/SHI',cone%SHI,'[W/m^2] integrated HI line flux')
+   call hdf5_write_data('Galaxies/vrad',cone%vrad,'[proper km/s] radial peculiar velocity')
+   call hdf5_write_data('Galaxies/mstars',cone%mstars,'[Msun/h] stellar mass')
+   
+   ! global group
+   call hdf5_add_group('Global')
+   call hdf5_write_data('Global/mstars',sum(cone%mstars),'Total stellar mass')
+   call hdf5_write_data('Global/SolidAngle',solidangle,'[deg^2] solid angle')
+   call hdf5_write_data('Global/RAmin',ra_min,'[deg] minimum right ascension')
+   call hdf5_write_data('Global/RAmax',ra_max,'[deg] maximum right ascension')
+   call hdf5_write_data('Global/DECmin',dec_min,'[deg] minimum declination')
+   call hdf5_write_data('Global/DECmax',dec_max,'[deg] maximum declination')
+   
+   ! close HDF5 file
+   call hdf5_close()
+   
+   ! finalize
+   deallocate(cone)
+
+end subroutine make_hdf5
    
 end subroutine handle_custom_arguments
 

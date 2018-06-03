@@ -52,7 +52,7 @@ program surfsuite
          case ('-parameterfile')
             parameter_filename_custom = trim(arg_value)
          case ('-verbose')
-            opt_logscreen = (arg_value=='0')
+            opt_logscreen = (arg_value=='1')
          case ('-option')
             custom_option = trim(arg_value)
          case default
@@ -103,7 +103,7 @@ program surfsuite
 
    subroutine  task_version
       implicit none
-      write(*,'(A,A,A)') 'This is SurfSuite Version ',version,'.'
+      write(*,'(A,A,A)') 'This is Stingray Version ',version,'.'
       write(*,'(A)') 'Consult the README file for additional information.'
       stop
    end subroutine task_version

@@ -53,6 +53,7 @@ subroutine reset_parameters
    para%h = huge(para%h)
    para%OmegaL = huge(para%OmegaL)
    para%OmegaM = huge(para%OmegaM)
+   para%OmegaB = huge(para%OmegaB)
    para%ra = huge(para%ra)
    para%dec = huge(para%dec)
    para%angle = huge(para%angle)
@@ -90,6 +91,7 @@ subroutine check_parameters
    if (para%h == huge(para%h)) call wrong('h')
    if (para%OmegaL == huge(para%OmegaL)) call wrong('OmegaL')
    if (para%OmegaM == huge(para%OmegaM)) call wrong('OmegaM')
+   if (para%OmegaB == huge(para%OmegaB)) call wrong('OmegaB')
    if (para%dc_min == huge(para%dc_min)) call wrong('dc_min')
    if (para%dc_max == huge(para%dc_max)) call wrong('dc_max')
    if (para%axis(1) == huge(para%axis)) call wrong('axis_x')
@@ -113,8 +115,10 @@ subroutine check_parameters
    if (para%h<=0) call error('h must be larger than 0.')
    if (para%OmegaL<0) call error('OmegaL must be >=0.')
    if (para%OmegaM<0) call error('OmegaM must be >=0.')
+   if (para%OmegaB<0) call error('OmegaB must be >=0.')
    if (para%OmegaL>1) call error('OmegaL must be <=1.')
    if (para%OmegaM>1) call error('OmegaM must be <=1.')
+   if (para%OmegaB>para%OmegaM) call error('OmegaB must be <= OmegaM.')
    if (para%dc_min<0) call error('dc_min must be >=0.')
    if (para%dc_max<=0) call error('dc_min must be >0.')
    if (para%dc_max<=para%dc_min) call error('dc_min must smaller than dc_max.')
@@ -255,6 +259,8 @@ subroutine load_user_parameters(parameter_filename)
                if (manual) read(var_value,*) para%OmegaL
             case ('OmegaM')
                if (manual) read(var_value,*) para%OmegaM
+            case ('OmegaB')
+               if (manual) read(var_value,*) para%OmegaB
             case ('ra')
                if (manual) read(var_value,*) para%ra
             case ('dec')
@@ -417,6 +423,7 @@ subroutine save_parameters
    write(txt,'(E14.7)') para%h;                 call line('h',txt)
    write(txt,'(E14.7)') para%OmegaL;            call line('OmegaL',txt)
    write(txt,'(E14.7)') para%OmegaM;            call line('OmegaM',txt)
+   write(txt,'(E14.7)') para%OmegaB;            call line('OmegaB',txt)
    
    ! cone geometry
    if (para%dec_max<=180.0) then

@@ -30,6 +30,7 @@ module module_types
       real*4               :: h
       real*4               :: OmegaL
       real*4               :: OmegaM
+      real*4               :: OmegaB
       
       ! footprint on the sky
       real*4               :: ra       ! [rad]
