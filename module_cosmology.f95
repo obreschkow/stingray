@@ -3,6 +3,7 @@
 module module_cosmology
 
    use module_constants
+   use module_types
    
    public
 

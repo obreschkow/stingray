@@ -1,15 +1,14 @@
 program surfsuite
 
+   use module_constants
    use module_system
    use module_parameters
    use module_user
-   use module_geometry
+   use module_tiling
    use module_cone_intrinsic
    use module_cone_apparent
 
    implicit none
-   
-   character(*),parameter  :: version = '0.1'
 
    character(len=255)      :: parameter_filename_custom
    character(len=255)      :: arg_task
@@ -77,13 +76,14 @@ program surfsuite
    select case (trim(arg_task))
    case ('make.all')
       call make_parameters(parameter_filename_custom)
-      call make_geometry
+      call make_tiling
       call make_cone_intrinsic
       call make_cone_apparent
+      call handle_custom_arguments('my.additions.to.make.all','',success)
    case ('make.parameters')
       call make_parameters(parameter_filename_custom)
-   case ('make.geometry')
-      call make_geometry
+   case ('make.tiling')
+      call make_tiling
    case ('make.intrinsic.cone')
       call make_cone_intrinsic
    case ('make.apparent.cone')

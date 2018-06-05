@@ -106,43 +106,29 @@ subroutine make_sky_coordinates(x,dc,ra,dec)
    if (normx<=epsilon(normx)) call error('make_sky_coordinates: norm of x is zero.')
    
    if (present(dc))  dc  = normx*para%L
-   if (present(ra))  ra  = atan2(x(1),x(3))
-   if (present(dec)) dec = asin(x(2)/normx)
+   if (present(ra))  ra  = modulo(atan2(x(1),x(3)),2*pi)
+   if (present(dec)) dec = asin(min(1.0,x(2)/normx))
    
 end subroutine make_sky_coordinates
 
-function convert_stellarmass2absmag(M,M2L) result(mag)
+function convert_stellarmass2absmag(M,M2L,magSun) result(mag)
       
    implicit none
-   real*4,intent(in)    :: M     ! [Msun] stellar mass
-   real*4,intent(in)    :: M2L   ! [Msun/Lsun] stellar mass-to-light ratio
-   real*4               :: mag   ! absolute magnitude
+   real*4,intent(in)          :: M              ! [Msun] stellar mass
+   real*4,intent(in)          :: M2L            ! [Msun/Lsun] stellar mass-to-light ratio
+   real*4,intent(in),optional :: magSun         ! absolute magnitude of the sun
+   real*4                     :: luminosity     ! [Lsun] luminosity
+   real*4                     :: mag            ! absolute magnitude
+   real*4,parameter           :: magSunV = 4.83 ! absolute visual magnitude of sun
    
-   mag = convert_luminosity2absmag(M/M2L)
+   luminosity = M/M2L ! [Lsun]
+   if (present(magSun)) then
+      mag = magSun-2.5*log10(luminosity)
+   else
+      mag = magSunV-2.5*log10(luminosity)
+   end if
 
 end function convert_stellarmass2absmag
-
-function convert_luminosity2absmag(L) result(mag)
-      
-   implicit none
-   real*4,intent(in)    :: L              ! [Lsun] luminosity
-   real*4               :: mag            ! absolute magnitude
-   real*4,parameter     :: magSun = 4.83  ! absolute magnitude of sun
-   
-   mag = magSun-2.5*log10(L)
-
-end function convert_luminosity2absmag
-
-function convert_luminosity2flux(L,dl) result(S)
-
-   implicit none
-   real*8,intent(in) :: L     ! [W] Luminosity
-   real*4,intent(in) :: dl    ! [Mpc] luminosity distance
-   real*8            :: S     ! [W/m^2] Flux
-
-   S = L/real(dl,8)**2/ASphereMpc
-
-end function convert_luminosity2flux
 
 function convert_absmag2appmag(absmag,dl) result(appmag)
 
@@ -154,6 +140,17 @@ function convert_absmag2appmag(absmag,dl) result(appmag)
    appmag = absmag+5*log10(dl)+25
 
 end function convert_absmag2appmag
+
+function convert_luminosity2flux(L,dl) result(S)
+
+   implicit none
+   real*8,intent(in) :: L     ! [W] Luminosity
+   real*4,intent(in) :: dl    ! [Mpc] luminosity distance
+   real*8            :: S     ! [W/m^2] Flux
+
+   S = L/real(dl,8)**2/ASphereMpc
+
+end function convert_luminosity2flux
 
 function convert_vector(x,rotation) result(y)
 

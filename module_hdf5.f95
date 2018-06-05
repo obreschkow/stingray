@@ -1,4 +1,4 @@
-module module_hdf5_utilities
+module module_hdf5
 
    use hdf5
    use module_system
@@ -25,10 +25,12 @@ module module_hdf5_utilities
       module procedure write_dataset_0d_int8
       module procedure write_dataset_0d_real4
       module procedure write_dataset_0d_real8
+      module procedure write_dataset_0d_string
       module procedure write_dataset_1d_int4
       module procedure write_dataset_1d_int8
       module procedure write_dataset_1d_real4
       module procedure write_dataset_1d_real8
+      module procedure write_dataset_2d_real4
    end interface hdf5_write_data
    
    integer(hid_t) :: file_id
@@ -237,6 +239,30 @@ contains
       
    end subroutine write_dataset_1d_real8
    
+   subroutine write_dataset_0d_string(datasetname,dat,attribute)
+   
+      implicit none
+      character(*),intent(in)          :: datasetname
+      character(*),intent(in)          :: dat
+      character(*),intent(in),optional :: attribute ! optional explanation
+      integer(hid_t)                   :: space_id
+      integer(hid_t)                   :: dataset_id,filetype
+      integer*4                        :: error,hdferr
+      integer*4,parameter              :: rank = 1
+      integer*8                        :: n(1)
+      
+      n(1) = len(dat)
+      call h5screate_simple_f(rank,(/1_8/),space_id,error)  ! Create the space for the dataset
+      call H5Tcopy_f(H5T_FORTRAN_S1, filetype, hdferr)
+      call H5Tset_size_f(filetype, n(1), hdferr)
+      call h5dcreate_f(file_id,datasetname,filetype,space_id,dataset_id,error) ! create dataset
+      call h5dwrite_f(dataset_id,filetype,dat,n,error) ! write data set
+      call h5sclose_f(space_id,error) ! close data space
+      if (present(attribute)) call write_attribute(attribute,dataset_id)
+      call h5dclose_f(dataset_id,error) ! close data set
+      
+   end subroutine write_dataset_0d_string
+   
    subroutine write_attribute(attribute,dataset_id)
    
       implicit none
@@ -261,6 +287,29 @@ contains
       call h5aclose_f(attr_id,error) ! Close the attribute.
       
    end subroutine write_attribute
+   
+   subroutine write_dataset_2d_real4(datasetname,dat,attribute)
+   
+      implicit none
+      character(*),intent(in)          :: datasetname
+      real*4,intent(in)                :: dat(:,:)
+      character(*),intent(in),optional :: attribute ! optional explanation
+      integer(hid_t)                   :: space_id
+      integer(hid_t)                   :: dataset_id
+      integer*4                        :: error
+      integer*4,parameter              :: rank = 2
+      integer*8                        :: n(2)
+      
+      n(1) = size(dat,1)
+      n(2) = size(dat,2)
+      call h5screate_simple_f(rank,n,space_id,error)  ! Create the space for the dataset
+      call h5dcreate_f(file_id,datasetname,H5T_IEEE_F32LE,space_id,dataset_id,error) ! create dataset
+      call h5dwrite_f(dataset_id,H5T_IEEE_F32LE,dat,n,error) ! write data set
+      call h5sclose_f(space_id,error) ! close data space
+      if (present(attribute)) call write_attribute(attribute,dataset_id)
+      call h5dclose_f(dataset_id,error) ! close data set
+      
+   end subroutine write_dataset_2d_real4
    
    
    ! ===========================================================================================================
@@ -446,4 +495,4 @@ contains
 
    end function get_mem_type_id
    
-end module module_hdf5_utilities
+end module module_hdf5

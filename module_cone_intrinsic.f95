@@ -2,16 +2,15 @@ module module_cone_intrinsic
 
    use module_constants
    use module_system
+   use module_types
    use module_cosmology
    use module_user
    use module_parameters
-   use module_geometry
+   use module_tiling
    
    private
    public   :: make_cone_intrinsic
    
-   type(type_box),allocatable          :: box(:)
-   type(type_snapshot),allocatable     :: snapshot(:)
    type(type_galaxy_base),allocatable  :: base(:)
    type(type_galaxy_sam),allocatable   :: sam(:)
    integer*8                           :: nmockgalaxies
@@ -31,14 +30,17 @@ subroutine make_cone_intrinsic
    
    ! load previous steps
    call load_parameters
-   call load_geometry(box)
+   call load_box_list
    
    ! make snapshot properties
-   call load_redshifts(snapshot)
-   call assign_distance_ranges
+   if (allocated(snapshot)) deallocate(snapshot)
+   allocate(snapshot(para%snapshot_min:para%snapshot_max))
+   call make_redshifts
+   call make_distance_ranges
+   call save_snapshot_list
    
    ! create new file
-   filename_cone_intrinsic = trim(para%path_output)//'cone_intrinsic.bin'
+   filename_cone_intrinsic = trim(para%path_output)//'mocksurvey_intrinsic.bin'
    open(1,file=trim(filename_cone_intrinsic),action='write',form="unformatted",status='replace',access='stream')
    close(1)
    
@@ -73,7 +75,7 @@ subroutine make_cone_intrinsic
    
    ! write info
    inquire(file=filename_cone_intrinsic, size=bytes)
-   open(1,file=trim(para%path_output)//'cone_intrinsic_info.txt',action='write',form="formatted",status='replace')
+   open(1,file=trim(para%path_output)//'mocksurvey_intrinsic_info.txt',action='write',form="formatted",status='replace')
    write(1,'(A,I10)') 'Number.of.galaxies.in.intrinsic.cone        ',nmockgalaxies
    write(1,'(A,I10)') 'Number.of.bytes.per.galaxy.in.intrinsic.cone',bytes/nmockgalaxies
    close(1)
@@ -129,19 +131,21 @@ subroutine write_subsnapshot_into_box(isnapshot)
       if ((d>=snapshot(isnapshot)%dmin).and.(d<snapshot(isnapshot)%dmax)) then
          dc = d*para%L ! comoving distance in simulation units
          if ((dc>=para%dc_min).or.(dc<=para%dc_max)) then
-         
-            ! check footprint on sky (ra,dec)
-            base(igalaxy)%xcone = matmul(para%sky_rotation,base(igalaxy)%xcone) ! rotates cone axis onto central RA, Dec
-            call make_sky_coordinates(base(igalaxy)%xcone,base(igalaxy)%dc,base(igalaxy)%ra,base(igalaxy)%dec)
-            if (check_footprint(base(igalaxy))) then
             
-               ! user checks
-               if (intrinsic_selection(sam(igalaxy))) then
+            ! check footprint on sky (ra,dec)
+            call make_sky_coordinates(matmul(para%sky_rotation,base(igalaxy)%xcone), &
+            & base(igalaxy)%dc,base(igalaxy)%ra,base(igalaxy)%dec)
+            if (acos(min(1.0,sum(para%axis*base(igalaxy)%xcone)/d))<=para%angle) then
+               if (position_selection(base(igalaxy)%ra/degree,base(igalaxy)%dec/degree,base(igalaxy)%dc)) then ! use check
                   
-                  ! write selected galaxy into intrinsic cone file
-                  nmockgalaxies = nmockgalaxies+1
-                  write(1) base(igalaxy),sam(igalaxy)
+                  ! additional user checks
+                  if (intrinsic_selection(sam(igalaxy))) then
                   
+                     ! write selected galaxy into intrinsic cone file
+                     nmockgalaxies = nmockgalaxies+1
+                     write(1) base(igalaxy),sam(igalaxy)
+                  
+                  end if
                end if
             end if
          end if
@@ -150,30 +154,10 @@ subroutine write_subsnapshot_into_box(isnapshot)
    
    ! close file
    close(1)
-   
-   contains
-   
-   logical function check_footprint(b)
-   
-      implicit none
-      type(type_galaxy_base),intent(in)   :: b
-      real*4                              :: d
-      
-      if (para%dec_min>pi) then
-         ! check circular cone
-         d = norm(b%xcone)
-         check_footprint = acos(min(1.0,sum(para%axis*b%xcone)/d))<=para%angle
-      else
-         ! check ra and dec range
-         check_footprint = (b%ra>=para%ra_min).and.(b%ra<=para%ra_max).and. &
-         & (b%dec>=para%dec_min).and.(b%dec<=para%dec_max)
-      end if
-                  
-   end function check_footprint
 
 end subroutine write_subsnapshot_into_box
 
-subroutine assign_distance_ranges
+subroutine make_distance_ranges
 
    implicit none
    integer*4            :: i
@@ -197,7 +181,7 @@ subroutine assign_distance_ranges
       end if
    end do
 
-end subroutine assign_distance_ranges
+end subroutine make_distance_ranges
 
 subroutine initialize_base_properties(index,subindex)
 

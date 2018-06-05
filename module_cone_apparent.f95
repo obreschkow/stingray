@@ -1,11 +1,12 @@
 module module_cone_apparent
 
    use module_constants
+   use module_types
    use module_system
    use module_cosmology
    use module_user
    use module_parameters
-   use module_geometry
+   use module_tiling
    
    private
    public   :: make_cone_apparent
@@ -19,7 +20,6 @@ subroutine make_cone_apparent
    integer*8                  :: n,i,m
    integer*4                  :: bytespergalaxy
    integer*8                  :: bytes
-   type(type_box),allocatable :: box(:)
    type(type_galaxy_base)     :: base
    type(type_galaxy_sam)      :: sam   ! intrinsic galaxy properties from SAM
    type(type_galaxy_cone)     :: cone  ! apparent galaxy properties
@@ -30,7 +30,7 @@ subroutine make_cone_apparent
    
    ! load previous steps
    call load_parameters
-   call load_geometry(box)
+   call load_box_list
    
    ! determine number of bytes per galaxy in intrinsic cone
    filename = trim(para%path_output)//'.tmpsizeof'
@@ -40,7 +40,7 @@ subroutine make_cone_apparent
    inquire(file=trim(filename), size=bytespergalaxy)
    
    ! determine number of galaxies in intrinsic cone
-   filename = trim(para%path_output)//'cone_intrinsic.bin'
+   filename = trim(para%path_output)//'mocksurvey_intrinsic.bin'
    inquire(file=filename, size=bytes)
    if (modulo(bytes,bytespergalaxy).ne.0) then
       call error('Size of intrinsic cone file inconsistent with type_galaxy_base and/or type_galaxy_sam.')
@@ -51,7 +51,7 @@ subroutine make_cone_apparent
    open(2,file=trim(filename),action='read',form='unformatted',status='old',access='stream')
    
    ! initialize master one
-   filename = trim(para%path_output)//'cone_apparent.bin'
+   filename = trim(para%path_output)//'mocksurvey.bin'
    open(1,file=trim(filename),action='write',form="unformatted",status='replace',access='stream')
    
    ! write user info
@@ -79,7 +79,7 @@ subroutine make_cone_apparent
      
    ! write info (ascii)
    inquire(file=filename, size=bytes)
-   filename = trim(para%path_output)//'cone_apparent_info.txt'
+   filename = trim(para%path_output)//'mocksurvey_info.txt'
    open(1,file=trim(filename),action='write',form="formatted",status='replace')
    write(1,'(A,I10)') 'Number.of.galaxies.in.apparent.cone        ',m
    write(1,'(A,I10)') 'Number.of.bytes.per.galaxy.in.apparent.cone',bytes/m
@@ -87,7 +87,7 @@ subroutine make_cone_apparent
    
    ! write info (binary)
    inquire(file=filename, size=bytes)
-   filename = trim(para%path_output)//'cone_apparent_info.bin'
+   filename = trim(para%path_output)//'mocksurvey_info.bin'
    open(1,file=trim(filename),action='write',form="unformatted",status='replace')
    write(1) m
    write(1) bytes/m

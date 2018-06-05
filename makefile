@@ -16,29 +16,29 @@ PROGRAMS = stingray
 # "make" builds all
 all: $(PROGRAMS)
 
-stingray.o:    module_types.o \
-               module_constants.o \
-               module_linalg.o \
+stingray.o:    module_constants.o \
                module_system.o \
+               module_types.o \
+               module_linalg.o \
                module_cosmology.o \
                module_conversion.o \
-               module_hdf5_utilities.o \
+               module_hdf5.o \
                module_user_$(Model).o \
                module_parameters.o \
-               module_geometry.o \
+               module_tiling.o \
                module_cone_intrinsic.o \
                module_cone_apparent.o
                
-stingray: 	   module_types.o \
-               module_constants.o \
-               module_linalg.o \
+stingray: 	   module_constants.o \
                module_system.o \
+               module_types.o \
+               module_linalg.o \
                module_cosmology.o \
                module_conversion.o \
-               module_hdf5_utilities.o \
+               module_hdf5.o \
                module_user_$(Model).o \
                module_parameters.o \
-               module_geometry.o \
+               module_tiling.o \
                module_cone_intrinsic.o \
                module_cone_apparent.o
 
