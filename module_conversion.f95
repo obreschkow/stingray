@@ -32,7 +32,7 @@ end function rotate
 subroutine make_redshift(x,v,z,zcos)
 
    implicit none
-   real*4,intent(in)             :: x(3)     ! [box side-length] position vector
+   real*4,intent(in)             :: x(3)     ! [Mpc] position vector
    real*4,intent(in)             :: v(3)     ! [km/s] velocity of galaxy
    real*4,intent(out),optional   :: z        ! total redshift
    real*4,intent(out),optional   :: zcos     ! cosmological redshift due to Hubble flow without accounting for relative velocity
@@ -43,13 +43,16 @@ subroutine make_redshift(x,v,z,zcos)
    real*4                        :: z_,zcos_
    
    dc = norm(x)
-   if (dc<=epsilon(dc)) call error('make_distances: norm of x is zero.')
-   
-   elos = x/dc ! unit-vector along the line of slight
-   zcos_ = dc_to_redshift(dc*para%L*(para%length_unit/Mpc))
-   zpec = min(0.1,max(-0.1,sum(v*elos)/c*1e3)) ! limited to 0.1 to avoid relativistic regime, ok for all practical purposes
-   zobs = min(0.1,max(-0.1,-sum(para%velocity*elos)/c*1e3)) ! limited to 0.1 to avoid relativistic regime, ok for all practical purposes
-   z_ = (1+zcos_)*(1+zpec)*(1+zobs)-1 ! following Davis & Scrimgeour 2014
+   if (dc<=epsilon(dc)) then
+      z_ = 0
+      zcos_ = 0
+   else   
+      elos = x/dc ! unit-vector along the line of slight
+      zcos_ = dc_to_redshift(dc)
+      zpec = min(0.1,max(-0.1,sum(v*elos)/c*1e3)) ! limited to 0.1 to avoid relativistic regime, ok for all practical purposes
+      zobs = min(0.1,max(-0.1,-sum(para%velocity_car*elos)/c*1e3)) ! limited to 0.1 to avoid relativistic regime, ok for all practical purposes
+      z_ = (1+zcos_)*(1+zpec)*(1+zobs)-1 ! following Davis & Scrimgeour 2014
+   end if
    
    if (present(z))      z     = z_
    if (present(zcos))   zcos  = zcos_
@@ -92,24 +95,6 @@ subroutine make_inclination_and_pa(x,J,inclination,pa)
    if (pa<0) pa = 2*pi-pa
    
 end subroutine make_inclination_and_pa
-
-subroutine make_sky_coordinates(x,dc,ra,dec)
-
-   implicit none
-   real*4,intent(in)                :: x(3)  ! [box side-length] position vector
-   real*4,intent(out),optional      :: dc    ! [length units of simulation] comoving distance
-   real*4,intent(out),optional      :: ra    ! [rad] right ascension
-   real*4,intent(out),optional      :: dec   ! [rad] declination
-   real*4                           :: normx
-   
-   normx = norm(x)
-   if (normx<=epsilon(normx)) call error('make_sky_coordinates: norm of x is zero.')
-   
-   if (present(dc))  dc  = normx*para%L
-   if (present(ra))  ra  = modulo(atan2(x(1),x(3)),2*pi)
-   if (present(dec)) dec = asin(min(1.0,x(2)/normx))
-   
-end subroutine make_sky_coordinates
 
 function convert_stellarmass2absmag(M,M2L,magSun) result(mag)
       

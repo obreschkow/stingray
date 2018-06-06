@@ -64,7 +64,7 @@ subroutine make_cone_apparent
       Rvector = box(base%box)%Rvector
       Rpseudo = box(base%box)%Rpseudo
       call rotate_vectors(sam)
-      cone = convert_properties(base,sam)
+      cone = convert_properties(base,sam,m+1)
       if (apparent_selection(cone)) then
          m = m+1
          call write_galaxy(cone)

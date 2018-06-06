@@ -39,28 +39,34 @@ module module_types
       real*4               :: OmegaM
       real*4               :: OmegaB
       
-      ! footprint on the sky
-      real*4               :: ra       ! [rad]
-      real*4               :: dec      ! [rad]
-      real*4               :: angle    ! [rad] half opening angle
-      
       ! distance range
       real*4               :: dc_min   ! [length unit of simulation]
       real*4               :: dc_max   ! [length unit of simulation]
       
-      ! direction and orientation in the tiling grid
-      real*4               :: axis(3)
-      real*4               :: turn     ! [rad] 
+      ! fov
+      real*4               :: ra_min   ! [rad]
+      real*4               :: ra_max   ! [rad]
+      real*4               :: dec_min  ! [rad]
+      real*4               :: dec_max  ! [rad]
+      
+      ! mapping of SAM coordinates onto survey coordinates
+      real*4               :: zaxis_ra    ! [rad]
+      real*4               :: zaxis_dec   ! [rad]
+      real*4               :: xy_angle    ! [rad]
 
       ! cone parameters
       integer*4            :: seed  ! seed of random number generator (integer >=1)
       integer*4            :: translate
       integer*4            :: rotate
       integer*4            :: invert
-      ! observer
-      real*4               :: velocity(3)    ! [km/s] peculiar velocity of observer with respect to Hubble flow
+      
+      ! observer velocity relative to CMB
+      real*4               :: velocity_ra    ! [rad]
+      real*4               :: velocity_dec   ! [rad]
+      real*4               :: velocity_norm  ! [km/s] peculiar velocity of observer with respect to Hubble flow
       
       ! derived parameters, not directly specified by the user
+      real*4               :: velocity_car(3)   ! [km/s] velocity of observer cartesian survey-coordinates
       real*4               :: sky_rotation(3,3) ! rotation matrix to move the (x,y,z)-cone axis onto the central (RA,dec)-cone
    
    end type type_para
@@ -68,14 +74,11 @@ module module_types
    type type_galaxy_base
 
       integer*8            :: groupid        ! unique identifier of group
-      real*4               :: xbox(3)        ! [simulation length unit] position in SAM snapshot
+      real*4               :: xbox(3)        ! [simulation unit] position of galaxy in cartesian SAM-coords
       integer*4            :: snapshot       ! snapshot index
       integer*4            :: subsnapshot    ! sub-snapshot index
       integer*4            :: box            ! unique identifier of box in mock cone
-      real*4               :: xcone(3)       ! [units of side-length L] position in mock cone after tilying
-                                             ! (translations + 90deg-rotations), but before sky-rotation
-      real*4               :: dc             ! [simulation length unit] comoving distance in cone
-      real*4               :: ra,dec         ! [rad] position on sky
+      real*4               :: dc,ra,dec      ! [simulation length unit,rad,rad] position in spherical Sky-coords
    
    end type type_galaxy_base
 
@@ -143,20 +146,20 @@ contains
       call line('OmegaB',para%OmegaB)
       call line('dc_min',para%dc_min)
       call line('dc_max',para%dc_max)
-      call line('ra',para%ra/degree)
-      call line('dec',para%dec/degree)
-      call line('angle',para%angle/degree)
-      call line('axis.x',para%axis(1))
-      call line('axis.y',para%axis(2))
-      call line('axis.z',para%axis(3))
-      call line('turn',para%turn/degree)
+      call line('ra_min',para%ra_min/degree)
+      call line('ra_max',para%ra_max/degree)
+      call line('dec_min',para%dec_min/degree)
+      call line('dec_max',para%dec_max/degree)
+      call line('zaxis_ra',para%zaxis_ra)
+      call line('zaxis_dec',para%zaxis_dec)
+      call line('xy_angle',para%xy_angle)
       call line('seed',para%seed)
       call line('translate',para%translate)
       call line('rotate',para%rotate)
       call line('invert',para%invert)
-      call line('velocity.x',para%velocity(1))
-      call line('velocity.y',para%velocity(2))
-      call line('velocity.z',para%velocity(3))
+      call line('velocity_ra',para%velocity_ra)
+      call line('velocity_dec',para%velocity_dec)
+      call line('velocity_norm',para%velocity_norm)
       
       ! close files
       close(1)

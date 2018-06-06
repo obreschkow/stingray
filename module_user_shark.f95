@@ -62,8 +62,11 @@ end type type_galaxy_sam
 ! Here, specify the galaxy properties in the mock cone. These are mostly apparent galaxy properties.
 
 type type_galaxy_cone
-
-   integer*8   :: id             ! unique galaxy ID
+   
+   integer*8   :: id_galaxy_sky  ! unique ID in the mock cone
+   integer*8   :: id_galaxy_sam  ! galaxy ID in the SAM
+   integer*8   :: id_halo_sky    ! unique parent halo ID in the mock cone
+   integer*8   :: id_halo_sam    ! galaxy parent halo ID in the SAM
    integer*4   :: snapshot       ! snapshot ID
    integer*4   :: subsnapshot    ! subsnapshot ID
    integer*4   :: box            ! box ID
@@ -105,14 +108,14 @@ end function extract_base
 
 ! selection function acting on comoving position, applied when making the tiling and intrinsic cone
 
-logical function position_selection(ra,dec,dc)
+logical function position_selection(dc,ra,dec)
    
    implicit none
+   real*4,intent(in) :: dc    ! [simulation units] comoving distance
    real*4,intent(in) :: ra    ! [deg] right ascension
    real*4,intent(in) :: dec   ! [deg] right ascension
-   real*4,intent(in) :: dc    ! [simulation units] comoving distance
    
-   if (.false.) then; write(*) ra,dec,dc; end if ! dummy statement to avoid compiler warnings for unused arguments
+   if (.false.) then; write(*) dc,ra,dec; end if ! dummy statement to avoid compiler warnings for unused arguments
    
    select case (trim(para%name))
    case ('DEVILS')
@@ -323,43 +326,55 @@ subroutine rotate_vectors(sam)
    
 end subroutine rotate_vectors
 
-function convert_properties(base,sam) result(cone)
+function convert_properties(base,sam,id) result(cone)
 
    ! This is the central function of the user module. It makes the apparent properties of the galaxies
    ! based on the intrinsic properties and the basic positional properties stored in base.
    !
    ! NB: All vectors in sam have been rotated via rotate_vectors, before this function is called
-   !     except for the galaxy position. The correct position (rotated+translated) is provided in the vector
-   !     base%xcone in units of box side-lengths. Only use this position vector, not the position vector of the
-   !     SAM to compute sky coordinates etc.
+   !     except for the galaxy position. The correct position (rotated+translated) is provided in spherical
+   !     sky-coordinates: base%dc [comoving simulation length unit] base%ra [rad], base%dec [rad]. Only use this
+   !     position, not the position vector of the  SAM to compute apparent properties.
 
    implicit none
    
+   integer*8                              :: id       ! unique ID of galaxy in mock survey
    type(type_galaxy_base),intent(in)      :: base     ! base properties of galaxy in the cone
    type(type_galaxy_sam),intent(in)       :: sam      ! intrinsic galaxy properties from SAM
    type(type_galaxy_cone)                 :: cone     ! apparent galaxy properties
+   real*4                                 :: pos(3)   ! [simulation length units] position vector of galaxy
    real*4                                 :: dl       ! [simulation length units] luminosity distance to observer
    real*4                                 :: elos(3)  ! unit vector pointing from the observer to the object in comoving space
    real*4                                 :: mHI
    
-   ! make sky coordinates
-   elos     = base%xcone/norm(base%xcone) ! unit vector pointing along the line of slight
-   cone%dc  = base%dc
-   cone%ra  = base%ra
-   cone%dec = base%dec
+   if (.false.) then; write(*) base,sam,id; end if ! dummy statement to avoid compiler warnings for unused arguments
+   
+   ! position vector
+   call sph2car(base%dc,base%ra,base%dec,pos)
+   elos = pos/norm(pos)
+   
+   ! sky coordinates
+   cone%dc  = base%dc         ! [Mpc/h]
+   cone%ra  = base%ra         ! [rad]
+   cone%dec = base%dec        ! [rad]
    
    ! make redshift, provided the galaxy position [simulation units] galaxy-velocity [km/s]
-   call make_redshift(base%xcone,sam%velocity,z=cone%z)
+   call make_redshift(pos*(para%length_unit/Mpc),sam%velocity,z=cone%z)
    
-   ! make inclination and position angle
-   call make_inclination_and_pa(base%xcone,sam%J,inclination=cone%inclination,pa=cone%pa)
+   ! make inclination and position angle [rad]
+   call make_inclination_and_pa(pos,sam%J,inclination=cone%inclination,pa=cone%pa)
+   
+   ! make IDs
+   cone%id_galaxy_sky   = id
+   cone%id_galaxy_sam   = sam%id_galaxy
+   cone%id_halo_sky     = sam%id_halo+base%box*int(1e10,8)
+   cone%id_halo_sam     = sam%id_halo
+   cone%box             = base%box
+   cone%snapshot        = base%snapshot
+   cone%subsnapshot     = base%subsnapshot
    
    ! copy basic constants
-   cone%box          = base%box
-   cone%snapshot     = base%snapshot
-   cone%subsnapshot  = base%subsnapshot
-   cone%id           = sam%id_galaxy
-   cone%typ          = sam%typ
+   cone%typ             = sam%typ
    
    ! convert intrinsic to apparent properties
    dl = cone%dc*(1+cone%z) ! [Mpc/h]
@@ -449,26 +464,29 @@ subroutine make_hdf5
    call hdf5_write_data('Parameters/OmegaB',para%OmegaB)
    call hdf5_write_data('Parameters/dc_min',para%dc_min)
    call hdf5_write_data('Parameters/dc_max',para%dc_max)
-   call hdf5_write_data('Parameters/ra',para%ra/degree)
-   call hdf5_write_data('Parameters/dec',para%dec/degree)
-   call hdf5_write_data('Parameters/angle',para%angle/degree)
-   call hdf5_write_data('Parameters/axis.x',para%axis(1))
-   call hdf5_write_data('Parameters/axis.y',para%axis(2))
-   call hdf5_write_data('Parameters/axis.z',para%axis(3))
-   call hdf5_write_data('Parameters/turn',para%turn/degree)
+   call hdf5_write_data('Parameters/ra_min',para%ra_min/degree)
+   call hdf5_write_data('Parameters/ra_max',para%ra_max/degree)
+   call hdf5_write_data('Parameters/dec_min',para%dec_min/degree)
+   call hdf5_write_data('Parameters/dec_max',para%dec_max/degree)
+   call hdf5_write_data('Parameters/zaxis_ra',para%zaxis_ra/degree)
+   call hdf5_write_data('Parameters/zaxis_dec',para%zaxis_dec/degree)
+   call hdf5_write_data('Parameters/xy_angle',para%xy_angle/degree)
    call hdf5_write_data('Parameters/seed',para%seed)
    call hdf5_write_data('Parameters/translate',para%translate)
    call hdf5_write_data('Parameters/rotate',para%rotate)
    call hdf5_write_data('Parameters/invert',para%invert)
-   call hdf5_write_data('Parameters/velocity.x',para%velocity(1))
-   call hdf5_write_data('Parameters/velocity.y',para%velocity(2))
-   call hdf5_write_data('Parameters/velocity.z',para%velocity(3))
+   call hdf5_write_data('Parameters/velocity_ra',para%velocity_ra)
+   call hdf5_write_data('Parameters/velocity_dec',para%velocity_dec)
+   call hdf5_write_data('Parameters/velocity_norm',para%velocity_norm)
    call hdf5_write_data('Parameters/skyrotation',para%sky_rotation, &
    & 'Rotation matrix to map xyz-coordinates of the tiling structure onto sky coordinates.')
    
    ! Group "Galaxies"
    call hdf5_add_group('Galaxies')
-   call hdf5_write_data('Galaxies/id',cone%id,'unique galaxy ID')
+   call hdf5_write_data('Galaxies/id_galaxy_sky',cone%id_galaxy_sky,'unique galaxy ID in mock sky')
+   call hdf5_write_data('Galaxies/id_galaxy_sam',cone%id_galaxy_sam,'galaxy ID in SAM')
+   call hdf5_write_data('Galaxies/id_halo_sky',cone%id_galaxy_sky,'unique parent halo ID in mock sky')
+   call hdf5_write_data('Galaxies/id_halo_sam',cone%id_galaxy_sam,'parent halo ID in SAM')
    call hdf5_write_data('Galaxies/snapshot',cone%snapshot,'snapshot ID')
    call hdf5_write_data('Galaxies/subsnapshot',cone%subsnapshot,'subsnapshot ID')
    call hdf5_write_data('Galaxies/box',cone%box,'box ID in tiling array')
@@ -477,7 +495,7 @@ subroutine make_hdf5
    & 'apparent redshift (Hubble flow + peculiar motion of galaxy and observer)')
    call hdf5_write_data('Galaxies/dc',cone%dc,'[Mpc/h] comoving distance')
    call hdf5_write_data('Galaxies/RA',cone%ra/degree,'[deg] right ascension')
-   call hdf5_write_data('Galaxies/DEC',cone%dec/degree,'[deg] declination')
+   call hdf5_write_data('Galaxies/Dec',cone%dec/degree,'[deg] declination')
    call hdf5_write_data('Galaxies/inclination',cone%inclination/degree, &
    & '[deg] inclination = angle between line-of-sight and spin axis')
    call hdf5_write_data('Galaxies/pa',cone%pa/degree,'[deg] position angle from north to east')

@@ -8,22 +8,19 @@ module module_tiling
    use module_user
    
    private
-   public   :: make_tiling
+   public   :: make_tiling, is_in_fov
    
    integer*4,allocatable  :: intersection(:,:,:)   ! ==  0 : not checked
                                                    ! == -1 : does not intersect
                                                    ! >= +1 : box id of intersecting box
-   integer*4            :: imax,nbox,counter
-   integer*4,parameter  :: maxlevel_1D = 6 ! edge will be sampled on intervals 1/2^(maxlevel_1D+1)
-   integer*4,parameter  :: maxlevel_2D = 5 ! face will be sampled on intervals 1/2^(maxlevel_1D+1)
-   integer*4,parameter  :: maxlevel_3D = 0 ! cube will be sampled on intervals 1/2^(maxlevel_3D+1)
-   real*4               :: coneaxis(3)
+   integer*4               :: imax,nbox,counter
    
 contains
 
 subroutine make_tiling
 
    implicit none
+   real*4   :: starting_point(3)
    
    call tic
    call out('MAKE 3D TILING')
@@ -32,13 +29,13 @@ subroutine make_tiling
    call set_seed(para%seed)
    nbox = 0
    counter = 0
-   coneaxis = (/sin(para%ra)*cos(para%dec),sin(para%dec),cos(para%ra)*cos(para%dec)/)
    imax = ceiling(para%dc_max/para%L)
    if (imax>100) call error('Maximum comoving distance too large for this box side length.')
    allocate(intersection(-imax:imax,-imax:imax,-imax:imax))
    intersection = 0
    nbox = 0
-   call check_boxes(nint(para%axis*para%dc_min/para%L))
+   call sph2car(para%dc_min/para%L,(para%ra_min+para%ra_max)/2.0,(para%dec_min+para%dec_max)/2.0,starting_point)
+   call check_boxes(nint(starting_point))
    call make_boxes
    call save_box_list
    
@@ -138,25 +135,30 @@ end subroutine make_boxes
 logical function is_box_in_survey(ix,user)
 
    implicit none
-   integer*4,intent(in) :: ix(3) ! [box side-length] box center in tiling coordinates
-   logical,intent(in)   :: user
-   integer*4,parameter  :: n2D = 2**5
-   integer*4,parameter  :: n3D = 2**3
-   real*4               :: x(3),dx(3),dy(3),dz(3),sx(3),sy(3),sz(3),fi,fj
-   integer*4            :: i,j,k
-   integer*4            :: index(0:n2D)
+   integer*4,intent(in)    :: ix(3) ! [box side-length] box center in tiling coordinates
+   logical,intent(in)      :: user
+   real*4,parameter        :: dalpha = 0.5/180.0*pi   ! minimal angular separation of points on faces
+   integer*4,parameter     :: n3D = 4                 ! number of sub-points per dimension in 3D, only needed of disconnected parts of the survey are smaller than the /SAM box-size
+   integer*4               :: n2D
+   real*4                  :: x(3),dx(3),dy(3),dz(3),sx(3),sy(3),sz(3),fi,fj,d
+   integer*4               :: i,j,k
+   integer*4,allocatable   :: index(:)
    
    sx = matmul(para%sky_rotation,(/1.0,0.0,0.0/))*para%L
    sy = matmul(para%sky_rotation,(/0.0,1.0,0.0/))*para%L
    sz = matmul(para%sky_rotation,(/0.0,0.0,1.0/))*para%L
    x  = matmul(para%sky_rotation,real(ix,4))*para%L
-   
+
+   d = max(0.5,sqrt(real(sum(ix**2),4))) ! [box side-length] approximate distance from origin to nearest box face
+   n2D = max(10,2*nint(0.5/(d*dalpha)))
+   !n2D = 2**max(4,9-nint(sqrt(real(sum(ix**2),4)))) ! this is to use a finer grid for closer boxes
+   allocate(index(0:n2D))
    do i = 0,n2D/2-1
       index(i*2) = i
       index(i*2+1) = n2D-i
    end do
    index(n2D) = n2D/2
-   
+
    do i = 0,n2D
       fi = real(index(i),4)/n2D-0.5
       do j = 0,n2D
@@ -171,11 +173,11 @@ logical function is_box_in_survey(ix,user)
    end do
    
    do i = 0,n3D
-      dx = (real(i,4)/n3D-0.5)*sx
+      dx = ((real(i,4)+0.5)/(n3D+1)-0.5)*sx
       do j = 0,n3D
-         dy = (real(j,4)/n3D-0.5)*sy
+         dy = ((real(j,4)+0.5)/(n3D+1)-0.5)*sy
          do k = 0,n3D
-            dz = (real(k,4)/n3D-0.5)*sz
+            dz = ((real(k,4)+0.5)/(n3D+1)-0.5)*sz
             if (is_point_in_survey(x+dx+dy+dz,user)) then; is_box_in_survey = .true.; return; end if
          end do
       end do
@@ -191,41 +193,38 @@ logical function is_point_in_survey(x,user)
    ! specified by the user function position_selection, otherwise it is the survey volume specified in the
    ! parameter file.
 
-   real*4,intent(in)    :: x(3)     ! [box side-length] position of point in tiling coordinates
+   real*4,intent(in)    :: x(3)     ! [simulation unit] position of point in tiling coordinates
    logical,intent(in)   :: user
    real*4               :: ra,dec   ! [rad] sky coordinates
    real*4               :: dc       ! [simulation unit] comoving distance
    
    counter = counter+1
    
-   dc = norm(x)
+   call car2sph(x,dc,ra,dec)
    
    if (user) then
    
-      if (dc<=epsilon(dc)) then
-         ra = 0.0
-         dec = 0.0
-      else
-         ra = modulo(atan2(x(1),x(3)),2*pi)
-         dec = asin(min(1.0,x(2)/dc))
-      end if
-      is_point_in_survey = position_selection(ra/degree,dec/degree,dc)
+      is_point_in_survey = position_selection(dc,ra/degree,dec/degree)
       
    else
    
-      if ((dc<para%dc_min).or.(dc>para%dc_max)) then
-         is_point_in_survey = .false.
-         return
-      end if
       if (dc<=epsilon(dc)) then
          is_point_in_survey = (para%dc_min<=0)
          return
       end if
-      alpha = acos(min(1.0,sum(x*coneaxis)/dc))
-      is_point_in_survey = (alpha<=para%angle)
+      is_point_in_survey = is_in_fov(dc,ra,dec)
       
    end if
    
 end function is_point_in_survey
-   
+
+logical function is_in_fov(dc,ra,dec)
+   implicit none
+   real*4,intent(in) :: dc       ! [simulation units]
+   real*4,intent(in) :: ra,dec   ! [rad]
+   is_in_fov = (dc>=para%dc_min).and.(dc<=para%dc_max).and. &
+             & (ra>=para%ra_min).and.(ra<=para%ra_max).and. &
+             & (dec>=para%dec_min).and.(dec<=para%dec_max)
+end function is_in_fov           
+             
 end module module_tiling

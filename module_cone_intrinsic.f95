@@ -91,23 +91,20 @@ subroutine translate_and_rotate_snapshot(ibox)
    implicit none
    integer*4,intent(in) :: ibox
    integer*4            :: i
+   real*4               :: x(3),d
    
    ! save box index
    base%box = ibox
    
    do i = 1,size(base)
-   
-      ! copy xbox -> xcone and normalize to box side-length
-      base(i)%xcone = base(i)%xbox/para%L
-   
-      ! rotation
-      base(i)%xcone = matmul(rot(:,:,box(ibox)%rotation),base(i)%xcone)
-   
-      ! periodic translation
-      base(i)%xcone = modulo(base(i)%xcone+box(ibox)%translation,1.0)
-   
-      ! translate to apparent position
-      base(i)%xcone = base(i)%xcone+box(ibox)%ix-0.5
+      
+      x = base(i)%xbox/para%L ! change length units to units of box side-length
+      x = matmul(rot(:,:,box(ibox)%rotation),x) ! random 90-degree rotation/inversion
+      x = modulo(x+box(ibox)%translation,1.0) ! periodic translation
+      x = x+box(ibox)%ix-0.5 ! translate coordinates to tile position
+      x = matmul(para%sky_rotation,x) ! convert SAM-coordinates to Sky-coordinates
+      call car2sph(x,d,base(i)%ra,base(i)%dec)
+      base(i)%dc = d*para%L
       
    end do
 
@@ -116,36 +113,29 @@ end subroutine translate_and_rotate_snapshot
 subroutine write_subsnapshot_into_box(isnapshot)
 
    implicit none
-   integer*4,intent(in)                :: isnapshot
-   integer*4                           :: igalaxy
-   real*4                              :: d,dc
+   integer*4,intent(in) :: isnapshot
+   integer*4            :: igalaxy
    
    ! open file
    open(1,file=trim(filename_cone_intrinsic),action='write',form='unformatted',status='old',position='append',access='stream')
    
    ! write mock galaxies
    do igalaxy = 1,size(base)
-      d = norm(base(igalaxy)%xcone)
       
-      ! check distance
-      if ((d>=snapshot(isnapshot)%dmin).and.(d<snapshot(isnapshot)%dmax)) then
-         dc = d*para%L ! comoving distance in simulation units
-         if ((dc>=para%dc_min).or.(dc<=para%dc_max)) then
-            
-            ! check footprint on sky (ra,dec)
-            call make_sky_coordinates(matmul(para%sky_rotation,base(igalaxy)%xcone), &
-            & base(igalaxy)%dc,base(igalaxy)%ra,base(igalaxy)%dec)
-            if (acos(min(1.0,sum(para%axis*base(igalaxy)%xcone)/d))<=para%angle) then
-               if (position_selection(base(igalaxy)%ra/degree,base(igalaxy)%dec/degree,base(igalaxy)%dc)) then ! use check
+      ! check distance relative to snapshot
+      if ((base(igalaxy)%dc>=snapshot(isnapshot)%dmin*para%L).and.(base(igalaxy)%dc<snapshot(isnapshot)%dmax*para%L)) then
+         
+         ! check full position-selection
+         if (is_in_fov(base(igalaxy)%dc,base(igalaxy)%ra,base(igalaxy)%dec)) then
+            if (position_selection(base(igalaxy)%dc,base(igalaxy)%ra/degree,base(igalaxy)%dec/degree)) then
+                 
+               ! check intrinsic property-selection
+               if (intrinsic_selection(sam(igalaxy))) then
                   
-                  ! additional user checks
-                  if (intrinsic_selection(sam(igalaxy))) then
+                  ! write selected galaxy into intrinsic cone file
+                  nmockgalaxies = nmockgalaxies+1
+                  write(1) base(igalaxy),sam(igalaxy)
                   
-                     ! write selected galaxy into intrinsic cone file
-                     nmockgalaxies = nmockgalaxies+1
-                     write(1) base(igalaxy),sam(igalaxy)
-                  
-                  end if
                end if
             end if
          end if

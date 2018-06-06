@@ -4,6 +4,25 @@ module module_linalg
 
 contains
 
+subroutine sph2car(dc,ra,dec,x)
+   real*4,intent(in)    :: dc,ra,dec
+   real*4,intent(out)   :: x(3)
+   x = (/sin(ra)*cos(dec),sin(dec),cos(ra)*cos(dec)/)*dc
+end subroutine sph2car
+
+subroutine car2sph(x,dc,ra,dec)
+   real*4,intent(in)    :: x(3)
+   real*4,intent(out)   :: dc,ra,dec
+   dc = norm(x)
+   if (dc<epsilon(dc)) then
+      ra = 0
+      dec = 0
+   else
+      ra = modulo(atan2(x(1),x(3)),6.2831853071795862319959)
+      dec = asin(min(1.0,x(2)/dc)) ! "min" to avoid numerical issues if dc very close to x(2)
+   end if
+end subroutine car2sph
+
 recursive function determinant(mat,n) result(accum)
     integer :: n
     real    :: mat(n, n)

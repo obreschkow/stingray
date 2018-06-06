@@ -1,5 +1,23 @@
 
 
+subroutine make_sky_coordinates(x,dc,ra,dec)
+
+   implicit none
+   real*4,intent(in)                :: x(3)  ! [box side-length] position vector
+   real*4,intent(out),optional      :: dc    ! [length units of simulation] comoving distance
+   real*4,intent(out),optional      :: ra    ! [rad] right ascension
+   real*4,intent(out),optional      :: dec   ! [rad] declination
+   real*4                           :: normx
+   
+   normx = norm(x)
+   if (normx<=epsilon(normx)) call error('make_sky_coordinates: norm of x is zero.')
+   
+   if (present(dc))  dc  = normx*para%L
+   if (present(ra))  ra  = modulo(atan2(x(1),x(3)),2*pi)
+   if (present(dec)) dec = asin(min(1.0,x(2)/normx))
+   
+end subroutine make_sky_coordinates
+
 logical function is_box_in_survey(ix,user)
 
    implicit none
