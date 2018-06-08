@@ -11,8 +11,8 @@ module module_cone_intrinsic
    private
    public   :: make_cone_intrinsic
    
-   type(type_galaxy_base),allocatable  :: base(:)
-   type(type_galaxy_sam),allocatable   :: sam(:)
+   type(type_base),allocatable         :: base(:)
+   type(type_sam),allocatable          :: sam(:)
    integer*8                           :: nmockgalaxies
    character(len=255)                  :: filename_cone_intrinsic
    

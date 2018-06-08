@@ -5,8 +5,8 @@ program surfsuite
    use module_parameters
    use module_user
    use module_tiling
-   use module_cone_intrinsic
-   use module_cone_apparent
+   use module_sky_intrinsic
+   use module_sky_apparent
 
    implicit none
 
@@ -17,7 +17,13 @@ program surfsuite
    character(len=255)      :: custom_option
    integer*4               :: i,narg
    logical                 :: success
-      
+   
+   !type(type_sam)          :: x
+   !x%halo%spinparameter = 5.0
+   !allocate(x%galaxy)
+   !write(*,*) x%galaxy
+   !stop
+     
    narg = iargc() ! number of arguments
    
    if (narg==0) then
@@ -68,26 +74,27 @@ program surfsuite
    ! Initialize verbose
    call out_open(version)
    
-   ! Initialize rotation matrices
+   ! Initialize constants
    call initialize_constants
+   
+   ! Load parameter file
+   call make_parameters(parameter_filename_custom)
    
    ! Execute tasks
    call getarg(1,arg_task)
    select case (trim(arg_task))
    case ('make.all')
-      call make_parameters(parameter_filename_custom)
       call make_tiling
-      call make_cone_intrinsic
-      call make_cone_apparent
+      call make_sky_intrinsic
+      call make_sky_apparent
       call handle_custom_arguments('my.additions.to.make.all','',success)
    case ('make.parameters')
-      call make_parameters(parameter_filename_custom)
    case ('make.tiling')
       call make_tiling
-   case ('make.intrinsic.cone')
-      call make_cone_intrinsic
-   case ('make.apparent.cone')
-      call make_cone_apparent
+   case ('make.intrinsic.sky')
+      call make_sky_intrinsic
+   case ('make.apparent.sky')
+      call make_sky_apparent
    case default
       call handle_custom_arguments(trim(arg_task),trim(custom_option),success)
       if (.not.success) then

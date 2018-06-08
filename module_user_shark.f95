@@ -37,10 +37,10 @@ character(len=255),parameter  :: parameter_filename_default = &
 ! ==============================================================================================================
 
 ! Here, specify the galaxy properties output by the semi-analytic model (SAM), which should be loaded
-! to make the mock cone. How these galaxies will be loaded will be specified in the subroutine
+! to make the mock sky. How these galaxies will be loaded will be specified in the subroutine
 ! load_sam_snapshot below.
 
-type type_galaxy_sam
+type type_sam_galaxy
 
    integer*8   :: id_galaxy      ! unique galaxy ID
    integer*8   :: id_halo        ! unique ID of parent halo
@@ -52,25 +52,41 @@ type type_galaxy_sam
    real*4      :: mstars_bulge   ! [Msun/h] stellar mass bulge
    real*4      :: matom_disk     ! [Msun/h] atomic gas mass disk
    real*4      :: matom_bulge    ! [Msun/h] atomic gas mass bulge
-   real*4      :: rdisk_star     ! [cMpc/h] half-mass of stars in the disk
-   real*4      :: rbulge_star    ! [cMpc/h] half-mass of stars in the bulge
-   real*4      :: rdisk_gas      ! [cMpc/h] half-mass of gas in the disk
-   real*4      :: rbulge_gas     ! [cMpc/h] half-mass of gas in the bulge
+   real*4      :: rstar_disk     ! [cMpc/h] half-mass of stars in the disk
+   real*4      :: rstar_bulge    ! [cMpc/h] half-mass of stars in the bulge
+   real*4      :: rgas_disk      ! [cMpc/h] half-mass of gas in the disk
+   real*4      :: rgas_bulge     ! [cMpc/h] half-mass of gas in the bulge
 
-end type type_galaxy_sam
+end type type_sam_galaxy
 
-! Here, specify the galaxy properties in the mock cone. These are mostly apparent galaxy properties.
-
-type type_galaxy_cone
+type type_sam_halo
    
-   integer*8   :: id_galaxy_sky  ! unique ID in the mock cone
+   integer*8   :: id_halo        ! unique ID of parent halo
+   real*4      :: position(3)    ! [Mpc/h] position of galaxy centre in simulation box
+   real*4      :: spinparameter  ! [-] Peebles spin parameter
+   real*4      :: rvir
+   
+end type type_sam_halo
+
+type type_sam ! => type_sam
+
+   type(type_sam_galaxy)   :: galaxy ! => allocatable
+   type(type_sam_halo)     :: halo
+
+end type type_sam
+
+! Here, specify the galaxy properties in the mock sky. These are mostly apparent galaxy properties.
+
+type type_sky
+   
+   integer*8   :: id_galaxy_sky  ! unique ID in the mock sky
    integer*8   :: id_galaxy_sam  ! galaxy ID in the SAM
-   integer*8   :: id_halo_sky    ! unique parent halo ID in the mock cone
+   integer*8   :: id_halo_sky    ! unique parent halo ID in the mock sky
    integer*8   :: id_halo_sam    ! galaxy parent halo ID in the SAM
    integer*4   :: snapshot       ! snapshot ID
    integer*4   :: subsnapshot    ! subsnapshot ID
-   integer*4   :: box            ! box ID
-   integer*4   :: typ            ! galaxy type (0=central, 1=satellite in halo, 2=orphan)
+   integer*4   :: tile           ! tile ID
+   integer*4   :: typ            ! galaxy type (0=central, 1=satellite, 2=orphan)
    real*4      :: z              ! apparent redshift
    real*4      :: dc             ! [simulation units = Mpc/h] comoving distance
    real*4      :: ra             ! [rad] right ascension
@@ -82,31 +98,31 @@ type type_galaxy_cone
    real*4      :: vrad           ! [proper km/s] radial peculiar velocity
    real*4      :: mstars         ! [Msun/h] total stellar mass
 
-end type type_galaxy_cone
+end type type_sky
 
 contains
 
-! In order to place the galaxies in the mock cone, the cone needs to access the groupid and position in the box
-! of each galaxy. The variables base%groupid and base%xbox(3). Specify below how these properties are obtained
+! In order to place the galaxies in the mock sky, the sky needs to access the groupid and position in the box
+! of each galaxy. The variables base%groupid and base%xsam(3). Specify below how these properties are obtained
 ! from the SAM properties.
 
 function extract_base(sam) result(base)
    
    implicit none
-   type(type_galaxy_sam),intent(in) :: sam
-   type(type_galaxy_base)           :: base
+   type(type_sam),intent(in) :: sam
+   type(type_base)           :: base
    
-   base%groupid   = sam%id_halo     ! unique group or parent halo identifier
-   base%xbox      = sam%position    ! [length_unit of simulation] position if the galaxy in the box
+   base%groupid   = sam%galaxy%id_halo     ! unique group or parent halo identifier
+   base%xsam      = sam%galaxy%position    ! [length_unit of simulation] position if the galaxy in the box
 
 end function extract_base
 
 
 ! ==============================================================================================================
-! SELECTION OF GALAXIES IN THE MOCK OBSERVING CONE FILE
+! SELECTION OF GALAXIES IN THE MOCK OBSERVING sky FILE
 ! ==============================================================================================================
 
-! selection function acting on comoving position, applied when making the tiling and intrinsic cone
+! selection function acting on comoving position, applied when making the tiling and intrinsic sky
 
 logical function position_selection(dc,ra,dec)
    
@@ -128,36 +144,36 @@ logical function position_selection(dc,ra,dec)
 
 end function position_selection
 
-! selection function acting on intrinsic properties and position in the cone, applied when producing the intrinsic cone
+! selection function acting on intrinsic properties and position in the sky, applied when producing the intrinsic sky
 
 logical function intrinsic_selection(sam)
 
    implicit none
-   type(type_galaxy_sam),intent(in)   :: sam
+   type(type_sam),intent(in)   :: sam
    
    if (.false.) then; write(*) sam; end if ! dummy statement to avoid compiler warnings for unused arguments
    
    select case (trim(para%name))
    case ('DEVILS')
-      intrinsic_selection = (sam%mstars_disk>1e8)
+      intrinsic_selection = (sam%galaxy%mstars_disk>1e8)
    case default
       intrinsic_selection = .true.
    end select
    
 end function intrinsic_selection
 
-! selection function acting on apparent properties, applied when producing the apparent cone
+! selection function acting on apparent properties, applied when producing the apparent sky
 
-logical function apparent_selection(cone)
+logical function apparent_selection(sky)
 
    implicit none
-   type(type_galaxy_cone),intent(in)  :: cone
+   type(type_sky),intent(in)  :: sky
    
-   if (.false.) then; write(*) cone; end if ! dummy statement to avoid compiler warnings for unused arguments
+   if (.false.) then; write(*) sky; end if ! dummy statement to avoid compiler warnings for unused arguments
    
    select case (trim(para%name))
    case ('DEVILS')
-      apparent_selection = cone%mag<=21.2
+      apparent_selection = sky%mag<=21.2
    case default
       apparent_selection = .true.
    end select
@@ -219,13 +235,13 @@ subroutine make_automatic_parameters
    
 end subroutine make_automatic_parameters
 
-! write mock-cone galaxy into binary file
+! write mock-sky galaxy into binary file
 
-subroutine write_galaxy(cone)
+subroutine write_galaxy(sky)
 
-   ! choose which variables of the structure 'cone' to save
-   type(type_galaxy_cone),intent(in) :: cone
-   write(1) cone
+   ! choose which variables of the structure 'sky' to save
+   type(type_sky),intent(in) :: sky
+   write(1) sky
    
 end subroutine write_galaxy
 
@@ -257,7 +273,7 @@ subroutine load_sam_snapshot(index,subindex,sam,snapshotname)
    implicit none
    integer*4,intent(in)                            :: index             ! snapshot index
    integer*4,intent(in)                            :: subindex          ! subindex, if the snapshot is split into several files
-   type(type_galaxy_sam),allocatable,intent(out)   :: sam(:)            ! derived type of all the relevant SAM properties
+   type(type_sam),allocatable,intent(out)   :: sam(:)            ! derived type of all the relevant SAM properties
    character(len=100),intent(out)                  :: snapshotname      ! snapshot name to be returned for user display
    character(len=255)                              :: filename
    integer*8                                       :: n
@@ -275,26 +291,26 @@ subroutine load_sam_snapshot(index,subindex,sam,snapshotname)
    allocate(sam(n))
    
    ! read file
-   call hdf5_read_data(g//'id_galaxy',sam%id_galaxy)
-   call hdf5_read_data(g//'id_halo',sam%id_halo)
-   call hdf5_read_data(g//'type',sam%typ)
-   call hdf5_read_data(g//'position_x',sam%position(1))
-   call hdf5_read_data(g//'position_y',sam%position(2))
-   call hdf5_read_data(g//'position_z',sam%position(3))
-   call hdf5_read_data(g//'velocity_x',sam%velocity(1))
-   call hdf5_read_data(g//'velocity_y',sam%velocity(2))
-   call hdf5_read_data(g//'velocity_z',sam%velocity(3))
-   call hdf5_read_data(g//'L_x',sam%J(1))
-   call hdf5_read_data(g//'L_y',sam%J(2))
-   call hdf5_read_data(g//'L_z',sam%J(3))
-   call hdf5_read_data(g//'mstars_disk',sam%mstars_disk)
-   call hdf5_read_data(g//'mstars_bulge',sam%mstars_bulge)
-   call hdf5_read_data(g//'matom_disk',sam%matom_disk)
-   call hdf5_read_data(g//'matom_bulge',sam%matom_bulge)
-   call hdf5_read_data(g//'rdisk_star',sam%rdisk_star)
-   call hdf5_read_data(g//'rbulge_star',sam%rbulge_star)
-   call hdf5_read_data(g//'rdisk_gas',sam%rdisk_gas)
-   call hdf5_read_data(g//'rbulge_gas',sam%rbulge_gas)
+   call hdf5_read_data(g//'id_galaxy',sam%galaxy%id_galaxy)
+   call hdf5_read_data(g//'id_halo',sam%galaxy%id_halo)
+   call hdf5_read_data(g//'type',sam%galaxy%typ)
+   call hdf5_read_data(g//'position_x',sam%galaxy%position(1))
+   call hdf5_read_data(g//'position_y',sam%galaxy%position(2))
+   call hdf5_read_data(g//'position_z',sam%galaxy%position(3))
+   call hdf5_read_data(g//'velocity_x',sam%galaxy%velocity(1))
+   call hdf5_read_data(g//'velocity_y',sam%galaxy%velocity(2))
+   call hdf5_read_data(g//'velocity_z',sam%galaxy%velocity(3))
+   call hdf5_read_data(g//'L_x',sam%galaxy%J(1))
+   call hdf5_read_data(g//'L_y',sam%galaxy%J(2))
+   call hdf5_read_data(g//'L_z',sam%galaxy%J(3))
+   call hdf5_read_data(g//'mstars_disk',sam%galaxy%mstars_disk)
+   call hdf5_read_data(g//'mstars_bulge',sam%galaxy%mstars_bulge)
+   call hdf5_read_data(g//'matom_disk',sam%galaxy%matom_disk)
+   call hdf5_read_data(g//'matom_bulge',sam%galaxy%matom_bulge)
+   call hdf5_read_data(g//'rstar_disk',sam%galaxy%rstar_disk)
+   call hdf5_read_data(g//'rstar_bulge',sam%galaxy%rstar_bulge)
+   call hdf5_read_data(g//'rgas_disk',sam%galaxy%rgas_disk)
+   call hdf5_read_data(g//'rgas_bulge',sam%galaxy%rgas_bulge)
    
    ! close file
    call hdf5_close()
@@ -311,22 +327,22 @@ end subroutine load_sam_snapshot
 
 subroutine rotate_vectors(sam)
 
-   ! This function rotates all the vector-properties of the galaxy, specified in type_galaxy_sam, except for the
-   ! position, which has already been processed when producing the intrinsic cone. For each such vector-property
+   ! This function rotates all the vector-properties of the galaxy, specified in type_sam, except for the
+   ! position, which has already been processed when producing the intrinsic sky. For each such vector-property
    ! of the SAM, call
-   ! sam%vector = rotate(sam%vector,ps)
+   ! sam%galaxy%vector = rotate(sam%galaxy%vector,ps)
    ! where ps is a logical argument that specifies whether the vector transforms like a normal vector,
    ! or like a pseudo-vector (also known as axial vector)
 
    implicit none
-   type(type_galaxy_sam),intent(inout)    :: sam
+   type(type_sam),intent(inout)    :: sam
    
-   sam%velocity   = rotate(sam%velocity,.false.)
-   sam%J          = rotate(sam%J,.true.)
+   sam%galaxy%velocity   = rotate(sam%galaxy%velocity,.false.)
+   sam%galaxy%J          = rotate(sam%galaxy%J,.true.)
    
 end subroutine rotate_vectors
 
-function convert_properties(base,sam,id) result(cone)
+function convert_properties(base,sam,id) result(sky)
 
    ! This is the central function of the user module. It makes the apparent properties of the galaxies
    ! based on the intrinsic properties and the basic positional properties stored in base.
@@ -339,9 +355,9 @@ function convert_properties(base,sam,id) result(cone)
    implicit none
    
    integer*8                              :: id       ! unique ID of galaxy in mock survey
-   type(type_galaxy_base),intent(in)      :: base     ! base properties of galaxy in the cone
-   type(type_galaxy_sam),intent(in)       :: sam      ! intrinsic galaxy properties from SAM
-   type(type_galaxy_cone)                 :: cone     ! apparent galaxy properties
+   type(type_base),intent(in)      :: base     ! base properties of galaxy in the sky
+   type(type_sam),intent(in)       :: sam      ! intrinsic galaxy properties from SAM
+   type(type_sky)                 :: sky     ! apparent galaxy properties
    real*4                                 :: pos(3)   ! [simulation length units] position vector of galaxy
    real*4                                 :: dl       ! [simulation length units] luminosity distance to observer
    real*4                                 :: elos(3)  ! unit vector pointing from the observer to the object in comoving space
@@ -354,35 +370,35 @@ function convert_properties(base,sam,id) result(cone)
    elos = pos/norm(pos)
    
    ! sky coordinates
-   cone%dc  = base%dc         ! [Mpc/h]
-   cone%ra  = base%ra         ! [rad]
-   cone%dec = base%dec        ! [rad]
+   sky%dc  = base%dc         ! [Mpc/h]
+   sky%ra  = base%ra         ! [rad]
+   sky%dec = base%dec        ! [rad]
    
    ! make redshift, provided the galaxy position [simulation units] galaxy-velocity [km/s]
-   call make_redshift(pos*(para%length_unit/Mpc),sam%velocity,z=cone%z)
+   call make_redshift(pos*(para%length_unit/Mpc),sam%galaxy%velocity,z=sky%z)
    
    ! make inclination and position angle [rad]
-   call make_inclination_and_pa(pos,sam%J,inclination=cone%inclination,pa=cone%pa)
+   call make_inclination_and_pa(pos,sam%galaxy%J,inclination=sky%inclination,pa=sky%pa)
    
    ! make IDs
-   cone%id_galaxy_sky   = id
-   cone%id_galaxy_sam   = sam%id_galaxy
-   cone%id_halo_sky     = sam%id_halo+base%box*int(1e10,8)
-   cone%id_halo_sam     = sam%id_halo
-   cone%box             = base%box
-   cone%snapshot        = base%snapshot
-   cone%subsnapshot     = base%subsnapshot
+   sky%id_galaxy_sky   = id
+   sky%id_galaxy_sam   = sam%galaxy%id_galaxy
+   sky%id_halo_sky     = sam%galaxy%id_halo+base%tile*int(1e10,8)
+   sky%id_halo_sam     = sam%galaxy%id_halo
+   sky%tile             = base%tile
+   sky%snapshot        = base%snapshot
+   sky%subsnapshot     = base%subsnapshot
    
    ! copy basic constants
-   cone%typ             = sam%typ
+   sky%typ             = sam%galaxy%typ
    
    ! convert intrinsic to apparent properties
-   dl = cone%dc*(1+cone%z) ! [Mpc/h]
-   cone%mstars = sam%mstars_disk+sam%mstars_bulge
-   cone%mag    = convert_absmag2appmag(convert_stellarmass2absmag(cone%mstars/para%h,1.0),dl/para%h)
-   cone%vrad   = sum(sam%velocity*elos)
-   mHI         = (sam%matom_disk+sam%matom_bulge)/1.35/para%h ! [Msun] HI mass
-   cone%SHI    = convert_luminosity2flux(real(mHI,8)*real(L2MHI,8)*Lsun,dl/para%h)
+   dl = sky%dc*(1+sky%z) ! [Mpc/h]
+   sky%mstars = sam%galaxy%mstars_disk+sam%galaxy%mstars_bulge
+   sky%mag    = convert_absmag2appmag(convert_stellarmass2absmag(sky%mstars/para%h,1.0),dl/para%h)
+   sky%vrad   = sum(sam%galaxy%velocity*elos)
+   mHI         = (sam%galaxy%matom_disk+sam%galaxy%matom_bulge)/1.35/para%h ! [Msun] HI mass
+   sky%SHI    = convert_luminosity2flux(real(mHI,8)*real(L2MHI,8)*Lsun,dl/para%h)
    
 end function convert_properties
 
@@ -419,7 +435,7 @@ subroutine make_hdf5
    
    implicit none
    character(len=255)                  :: filename
-   type(type_galaxy_cone),allocatable  :: cone(:)
+   type(type_sky),allocatable  :: sky(:)
    integer*8                           :: n,i
    
    ! load auxilary data
@@ -433,12 +449,12 @@ subroutine make_hdf5
    open(1,file=trim(filename),action='read',form='unformatted')
    read(1) n
    close(1)
-   allocate(cone(n))
+   allocate(sky(n))
    
    ! load data
    filename = trim(para%path_output)//'mocksurvey.bin'
    open(1,file=trim(filename),action='read',form='unformatted',access='stream')
-   read(1) cone
+   read(1) sky
    close(1)
    
    ! create HDF5 file
@@ -478,48 +494,50 @@ subroutine make_hdf5
    call hdf5_write_data('Parameters/velocity_ra',para%velocity_ra)
    call hdf5_write_data('Parameters/velocity_dec',para%velocity_dec)
    call hdf5_write_data('Parameters/velocity_norm',para%velocity_norm)
+   call hdf5_write_data('Parameters/search_angle',para%search_angle)
+   call hdf5_write_data('Parameters/volume_search_level',para%volume_search_level)
    call hdf5_write_data('Parameters/skyrotation',para%sky_rotation, &
    & 'Rotation matrix to map xyz-coordinates of the tiling structure onto sky coordinates.')
    
    ! Group "Galaxies"
    call hdf5_add_group('Galaxies')
-   call hdf5_write_data('Galaxies/id_galaxy_sky',cone%id_galaxy_sky,'unique galaxy ID in mock sky')
-   call hdf5_write_data('Galaxies/id_galaxy_sam',cone%id_galaxy_sam,'galaxy ID in SAM')
-   call hdf5_write_data('Galaxies/id_halo_sky',cone%id_galaxy_sky,'unique parent halo ID in mock sky')
-   call hdf5_write_data('Galaxies/id_halo_sam',cone%id_galaxy_sam,'parent halo ID in SAM')
-   call hdf5_write_data('Galaxies/snapshot',cone%snapshot,'snapshot ID')
-   call hdf5_write_data('Galaxies/subsnapshot',cone%subsnapshot,'subsnapshot ID')
-   call hdf5_write_data('Galaxies/box',cone%box,'box ID in tiling array')
-   call hdf5_write_data('Galaxies/type',cone%typ,'galaxy type (0=central, 1=satellite in halo, 2=orphan)')
-   call hdf5_write_data('Galaxies/z',cone%z, &
+   call hdf5_write_data('Galaxies/id_galaxy_sky',sky%id_galaxy_sky,'unique galaxy ID in mock sky')
+   call hdf5_write_data('Galaxies/id_galaxy_sam',sky%id_galaxy_sam,'galaxy ID in SAM')
+   call hdf5_write_data('Galaxies/id_halo_sky',sky%id_galaxy_sky,'unique parent halo ID in mock sky')
+   call hdf5_write_data('Galaxies/id_halo_sam',sky%id_galaxy_sam,'parent halo ID in SAM')
+   call hdf5_write_data('Galaxies/snapshot',sky%snapshot,'snapshot ID')
+   call hdf5_write_data('Galaxies/subsnapshot',sky%subsnapshot,'subsnapshot ID')
+   call hdf5_write_data('Galaxies/box',sky%tile,'tile ID in tiling array')
+   call hdf5_write_data('Galaxies/type',sky%typ,'galaxy type (0=central, 1=satellite in halo, 2=orphan)')
+   call hdf5_write_data('Galaxies/z',sky%z, &
    & 'apparent redshift (Hubble flow + peculiar motion of galaxy and observer)')
-   call hdf5_write_data('Galaxies/dc',cone%dc,'[Mpc/h] comoving distance')
-   call hdf5_write_data('Galaxies/RA',cone%ra/degree,'[deg] right ascension')
-   call hdf5_write_data('Galaxies/Dec',cone%dec/degree,'[deg] declination')
-   call hdf5_write_data('Galaxies/inclination',cone%inclination/degree, &
+   call hdf5_write_data('Galaxies/dc',sky%dc,'[Mpc/h] comoving distance')
+   call hdf5_write_data('Galaxies/RA',sky%ra/degree,'[deg] right ascension')
+   call hdf5_write_data('Galaxies/Dec',sky%dec/degree,'[deg] declination')
+   call hdf5_write_data('Galaxies/inclination',sky%inclination/degree, &
    & '[deg] inclination = angle between line-of-sight and spin axis')
-   call hdf5_write_data('Galaxies/pa',cone%pa/degree,'[deg] position angle from north to east')
-   call hdf5_write_data('Galaxies/mag',cone%mag, &
+   call hdf5_write_data('Galaxies/pa',sky%pa/degree,'[deg] position angle from north to east')
+   call hdf5_write_data('Galaxies/mag',sky%mag, &
    & 'apparent magnitude (generic: M/L ratio of 1, no k-correction)')
-   call hdf5_write_data('Galaxies/SHI',cone%SHI,'[W/m^2] integrated HI line flux')
-   call hdf5_write_data('Galaxies/vrad',cone%vrad,'[proper km/s] radial peculiar velocity')
-   call hdf5_write_data('Galaxies/mstars',cone%mstars,'[Msun/h] stellar mass')
+   call hdf5_write_data('Galaxies/SHI',sky%SHI,'[W/m^2] integrated HI line flux')
+   call hdf5_write_data('Galaxies/vrad',sky%vrad,'[proper km/s] radial peculiar velocity')
+   call hdf5_write_data('Galaxies/mstars',sky%mstars,'[Msun/h] stellar mass')
    
    ! Group "Tiling"
    call hdf5_add_group('Tiling')
-   call hdf5_write_data('Tiling/BoxID',(/(i,i=1,size(box),1)/),'unique ID of cubic box')
-   call hdf5_write_data('Tiling/center.x',box%ix(1),'x-coordinate of box-centre in units of box side length')
-   call hdf5_write_data('Tiling/center.y',box%ix(2),'y-coordinate of box-centre in units of box side length')
-   call hdf5_write_data('Tiling/center.z',box%ix(3),'z-coordinate of box-centre in units of box side length')
-   call hdf5_write_data('Tiling/dc_min',box%dmin,'minimum comoving distance in units of box side length')
-   call hdf5_write_data('Tiling/dc_max',box%dmax,'maximum comoving distance in units of box side length')
-   call hdf5_write_data('Tiling/rotation',box%rotation, & 
+   call hdf5_write_data('Tiling/BoxID',(/(i,i=1,size(tile),1)/),'unique ID of cubic box')
+   call hdf5_write_data('Tiling/center.x',tile%ix(1),'x-coordinate of box-centre in units of box side length')
+   call hdf5_write_data('Tiling/center.y',tile%ix(2),'y-coordinate of box-centre in units of box side length')
+   call hdf5_write_data('Tiling/center.z',tile%ix(3),'z-coordinate of box-centre in units of box side length')
+   call hdf5_write_data('Tiling/dc_min',tile%dmin,'minimum comoving distance in units of box side length')
+   call hdf5_write_data('Tiling/dc_max',tile%dmax,'maximum comoving distance in units of box side length')
+   call hdf5_write_data('Tiling/rotation',tile%rotation, & 
    & 'index [1,...,6] of rotation, where 1 is the identity (negative if inversion)')
-   call hdf5_write_data('Tiling/translation.x',box%translation(1), & 
+   call hdf5_write_data('Tiling/translation.x',tile%translation(1), & 
    & 'x-component of translation vector in units of box side length')
-   call hdf5_write_data('Tiling/translation.y',box%translation(2), & 
+   call hdf5_write_data('Tiling/translation.y',tile%translation(2), & 
    & 'y-component of translation vector in units of box side length')
-   call hdf5_write_data('Tiling/translation.z',box%translation(3), & 
+   call hdf5_write_data('Tiling/translation.z',tile%translation(3), & 
    & 'z-component of translation vector in units of box side length')
    
    ! Group "runInfo"
@@ -541,7 +559,7 @@ subroutine make_hdf5
    call hdf5_close()
    
    ! finalize
-   deallocate(cone)
+   deallocate(sky)
 
 end subroutine make_hdf5
    

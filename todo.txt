@@ -2,18 +2,25 @@
 + harmonize screen output
 + change parameter names to make them more consistent (i.e. _min vs min)
 + parameter input checks
++ chat to Aaron about SEDs
 
-- document
-- s3sax module
+for paper:
+- keep clusters together or flag those ripped apart: for each subsnapshot:
+  1) check if all group members pass the position selection
+  2) check if all group members are in the same box (i.e. on the same side!)
+  3) check if all group members fall in the same time
+- add halo cone
+- lensing
+- document/readme file
 - multi-threading
-- add lots of standard conversions (e.g. HI line properties, radio continuum, k-corrections)
-- chat to Aaron about SEDs
-- keep clusters together
-- think about where/how to interpolate galaxy properties
-- readme file
-- lots of checks in R
 - check/improve cosmology model
 
+beyond:
+- s3sax module
+- add lots of standard conversions (e.g. HI line properties, radio continuum, k-corrections)
+- think about where/how to interpolate galaxy properties
+- lots of checks in R
+- power spectrum considerations
 
 Claudia:
 + change "Hubble parameter H0 = h * 100 Mpc * km/s" to "... / Mpc"

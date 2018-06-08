@@ -71,6 +71,8 @@ subroutine reset_parameters
    para%velocity_ra = huge(para%velocity_ra)
    para%velocity_dec = huge(para%velocity_dec)
    para%velocity_norm = huge(para%velocity_norm)
+   para%search_angle = huge(para%search_angle)
+   para%volume_search_level= huge(para%volume_search_level)
 
 end subroutine reset_parameters
 
@@ -108,22 +110,24 @@ subroutine check_parameters
    if (para%velocity_ra == huge(para%velocity_ra)) call wrong('velocity_ra')
    if (para%velocity_dec == huge(para%velocity_dec)) call wrong('velocity_dec')
    if (para%velocity_norm == huge(para%velocity_norm)) call wrong('velocity_norm')
+   if (para%search_angle == huge(para%search_angle)) call wrong('search_angle')
+   if (para%volume_search_level == huge(para%volume_search_level)) call wrong('volume_search_level')
    
    ! check parameter ranges
-   if (para%L<=0) call error('L must be larger than 0.')
-   if (para%length_unit<=0) call error('length_unit must be larger than 0.')
-   if (para%snapshot_min>para%snapshot_max) call error('snapshot_min must be smaller than snapshot_max.')
-   if (para%subsnapshot_min>para%subsnapshot_max) call error('subsnapshot_min must be smaller than subsnapshot_max.')
-   if (para%h<=0) call error('h must be larger than 0.')
-   if (para%OmegaL<0) call error('OmegaL must be >=0.')
-   if (para%OmegaM<0) call error('OmegaM must be >=0.')
-   if (para%OmegaB<0) call error('OmegaB must be >=0.')
-   if (para%OmegaL>1) call error('OmegaL must be <=1.')
-   if (para%OmegaM>1) call error('OmegaM must be <=1.')
-   if (para%OmegaB>para%OmegaM) call error('OmegaB must be <= OmegaM.')
-   if (para%dc_min<0) call error('dc_min must be >=0.')
-   if (para%dc_max<=0) call error('dc_min must be >0.')
-   if (para%dc_max<=para%dc_min) call error('dc_min must smaller than dc_max.')
+   if (para%L<=0) call error('L must be larger than 0')
+   if (para%length_unit<=0) call error('length_unit must be larger than 0')
+   if (para%snapshot_min>para%snapshot_max) call error('snapshot_min must be smaller than snapshot_max')
+   if (para%subsnapshot_min>para%subsnapshot_max) call error('subsnapshot_min must be smaller than subsnapshot_max')
+   if (para%h<=0) call error('h must be larger than 0')
+   if (para%OmegaL<0) call error('OmegaL must be >=0')
+   if (para%OmegaM<0) call error('OmegaM must be >=0')
+   if (para%OmegaB<0) call error('OmegaB must be >=0')
+   if (para%OmegaL>1) call error('OmegaL must be <=1')
+   if (para%OmegaM>1) call error('OmegaM must be <=1')
+   if (para%OmegaB>para%OmegaM) call error('OmegaB must be <= OmegaM')
+   if (para%dc_min<0) call error('dc_min must be >=0')
+   if (para%dc_max<=0) call error('dc_min must be >0')
+   if (para%dc_max<=para%dc_min) call error('dc_min must smaller than dc_max')
    if ((para%ra_min<0).or.(para%ra_min>360.0)) call error('ra_min must lie between 0 and 360')
    if ((para%ra_max<0).or.(para%ra_max>360.0)) call error('ra_max must lie between 0 and 360')
    if (para%ra_min>=para%ra_max) call error('ra_max must be larger than ra_min')
@@ -134,13 +138,17 @@ subroutine check_parameters
    if ((para%zaxis_dec<-180.0).or.(para%zaxis_dec>180.0)) call error('zaxis_dec must lie between -180 and 180')
    if ((para%xy_angle<0).or.(para%xy_angle>360.0)) call error('xy_angle must lie between 0 and 360')
    if (para%seed<=0) call error('seed must be a positive integer.')
-   if (.not.islogical(para%translate)) call error('translate can only be 0 or 1.')
-   if (.not.islogical(para%rotate)) call error('rotate can only be 0 or 1.')
-   if (.not.islogical(para%invert)) call error('invert can only be 0 or 1.')
+   if (.not.islogical(para%translate)) call error('translate can only be 0 or 1')
+   if (.not.islogical(para%rotate)) call error('rotate can only be 0 or 1')
+   if (.not.islogical(para%invert)) call error('invert can only be 0 or 1')
    if ((para%velocity_ra<0).or.(para%velocity_ra>360.0)) call error('velocity_ra must lie between 0 and 360')
    if ((para%velocity_dec<-180.0).or.(para%velocity_dec>180.0)) &
    & call error('velocity_dec must lie between -180 and 180')
-   if (para%velocity_norm>0.1*c) call error('The observer velocity cannot exceed 0.1*c.')
+   if (para%velocity_norm>0.1*c) call error('The observer velocity cannot exceed 0.1*c')
+   if (para%search_angle>=10.0) call error('search_angle must be smaller than 10')
+   if (para%search_angle<=0.0) call error('search_angle must be larger than 0')
+   if (para%volume_search_level<0) call error('volume_search_level must be equal to or larger than 0')
+   if (para%volume_search_level>10) call error('volume_search_level cannot be larger than 10')
    
    contains
    
@@ -162,6 +170,7 @@ subroutine adjust_parameters
 
    implicit none
    
+   ! convert degrees to radian
    para%ra_min = para%ra_min*degree
    para%ra_max = para%ra_max*degree
    para%dec_min = para%dec_min*degree
@@ -171,6 +180,7 @@ subroutine adjust_parameters
    para%xy_angle = para%xy_angle*degree
    para%velocity_ra = para%velocity_ra*degree
    para%velocity_dec = para%velocity_dec*degree
+   para%search_angle = para%search_angle*degree
 
 end subroutine adjust_parameters
 
@@ -252,6 +262,10 @@ subroutine load_user_parameters(parameter_filename)
                if (manual) read(var_value,*) para%velocity_dec
             case ('velocity_norm')
                if (manual) read(var_value,*) para%velocity_norm
+            case ('search_angle')
+               if (manual) read(var_value,*) para%search_angle
+            case ('volume_search_level')
+               if (manual) read(var_value,*) para%volume_search_level
             case default
                if ((trim(var_name).ne.'path_input').and.(trim(var_name).ne.'path_output')) then
                   call error(trim(var_name)//' is an unknown parameter.')

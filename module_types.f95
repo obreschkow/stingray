@@ -54,7 +54,7 @@ module module_types
       real*4               :: zaxis_dec   ! [rad]
       real*4               :: xy_angle    ! [rad]
 
-      ! cone parameters
+      ! sky parameters
       integer*4            :: seed  ! seed of random number generator (integer >=1)
       integer*4            :: translate
       integer*4            :: rotate
@@ -65,24 +65,28 @@ module module_types
       real*4               :: velocity_dec   ! [rad]
       real*4               :: velocity_norm  ! [km/s] peculiar velocity of observer with respect to Hubble flow
       
+      ! advanced options
+      real*4               :: search_angle         ! [rad] minimal angular separation of points on faces
+      real*4               :: volume_search_level
+      
       ! derived parameters, not directly specified by the user
       real*4               :: velocity_car(3)   ! [km/s] velocity of observer cartesian survey-coordinates
-      real*4               :: sky_rotation(3,3) ! rotation matrix to move the (x,y,z)-cone axis onto the central (RA,dec)-cone
+      real*4               :: sky_rotation(3,3) ! rotation matrix to move the (x,y,z)-sky axis onto the central (RA,dec)-sky
    
    end type type_para
 
-   type type_galaxy_base
+   type type_base
 
       integer*8            :: groupid        ! unique identifier of group
-      real*4               :: xbox(3)        ! [simulation unit] position of galaxy in cartesian SAM-coords
+      real*4               :: xsam(3)        ! [simulation unit] position of galaxy in cartesian SAM-coords
+      real*4               :: dc,ra,dec      ! [simulation length unit,rad,rad] position in spherical Sky-coords
       integer*4            :: snapshot       ! snapshot index
       integer*4            :: subsnapshot    ! sub-snapshot index
-      integer*4            :: box            ! unique identifier of box in mock cone
-      real*4               :: dc,ra,dec      ! [simulation length unit,rad,rad] position in spherical Sky-coords
+      integer*4            :: tile           ! unique identifier of box in mock sky
    
-   end type type_galaxy_base
+   end type type_base
 
-   type type_box
+   type type_tile
    
       integer*4            :: ix(3)          ! integer position, where ix=(0,0,0) is the central box with the observer in the middle
       real*4               :: dmin           ! minimum distance to observer in units of box side-length
@@ -92,7 +96,7 @@ module module_types
       real*4               :: Rpseudo(3,3)   ! matrix of full rotation = 90 tiling rotation without inversion, followed by sky rotation
       real*4               :: translation(3) ! [units of side-length] translation vector [0...1]
    
-   end type type_box
+   end type type_tile
 
    type type_snapshot
 
@@ -103,7 +107,7 @@ module module_types
    end type type_snapshot
    
    type(type_para)                  :: para
-   type(type_box),allocatable       :: box(:)
+   type(type_tile),allocatable      :: tile(:)
    type(type_snapshot),allocatable  :: snapshot(:)
    
    interface line
@@ -160,6 +164,8 @@ contains
       call line('velocity_ra',para%velocity_ra)
       call line('velocity_dec',para%velocity_dec)
       call line('velocity_norm',para%velocity_norm)
+      call line('search_angle',para%search_angle)
+      call line('volume_search_level',para%volume_search_level)
       
       ! close files
       close(1)
@@ -251,17 +257,17 @@ contains
       write(1,'(A)') 'Col  9:  y-component of translation vector in units of L'
       write(1,'(A)') 'Col 10:  z-component of translation vector in units of L'
       write(1,'(A)') '--------------------------------------------------------------------------------'
-      do i = 1,size(box)
-         write(1,'(I6,3I6,2F13.6,I3,3F9.5)') i,box(i)%ix,box(i)%dmin,box(i)%dmax,box(i)%rotation,box(i)%translation
+      do i = 1,size(tile)
+         write(1,'(I6,3I6,2F13.6,I3,3F9.5)') i,tile(i)%ix,tile(i)%dmin,tile(i)%dmax,tile(i)%rotation,tile(i)%translation
       end do
       close(1)
    
       ! write to binary file
       filename = trim(para%path_output)//'tiling.bin'
       open(1,file=trim(filename),action='write',form='unformatted',status='replace')
-      write(1) size(box)
-      do i = 1,size(box)
-         write(1) box(i)
+      write(1) size(tile)
+      do i = 1,size(tile)
+         write(1) tile(i)
       end do
       close(1)
 
@@ -271,16 +277,16 @@ contains
 
       implicit none
       character(len=255)                     :: filename
-      integer*4                              :: i,nbox
+      integer*4                              :: i,ntile
    
       filename = trim(para%path_output)//'tiling.bin'
       call check_exists(filename)
       open(1,file=trim(filename),action='read',form='unformatted')
-      read(1) nbox
-      if (allocated(box)) deallocate(box)
-      allocate(box(nbox))
-      do i = 1,nbox
-         read(1) box(i)
+      read(1) ntile
+      if (allocated(tile)) deallocate(tile)
+      allocate(tile(ntile))
+      do i = 1,ntile
+         read(1) tile(i)
       end do
       close(1)
 

@@ -10,10 +10,10 @@ module module_tiling
    private
    public   :: make_tiling, is_in_fov
    
-   integer*4,allocatable  :: intersection(:,:,:)   ! ==  0 : not checked
-                                                   ! == -1 : does not intersect
-                                                   ! >= +1 : box id of intersecting box
-   integer*4               :: imax,nbox,counter
+   integer*4,allocatable   :: intersection(:,:,:)   ! ==  0 : not checked
+                                                    ! == -1 : does not intersect
+                                                    ! >= +1 : box id of intersecting box
+   integer*4               :: imax,ntile,counter
    
 contains
 
@@ -27,21 +27,21 @@ subroutine make_tiling
    
    call load_parameters
    call set_seed(para%seed)
-   nbox = 0
+   ntile = 0
    counter = 0
    imax = ceiling(para%dc_max/para%L)
    if (imax>100) call error('Maximum comoving distance too large for this box side length.')
    allocate(intersection(-imax:imax,-imax:imax,-imax:imax))
    intersection = 0
-   nbox = 0
+   ntile = 0
    call sph2car(para%dc_min/para%L,(para%ra_min+para%ra_max)/2.0,(para%dec_min+para%dec_max)/2.0,starting_point)
    call check_boxes(nint(starting_point))
    call make_boxes
    call save_box_list
    
-   call out('Number of boxes = ',size(box)*1_8)
+   call out('Number of boxes = ',size(tile)*1_8)
    call out('Number of points checked = ',counter*1_8)
-   if (allocated(box)) deallocate(box)
+   if (allocated(tile)) deallocate(tile)
    call toc
    
 end subroutine make_tiling
@@ -56,8 +56,8 @@ recursive subroutine check_boxes(ix)
    if (is_box_in_survey(ix,.false.)) then
    
       if (is_box_in_survey(ix,.true.)) then
-         nbox = nbox+1
-         intersection(ix(1),ix(2),ix(3)) = nbox
+         ntile = ntile+1
+         intersection(ix(1),ix(2),ix(3)) = ntile
       else
          intersection(ix(1),ix(2),ix(3)) = -1 ! box is only in survey volume specified by parameter file
       end if
@@ -80,49 +80,49 @@ subroutine make_boxes
    real*4                     :: d ! distance from observer to cube centre to in units of box side-lengths
    real*4,parameter           :: h3 = sqrt(3.0)/2.0 ! half the space diagonal of a unit cube
    real*4                     :: rand
-   integer*4                  :: i,j,k,nbox,ibox
+   integer*4                  :: i,j,k,ntile,itile
    
-   nbox = count(intersection>0)
-   if (nbox==0) call error('No galaxy passes the selection criterion.')
+   ntile = count(intersection>0)
+   if (ntile==0) call error('No galaxy passes the selection criterion.')
    
-   if (allocated(box)) deallocate(box)
-   allocate(box(nbox))
+   if (allocated(tile)) deallocate(tile)
+   allocate(tile(ntile))
    do i = -imax,imax
       do j = -imax,imax
          do k = -imax,imax
             if (intersection(i,j,k)>0) then
       
-               ibox = intersection(i,j,k)
+               itile = intersection(i,j,k)
          
                ! position
-               box(ibox)%ix = (/i,j,k/)
+               tile(itile)%ix = (/i,j,k/)
       
                ! distance range of box
-               d = norm(box(ibox)%ix*1.0)
-               box(ibox)%dmin = max(para%dc_min/para%L,d-h3)
-               box(ibox)%dmax = min(para%dc_max/para%L,d+h3)
+               d = norm(tile(itile)%ix*1.0)
+               tile(itile)%dmin = max(para%dc_min/para%L,d-h3)
+               tile(itile)%dmax = min(para%dc_max/para%L,d+h3)
 
                ! choose random proper rotation
                if (para%rotate==1) then
                   call random_number(rand)
-                  box(ibox)%rotation = max(1,min(6,ceiling(rand*6.0)))
+                  tile(itile)%rotation = max(1,min(6,ceiling(rand*6.0)))
                else
-                  box(ibox)%rotation = 1
+                  tile(itile)%rotation = 1
                end if
-               box(ibox)%Rvector = matmul(para%sky_rotation,rot(:,:,box(ibox)%rotation))
+               tile(itile)%Rvector = matmul(para%sky_rotation,rot(:,:,tile(itile)%rotation))
 
                ! choose random inversion
                if (para%invert==1) then
                   call random_number(rand)
-                  if (rand<0.5) box(ibox)%rotation = -box(ibox)%rotation
+                  if (rand<0.5) tile(itile)%rotation = -tile(itile)%rotation
                end if
-               box(ibox)%Rpseudo = matmul(para%sky_rotation,rot(:,:,box(ibox)%rotation))
+               tile(itile)%Rpseudo = matmul(para%sky_rotation,rot(:,:,tile(itile)%rotation))
 
                ! choose random translation
                if (para%translate==1) then
-                  call random_number(box(ibox)%translation)
+                  call random_number(tile(itile)%translation)
                else
-                  box(ibox)%translation = (/0,0,0/)
+                  tile(itile)%translation = (/0,0,0/)
                end if
       
             end if
@@ -137,9 +137,7 @@ logical function is_box_in_survey(ix,user)
    implicit none
    integer*4,intent(in)    :: ix(3) ! [box side-length] box center in tiling coordinates
    logical,intent(in)      :: user
-   real*4,parameter        :: dalpha = 0.5/180.0*pi   ! minimal angular separation of points on faces
-   integer*4,parameter     :: n3D = 4                 ! number of sub-points per dimension in 3D, only needed of disconnected parts of the survey are smaller than the /SAM box-size
-   integer*4               :: n2D
+   integer*4               :: n2D,n3D
    real*4                  :: x(3),dx(3),dy(3),dz(3),sx(3),sy(3),sz(3),fi,fj,d
    integer*4               :: i,j,k
    integer*4,allocatable   :: index(:)
@@ -150,8 +148,7 @@ logical function is_box_in_survey(ix,user)
    x  = matmul(para%sky_rotation,real(ix,4))*para%L
 
    d = max(0.5,sqrt(real(sum(ix**2),4))) ! [box side-length] approximate distance from origin to nearest box face
-   n2D = max(10,2*nint(0.5/(d*dalpha)))
-   !n2D = 2**max(4,9-nint(sqrt(real(sum(ix**2),4)))) ! this is to use a finer grid for closer boxes
+   n2D = max(10,2*nint(0.5/(d*para%search_angle)))
    allocate(index(0:n2D))
    do i = 0,n2D/2-1
       index(i*2) = i
@@ -172,16 +169,19 @@ logical function is_box_in_survey(ix,user)
       end do
    end do
    
-   do i = 0,n3D
-      dx = ((real(i,4)+0.5)/(n3D+1)-0.5)*sx
-      do j = 0,n3D
-         dy = ((real(j,4)+0.5)/(n3D+1)-0.5)*sy
-         do k = 0,n3D
-            dz = ((real(k,4)+0.5)/(n3D+1)-0.5)*sz
-            if (is_point_in_survey(x+dx+dy+dz,user)) then; is_box_in_survey = .true.; return; end if
+   if (para%volume_search_level>0) then
+      n3D = int(2**para%volume_search_level-1,4)
+      do i = 0,n3D
+         dx = ((real(i,4)+0.5)/(n3D+1)-0.5)*sx
+         do j = 0,n3D
+            dy = ((real(j,4)+0.5)/(n3D+1)-0.5)*sy
+            do k = 0,n3D
+               dz = ((real(k,4)+0.5)/(n3D+1)-0.5)*sz
+               if (is_point_in_survey(x+dx+dy+dz,user)) then; is_box_in_survey = .true.; return; end if
+            end do
          end do
       end do
-   end do
+   end if
    
    is_box_in_survey = .false. 
 
