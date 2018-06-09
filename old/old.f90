@@ -1,4 +1,37 @@
+! write info (ascii)
+   inquire(file=filename, size=bytes)
+   filename = trim(para%path_output)//'mocksurvey_info.txt'
+   open(1,file=trim(filename),action='write',form="formatted",status='replace')
+   write(1,'(A,I10)') 'Number.of.galaxies.in.apparent.sky        ',m
+   write(1,'(A,I10)') 'Number.of.bytes.per.galaxy.in.apparent.sky',bytes/m
+   close(1)
+   
+   ! write info (binary)
+   inquire(file=filename, size=bytes)
+   filename = trim(para%path_output)//'mocksurvey_info.bin'
+   open(1,file=trim(filename),action='write',form="unformatted",status='replace')
+   write(1) m
+   write(1) bytes/m
+   close(1)
+   
+   
+   ! write info
+   inquire(file=filename_sky_intrinsic, size=bytes)
+   open(1,file=trim(para%path_output)//'mocksurvey_intrinsic_info.txt',action='write',form="formatted",status='replace')
+   write(1,'(A,I10)') 'Number.of.galaxies.in.intrinsic.sky        ',nmockgalaxies
+   write(1,'(A,I10)') 'Number.of.bytes.per.galaxy.in.intrinsic.sky',bytes/nmockgalaxies
+   close(1)
+   
+   function extract_base(sam) result(base)
+   
+   implicit none
+   type(type_sam),intent(in) :: sam
+   type(type_base)           :: base
+   
+   base%groupid   = sam%galaxy%id_halo     
+   base%xsam      = sam%galaxy%position    
 
+end function extract_base
 
 subroutine make_sky_coordinates(x,dc,ra,dec)
 

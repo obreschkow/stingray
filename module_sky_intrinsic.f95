@@ -23,10 +23,9 @@ subroutine make_sky_intrinsic
    implicit none
    integer*4            :: isnapshot,isubsnapshot,itile
    character(len=100)   :: snapshotname
-   integer*8            :: bytes
    
    call tic
-   call out('MAKE INTRINSIC sky')
+   call out('MAKE INTRINSIC SKY')
    
    ! load previous steps
    call load_parameters
@@ -40,8 +39,9 @@ subroutine make_sky_intrinsic
    call save_snapshot_list
    
    ! create new file
-   filename_sky_intrinsic = trim(para%path_output)//'mocksurvey_intrinsic.bin'
+   filename_sky_intrinsic = trim(para%path_output)//'mocksky_intrinsic.bin'
    open(1,file=trim(filename_sky_intrinsic),action='write',form="unformatted",status='replace',access='stream')
+   write(1) 0_8 ! place holder for number of galaxies
    close(1)
    
    ! fill galaxies with intrinsic properties into sky
@@ -51,10 +51,10 @@ subroutine make_sky_intrinsic
          do isubsnapshot = para%subsnapshot_min,para%subsnapshot_max
             call load_sam_snapshot(isnapshot,isubsnapshot,sam,snapshotname)
             call out('Process '//trim(snapshotname))
-            call initialize_base_properties(isnapshot,isubsnapshot)
+            allocate(base(size(sam)))
             do itile = 1,size(tile)
                if ((snapshot(isnapshot)%dmax>=tile(itile)%dmin).and.(snapshot(isnapshot)%dmin<=tile(itile)%dmax)) then
-                  call translate_and_rotate_snapshot(itile)
+                  call convert_position_sam_to_sky(itile)
                   call write_subsnapshot_into_tile(isnapshot)
                end if
             end do
@@ -73,12 +73,10 @@ subroutine make_sky_intrinsic
       call error('No galaxy in sky. Consider widening the sky geometry or relaxing the selection criteria.')
    end if
    
-   ! write info
-   inquire(file=filename_sky_intrinsic, size=bytes)
-   open(1,file=trim(para%path_output)//'mocksurvey_intrinsic_info.txt',action='write',form="formatted",status='replace')
-   write(1,'(A,I10)') 'Number.of.galaxies.in.intrinsic.sky        ',nmockgalaxies
-   write(1,'(A,I10)') 'Number.of.bytes.per.galaxy.in.intrinsic.sky',bytes/nmockgalaxies
-   close(1)
+   ! add number of objects to beginning of file
+   open(1,file=trim(filename_sky_intrinsic),action='write',form='unformatted',status='old',access='stream')
+   write(1,pos=1) nmockgalaxies
+   close(1) 
    
    ! finalize output
    call out('Number of galaxies in intrinsic sky:',nmockgalaxies)
@@ -86,7 +84,7 @@ subroutine make_sky_intrinsic
    
 end subroutine make_sky_intrinsic
 
-subroutine translate_and_rotate_snapshot(itile)
+subroutine convert_position_sam_to_sky(itile)
 
    implicit none
    integer*4,intent(in) :: itile
@@ -98,7 +96,7 @@ subroutine translate_and_rotate_snapshot(itile)
    
    do i = 1,size(base)
       
-      x = base(i)%xsam/para%L ! change length units to units of box side-length
+      x = sam(i)%getPosition()/para%L ! change length units to units of box side-length
       x = matmul(rot(:,:,tile(itile)%rotation),x) ! random 90-degree rotation/inversion
       x = modulo(x+tile(itile)%translation,1.0) ! periodic translation
       x = x+tile(itile)%ix-0.5 ! translate coordinates to tile position
@@ -108,33 +106,37 @@ subroutine translate_and_rotate_snapshot(itile)
       
    end do
 
-end subroutine translate_and_rotate_snapshot
+end subroutine convert_position_sam_to_sky
 
 subroutine write_subsnapshot_into_tile(isnapshot)
 
    implicit none
    integer*4,intent(in) :: isnapshot
-   integer*4            :: igalaxy
+   integer*4            :: i,ps,is
    
    ! open file
    open(1,file=trim(filename_sky_intrinsic),action='write',form='unformatted',status='old',position='append',access='stream')
    
    ! write mock galaxies
-   do igalaxy = 1,size(base)
+   do i = 1,size(base)
       
       ! check distance relative to snapshot
-      if ((base(igalaxy)%dc>=snapshot(isnapshot)%dmin*para%L).and.(base(igalaxy)%dc<snapshot(isnapshot)%dmax*para%L)) then
+      if ((base(i)%dc>=snapshot(isnapshot)%dmin*para%L).and.(base(i)%dc<snapshot(isnapshot)%dmax*para%L)) then
          
          ! check full position-selection
-         if (is_in_fov(base(igalaxy)%dc,base(igalaxy)%ra,base(igalaxy)%dec)) then
-            if (position_selection(base(igalaxy)%dc,base(igalaxy)%ra/degree,base(igalaxy)%dec/degree)) then
+         if (is_in_fov(base(i)%dc,base(i)%ra,base(i)%dec)) then
+            ps = position_selection(base(i)%dc,base(i)%ra/degree,base(i)%dec/degree)
+            if (ps>0) then
+               !base(i)%position_selection = ps
                  
                ! check intrinsic property-selection
-               if (intrinsic_selection(sam(igalaxy))) then
+               is = intrinsic_selection(sam(i))
+               if (is>0) then
+                  !base(i)%intrinsic_selection = is
                   
                   ! write selected galaxy into intrinsic sky file
                   nmockgalaxies = nmockgalaxies+1
-                  write(1) base(igalaxy),sam(igalaxy)
+                  write(1) base(i),sam(i)
                   
                end if
             end if
@@ -172,21 +174,5 @@ subroutine make_distance_ranges
    end do
 
 end subroutine make_distance_ranges
-
-subroutine initialize_base_properties(index,subindex)
-
-   implicit none
-   integer*4,intent(in)    :: index,subindex
-   integer*8   :: i,n
-   n = size(sam)
-   if (allocated(base)) deallocate(base)
-   allocate(base(n))
-   do i = 1,n
-      base(i) = extract_base(sam(i))
-   end do
-   base%snapshot = index
-   base%subsnapshot = subindex
-   
-end subroutine initialize_base_properties
    
 end module module_sky_intrinsic

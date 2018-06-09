@@ -77,11 +77,7 @@ module module_types
 
    type type_base
 
-      integer*8            :: groupid        ! unique identifier of group
-      real*4               :: xsam(3)        ! [simulation unit] position of galaxy in cartesian SAM-coords
       real*4               :: dc,ra,dec      ! [simulation length unit,rad,rad] position in spherical Sky-coords
-      integer*4            :: snapshot       ! snapshot index
-      integer*4            :: subsnapshot    ! sub-snapshot index
       integer*4            :: tile           ! unique identifier of box in mock sky
    
    end type type_base

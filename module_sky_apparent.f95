@@ -18,44 +18,31 @@ subroutine make_sky_apparent
    implicit none
    character(len=255)   :: filename
    integer*8            :: n,i,m
-   integer*4            :: bytespergalaxy
-   integer*8            :: bytes
+   integer*4            :: as
    type(type_base)      :: base
    type(type_sam)       :: sam   ! intrinsic galaxy properties from SAM
    type(type_sky)       :: sky  ! apparent galaxy properties
    
    ! write user info
    call tic
-   call out('CONVERT INTRINSIC SKY TO APPARENT sky')
+   call out('CONVERT INTRINSIC TO APPARENT PROPERTIES IN MOCK SKY')
    
    ! load previous steps
    call load_parameters
    call load_box_list
    
-   ! determine number of bytes per galaxy in intrinsic sky
-   filename = trim(para%path_output)//'.tmpsizeof'
-   open(1,file=trim(filename),action='write',form="unformatted",status='replace',access='stream')
-   write(1) base,sam
-   close(1)
-   inquire(file=trim(filename), size=bytespergalaxy)
-   
-   ! determine number of galaxies in intrinsic sky
-   filename = trim(para%path_output)//'mocksurvey_intrinsic.bin'
-   inquire(file=filename, size=bytes)
-   if (modulo(bytes,bytespergalaxy).ne.0) then
-      call error('Size of intrinsic sky file inconsistent with type_base and/or type_sam.')
-   end if
-   n = bytes/bytespergalaxy
-   
    ! open intrinsic sky
+   filename = trim(para%path_output)//'mocksky_intrinsic.bin'
    open(2,file=trim(filename),action='read',form='unformatted',status='old',access='stream')
-   
-   ! initialize master one
-   filename = trim(para%path_output)//'mocksurvey.bin'
-   open(1,file=trim(filename),action='write',form="unformatted",status='replace',access='stream')
+   read(2) n ! number of galaxies
    
    ! write user info
    call out('Number of galaxies in intrinsic sky:',n)
+   
+   ! initialize master one
+   filename = trim(para%path_output)//'mocksky.bin'
+   open(1,file=trim(filename),action='write',form="unformatted",status='replace',access='stream')
+   write(1) 0_8 ! place holder for number of objects in mock sky
    
    ! convert galaxy properties and write master sky
    m = 0
@@ -64,38 +51,25 @@ subroutine make_sky_apparent
       Rvector = tile(base%tile)%Rvector
       Rpseudo = tile(base%tile)%Rpseudo
       call rotate_vectors(sam)
-      sky = convert_properties(base,sam,m+1)
-      if (apparent_selection(sky)) then
+      sky = convert_properties(sam,m+1,base%dc,base%ra,base%dec,base%tile)
+      as = apparent_selection(sky)
+      if (as>0) then
          m = m+1
-         call write_galaxy(sky)
+         call write_object(sky)
       end if
    end do
+   
+   ! add number of objects to beginning of file
+   write(1,pos=1) m
    
    ! close files
    close(1)
    close(2)
    
-   if (m==0) call error('No galaxies in the apparent sky. Consider changing selection function.')
-     
-   ! write info (ascii)
-   inquire(file=filename, size=bytes)
-   filename = trim(para%path_output)//'mocksurvey_info.txt'
-   open(1,file=trim(filename),action='write',form="formatted",status='replace')
-   write(1,'(A,I10)') 'Number.of.galaxies.in.apparent.sky        ',m
-   write(1,'(A,I10)') 'Number.of.bytes.per.galaxy.in.apparent.sky',bytes/m
-   close(1)
-   
-   ! write info (binary)
-   inquire(file=filename, size=bytes)
-   filename = trim(para%path_output)//'mocksurvey_info.bin'
-   open(1,file=trim(filename),action='write',form="unformatted",status='replace')
-   write(1) m
-   write(1) bytes/m
-   close(1)
+   if (m==0) call error('No objects in the apparent sky. Consider changing selection function.')
    
    ! user output
-   call out('Number of galaxies in apparent sky:',m)
-   call out('Number of bytes per galaxy in apparent sky:',bytes/m)
+   call out('Number of objects in apparent sky:',m)
    call toc
    
 end subroutine make_sky_apparent
