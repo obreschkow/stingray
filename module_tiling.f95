@@ -190,7 +190,7 @@ end function is_box_in_survey
 logical function is_point_in_survey(x,user)
 
    ! Check if the point x lies inside the selected survey volume. If user = true, this is the survey volume
-   ! specified by the user function position_selection, otherwise it is the survey volume specified in the
+   ! specified by the user function pos_selection, otherwise it is the survey volume specified in the
    ! parameter file.
 
    real*4,intent(in)    :: x(3)     ! [simulation unit] position of point in tiling coordinates
@@ -204,7 +204,7 @@ logical function is_point_in_survey(x,user)
    
    if (user) then
    
-      is_point_in_survey = position_selection(dc,ra/degree,dec/degree)>0
+      is_point_in_survey = pos_selection(dc,ra/degree,dec/degree)>0
       
    else
    

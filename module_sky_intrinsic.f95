@@ -51,6 +51,7 @@ subroutine make_sky_intrinsic
          do isubsnapshot = para%subsnapshot_min,para%subsnapshot_max
             call load_sam_snapshot(isnapshot,isubsnapshot,sam,snapshotname)
             call out('Process '//trim(snapshotname))
+            if (allocated(base)) deallocate(base)
             allocate(base(size(sam)))
             do itile = 1,size(tile)
                if ((snapshot(isnapshot)%dmax>=tile(itile)%dmin).and.(snapshot(isnapshot)%dmin<=tile(itile)%dmax)) then
@@ -112,7 +113,7 @@ subroutine write_subsnapshot_into_tile(isnapshot)
 
    implicit none
    integer*4,intent(in) :: isnapshot
-   integer*4            :: i,ps,is
+   integer*4            :: i,pos_sel,sam_sel
    
    ! open file
    open(1,file=trim(filename_sky_intrinsic),action='write',form='unformatted',status='old',position='append',access='stream')
@@ -125,14 +126,14 @@ subroutine write_subsnapshot_into_tile(isnapshot)
          
          ! check full position-selection
          if (is_in_fov(base(i)%dc,base(i)%ra,base(i)%dec)) then
-            ps = position_selection(base(i)%dc,base(i)%ra/degree,base(i)%dec/degree)
-            if (ps>0) then
-               !base(i)%position_selection = ps
+            pos_sel = pos_selection(base(i)%dc,base(i)%ra/degree,base(i)%dec/degree)
+            if (pos_sel>0) then
+               base(i)%pos_selection = pos_sel
                  
                ! check intrinsic property-selection
-               is = intrinsic_selection(sam(i))
-               if (is>0) then
-                  !base(i)%intrinsic_selection = is
+               sam_sel = sam_selection(sam(i))
+               if (sam_sel>0) then
+                  base(i)%sam_selection = sam_sel
                   
                   ! write selected galaxy into intrinsic sky file
                   nmockgalaxies = nmockgalaxies+1

@@ -18,7 +18,7 @@ subroutine make_sky_apparent
    implicit none
    character(len=255)   :: filename
    integer*8            :: n,i,m
-   integer*4            :: as
+   integer*4            :: sky_sel
    type(type_base)      :: base
    type(type_sam)       :: sam   ! intrinsic galaxy properties from SAM
    type(type_sky)       :: sky  ! apparent galaxy properties
@@ -52,10 +52,11 @@ subroutine make_sky_apparent
       Rpseudo = tile(base%tile)%Rpseudo
       call rotate_vectors(sam)
       sky = convert_properties(sam,m+1,base%dc,base%ra,base%dec,base%tile)
-      as = apparent_selection(sky)
-      if (as>0) then
+      sky_sel = sky_selection(sky)
+      if (sky_sel>0) then
+         base%sky_selection = sky_sel
          m = m+1
-         call write_object(sky)
+         write(1) base,sky
       end if
    end do
    

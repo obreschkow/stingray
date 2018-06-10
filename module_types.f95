@@ -77,8 +77,11 @@ module module_types
 
    type type_base
 
-      real*4               :: dc,ra,dec      ! [simulation length unit,rad,rad] position in spherical Sky-coords
-      integer*4            :: tile           ! unique identifier of box in mock sky
+      real*4      :: dc,ra,dec         ! [simulation length unit,rad,rad] position in spherical Sky-coords
+      integer*4   :: tile              ! unique identifier of box in mock sky
+      integer*4   :: sam_selection     ! selection by sam-properties (selected if >0)
+      integer*4   :: pos_selection     ! selection by sky-position (selected if >0)
+      integer*4   :: sky_selection     ! selection by sky-properties other than position (selected if >0)
    
    end type type_base
 

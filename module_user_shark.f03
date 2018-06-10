@@ -84,7 +84,7 @@ end type type_sam
 
 ! Here, specify the galaxy properties in the mock sky. These are mostly apparent galaxy properties.
 
-type type_sky_galaxy
+type type_sky
 
    integer*8   :: id_galaxy_sky  ! unique ID in the mock sky
    integer*8   :: id_galaxy_sam  ! galaxy ID in the SAM
@@ -104,23 +104,7 @@ type type_sky_galaxy
    real*8      :: SHI            ! [W/m^2] integrated HI line flux
    real*4      :: vrad           ! [proper km/s] radial peculiar velocity
    real*4      :: mstars         ! [Msun/h] total stellar mass
-
-end type type_sky_galaxy
-
-type type_sky_halo
    
-   integer*8   :: id_halo        ! unique ID of parent halo
-   real*4      :: position(3)    ! [Mpc/h] position of galaxy centre in simulation box
-   real*4      :: spinparameter  ! [-] Peebles spin parameter
-   real*4      :: rvir
-   
-end type type_sky_halo
-
-type type_sky
-   
-   type(type_sky_galaxy)   :: galaxy
-   type(type_sky_halo)     :: halo
-
 end type type_sky
 
 contains
@@ -130,14 +114,13 @@ contains
 
 function getPosition(sam) result(position)
    class(type_sam) :: sam
-   real*4         :: position(3)
+   real*4 :: position(3)
    position = sam%galaxy%position ! unique group identifier
 end function getPosition
 
-function getGroupID(sam) result(GroupID)
+integer*8 function getGroupID(sam)
    class(type_sam) :: sam
-   integer*8      :: GroupID
-   GroupID = sam%galaxy%id_halo ! [length_unit of simulation] position if the galaxy in the box
+   getGroupID = sam%galaxy%id_halo ! [length_unit of simulation] position if the galaxy in the box
 end function getGroupID
 
 
@@ -147,7 +130,7 @@ end function getGroupID
 
 ! selection function acting on comoving position, applied when making the tiling and intrinsic sky
 
-integer*4 function position_selection(dc,ra,dec)
+integer*4 function pos_selection(dc,ra,dec)
    
    implicit none
    real*4,intent(in) :: dc    ! [simulation units] comoving distance
@@ -159,23 +142,23 @@ integer*4 function position_selection(dc,ra,dec)
    select case (trim(para%name))
    case ('DEVILS')
       if ((ra>= 34.000).and.(ra<= 37.050).and.(dec>= -5.200).and.(dec<= -4.200)) then
-         position_selection = 1
+         pos_selection = 1
       else if ((ra>= 52.263).and.(ra<= 53.963).and.(dec>=-28.500).and.(dec<=-27.500)) then
-         position_selection = 2
+         pos_selection = 2
       else if ((ra>=149.380).and.(ra<=150.700).and.(dec>= +1.650).and.(dec<= +2.790)) then
-         position_selection = 3
+         pos_selection = 3
       else
-         position_selection = 0
+         pos_selection = 0
       end if
    case default
-      position_selection = 1
+      pos_selection = 1
    end select
 
-end function position_selection
+end function pos_selection
 
-! selection function acting on intrinsic properties and position in the sky, applied when producing the intrinsic sky
+! selection function applied to the sa properties (typically intrinsic properties in the sam)
 
-integer*4 function intrinsic_selection(sam)
+integer*4 function sam_selection(sam)
 
    implicit none
    type(type_sam),intent(in)   :: sam
@@ -185,37 +168,37 @@ integer*4 function intrinsic_selection(sam)
    select case (trim(para%name))
    case ('DEVILS')
       if (sam%galaxy%mstars_disk>1e8) then
-         intrinsic_selection = 1
+         sam_selection = 1
       else
-         intrinsic_selection = 0
+         sam_selection = 0
       end if
    case default
-      intrinsic_selection = 1
+      sam_selection = 1
    end select
    
-end function intrinsic_selection
+end function sam_selection
 
-! selection function acting on apparent properties, applied when producing the apparent sky
+! selection function applied to the sky properties (typically apparent properties in the mock sky)
 
-integer*4 function apparent_selection(sky)
+integer*4 function sky_selection(sky)
 
    implicit none
-   type(type_sky),intent(in)  :: sky
+   type(type_sky),intent(in) :: sky
    
    if (.false.) then; write(*) sky; end if ! dummy statement to avoid compiler warnings for unused arguments
    
    select case (trim(para%name))
    case ('DEVILS')
-      if (sky%galaxy%mag<=21.2) then
-         apparent_selection = 1
+      if (sky%mag<=21.2) then
+         sky_selection = 1
       else
-         apparent_selection = 0
+         sky_selection = 0
       end if
    case default
-      apparent_selection = 1
+      sky_selection = 1
    end select
 
-end function apparent_selection
+end function sky_selection
 
 
 ! ==============================================================================================================
@@ -271,16 +254,6 @@ subroutine make_automatic_parameters
    call hdf5_close()
    
 end subroutine make_automatic_parameters
-
-! write mock-sky galaxy into binary file
-
-subroutine write_object(sky)
-
-   ! choose which variables of the structure 'sky' to save
-   type(type_sky),intent(in) :: sky
-   write(1) sky
-   
-end subroutine write_object
 
 ! load redshifts
 ! this routine must allocate the array snapshot and fill in its real*4-valued property 'redshift'
@@ -400,7 +373,7 @@ function convert_properties(sam,id,dc,ra,dec,tile) result(sky)
    real*4,intent(in)                      :: dc       ! [simulation length units] comoving distance
    real*4,intent(in)                      :: ra,dec   ! [rad] sky position
    integer*4,intent(in)                   :: tile     ! unique tile ID
-   type(type_sky)                         :: sky      ! apparent galaxy properties
+   type(type_sky)                  :: sky      ! apparent galaxy properties
    
    real*4                                 :: pos(3)   ! [simulation length units] position vector of galaxy
    real*4                                 :: dl       ! [simulation length units] luminosity distance to observer
@@ -414,35 +387,35 @@ function convert_properties(sam,id,dc,ra,dec,tile) result(sky)
    elos = pos/norm(pos)
    
    ! sky coordinates
-   sky%galaxy%dc  = dc         ! [Mpc/h]
-   sky%galaxy%ra  = ra         ! [rad]
-   sky%galaxy%dec = dec        ! [rad]
+   sky%dc  = dc         ! [Mpc/h]
+   sky%ra  = ra         ! [rad]
+   sky%dec = dec        ! [rad]
    
    ! make redshift, provided the galaxy position [simulation units] galaxy-velocity [km/s]
-   call make_redshift(pos*(para%length_unit/Mpc),sam%galaxy%velocity,z=sky%galaxy%z)
+   call make_redshift(pos*(para%length_unit/Mpc),sam%galaxy%velocity,z=sky%z)
    
    ! make inclination and position angle [rad]
-   call make_inclination_and_pa(pos,sam%galaxy%J,inclination=sky%galaxy%inclination,pa=sky%galaxy%pa)
+   call make_inclination_and_pa(pos,sam%galaxy%J,inclination=sky%inclination,pa=sky%pa)
    
    ! make IDs
-   sky%galaxy%id_galaxy_sky   = id
-   sky%galaxy%id_galaxy_sam   = sam%galaxy%id_galaxy
-   sky%galaxy%id_halo_sky     = sam%galaxy%id_halo+tile*int(1e10,8)
-   sky%galaxy%id_halo_sam     = sam%galaxy%id_halo
-   sky%galaxy%tile            = tile
-   sky%galaxy%snapshot        = sam%galaxy%snapshot
-   sky%galaxy%subsnapshot     = sam%galaxy%subsnapshot
+   sky%id_galaxy_sky   = id
+   sky%id_galaxy_sam   = sam%galaxy%id_galaxy
+   sky%id_halo_sky     = sam%galaxy%id_halo+tile*int(1e10,8)
+   sky%id_halo_sam     = sam%galaxy%id_halo
+   sky%tile            = tile
+   sky%snapshot        = sam%galaxy%snapshot
+   sky%subsnapshot     = sam%galaxy%subsnapshot
    
    ! copy basic constants
-   sky%galaxy%typ             = sam%galaxy%typ
+   sky%typ             = sam%galaxy%typ
    
    ! convert intrinsic to apparent properties
-   dl = sky%galaxy%dc*(1+sky%galaxy%z) ! [Mpc/h]
-   sky%galaxy%mstars = sam%galaxy%mstars_disk+sam%galaxy%mstars_bulge
-   sky%galaxy%mag = convert_absmag2appmag(convert_stellarmass2absmag(sky%galaxy%mstars/para%h,1.0),dl/para%h)
-   sky%galaxy%vrad = sum(sam%galaxy%velocity*elos)
+   dl = sky%dc*(1+sky%z) ! [Mpc/h]
+   sky%mstars = sam%galaxy%mstars_disk+sam%galaxy%mstars_bulge
+   sky%mag = convert_absmag2appmag(convert_stellarmass2absmag(sky%mstars/para%h,1.0),dl/para%h)
+   sky%vrad = sum(sam%galaxy%velocity*elos)
    mHI = (sam%galaxy%matom_disk+sam%galaxy%matom_bulge)/1.35/para%h ! [Msun] HI mass
-   sky%galaxy%SHI = convert_luminosity2flux(real(mHI,8)*real(L2MHI,8)*Lsun,dl/para%h)
+   sky%SHI = convert_luminosity2flux(real(mHI,8)*real(L2MHI,8)*Lsun,dl/para%h)
    
 end function convert_properties
 
@@ -539,27 +512,27 @@ subroutine make_hdf5
    
    ! Group "Galaxies"
    call hdf5_add_group('Galaxies')
-   call hdf5_write_data('Galaxies/id_galaxy_sky',sky%galaxy%id_galaxy_sky,'unique galaxy ID in mock sky')
-   call hdf5_write_data('Galaxies/id_galaxy_sam',sky%galaxy%id_galaxy_sam,'galaxy ID in SAM')
-   call hdf5_write_data('Galaxies/id_halo_sky',sky%galaxy%id_galaxy_sky,'unique parent halo ID in mock sky')
-   call hdf5_write_data('Galaxies/id_halo_sam',sky%galaxy%id_galaxy_sam,'parent halo ID in SAM')
-   call hdf5_write_data('Galaxies/snapshot',sky%galaxy%snapshot,'snapshot ID')
-   call hdf5_write_data('Galaxies/subsnapshot',sky%galaxy%subsnapshot,'subsnapshot ID')
-   call hdf5_write_data('Galaxies/box',sky%galaxy%tile,'tile ID in tiling array')
-   call hdf5_write_data('Galaxies/type',sky%galaxy%typ,'galaxy type (0=central, 1=satellite in halo, 2=orphan)')
-   call hdf5_write_data('Galaxies/z',sky%galaxy%z, &
+   call hdf5_write_data('Galaxies/id_galaxy_sky',sky%id_galaxy_sky,'unique galaxy ID in mock sky')
+   call hdf5_write_data('Galaxies/id_galaxy_sam',sky%id_galaxy_sam,'galaxy ID in SAM')
+   call hdf5_write_data('Galaxies/id_halo_sky',sky%id_galaxy_sky,'unique parent halo ID in mock sky')
+   call hdf5_write_data('Galaxies/id_halo_sam',sky%id_galaxy_sam,'parent halo ID in SAM')
+   call hdf5_write_data('Galaxies/snapshot',sky%snapshot,'snapshot ID')
+   call hdf5_write_data('Galaxies/subsnapshot',sky%subsnapshot,'subsnapshot ID')
+   call hdf5_write_data('Galaxies/box',sky%tile,'tile ID in tiling array')
+   call hdf5_write_data('Galaxies/type',sky%typ,'galaxy type (0=central, 1=satellite in halo, 2=orphan)')
+   call hdf5_write_data('Galaxies/z',sky%z, &
    & 'apparent redshift (Hubble flow + peculiar motion of galaxy and observer)')
-   call hdf5_write_data('Galaxies/dc',sky%galaxy%dc,'[Mpc/h] comoving distance')
-   call hdf5_write_data('Galaxies/RA',sky%galaxy%ra/degree,'[deg] right ascension')
-   call hdf5_write_data('Galaxies/Dec',sky%galaxy%dec/degree,'[deg] declination')
-   call hdf5_write_data('Galaxies/inclination',sky%galaxy%inclination/degree, &
+   call hdf5_write_data('Galaxies/dc',sky%dc,'[Mpc/h] comoving distance')
+   call hdf5_write_data('Galaxies/RA',sky%ra/degree,'[deg] right ascension')
+   call hdf5_write_data('Galaxies/Dec',sky%dec/degree,'[deg] declination')
+   call hdf5_write_data('Galaxies/inclination',sky%inclination/degree, &
    & '[deg] inclination = angle between line-of-sight and spin axis')
-   call hdf5_write_data('Galaxies/pa',sky%galaxy%pa/degree,'[deg] position angle from north to east')
-   call hdf5_write_data('Galaxies/mag',sky%galaxy%mag, &
+   call hdf5_write_data('Galaxies/pa',sky%pa/degree,'[deg] position angle from north to east')
+   call hdf5_write_data('Galaxies/mag',sky%mag, &
    & 'apparent magnitude (generic: M/L ratio of 1, no k-correction)')
-   call hdf5_write_data('Galaxies/SHI',sky%galaxy%SHI,'[W/m^2] integrated HI line flux')
-   call hdf5_write_data('Galaxies/vrad',sky%galaxy%vrad,'[proper km/s] radial peculiar velocity')
-   call hdf5_write_data('Galaxies/mstars',sky%galaxy%mstars,'[Msun/h] stellar mass')
+   call hdf5_write_data('Galaxies/SHI',sky%SHI,'[W/m^2] integrated HI line flux')
+   call hdf5_write_data('Galaxies/vrad',sky%vrad,'[proper km/s] radial peculiar velocity')
+   call hdf5_write_data('Galaxies/mstars',sky%mstars,'[Msun/h] stellar mass')
    
    ! Group "Tiling"
    call hdf5_add_group('Tiling')
