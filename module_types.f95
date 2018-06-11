@@ -74,34 +74,31 @@ module module_types
       real*4               :: sky_rotation(3,3) ! rotation matrix to move the (x,y,z)-sky axis onto the central (RA,dec)-sky
    
    end type type_para
-
+   
    type type_base
 
       real*4      :: dc,ra,dec         ! [simulation length unit,rad,rad] position in spherical Sky-coords
       integer*4   :: tile              ! unique identifier of box in mock sky
-      integer*4   :: sam_selection     ! selection by sam-properties (selected if >0)
-      integer*4   :: pos_selection     ! selection by sky-position (selected if >0)
-      integer*4   :: sky_selection     ! selection by sky-properties other than position (selected if >0)
-   
+      
    end type type_base
 
    type type_tile
    
-      integer*4            :: ix(3)          ! integer position, where ix=(0,0,0) is the central box with the observer in the middle
-      real*4               :: dmin           ! minimum distance to observer in units of box side-length
-      real*4               :: dmax           ! maximum distance ...
-      integer*4            :: rotation       ! 1...6, describing the type of proper 90-rotation, 1 being the identity; if negative with inversion
-      real*4               :: Rvector(3,3)   ! matrix of full rotation = 90 tiling rotation, followed by sky rotation
-      real*4               :: Rpseudo(3,3)   ! matrix of full rotation = 90 tiling rotation without inversion, followed by sky rotation
-      real*4               :: translation(3) ! [units of side-length] translation vector [0...1]
+      integer*4   :: ix(3)          ! integer position, where ix=(0,0,0) is the central box with the observer in the middle
+      real*4      :: dmin           ! minimum distance to observer in units of box side-length
+      real*4      :: dmax           ! maximum distance ...
+      integer*4   :: rotation       ! 1...6, describing the type of proper 90-rotation, 1 being the identity; if negative with inversion
+      real*4      :: Rvector(3,3)   ! matrix of full rotation = 90 tiling rotation, followed by sky rotation
+      real*4      :: Rpseudo(3,3)   ! matrix of full rotation = 90 tiling rotation without inversion, followed by sky rotation
+      real*4      :: translation(3) ! [units of side-length] translation vector [0...1]
    
    end type type_tile
 
    type type_snapshot
 
-      real*4               :: redshift
-      real*4               :: dmin        ! [units of side-length] minimum comoving distance at which galaxies are drawn from this redshift
-      real*4               :: dmax        ! [units of side-length] maximum ...
+      real*4   :: redshift
+      real*4   :: dmin        ! [units of side-length] minimum comoving distance at which galaxies are drawn from this redshift
+      real*4   :: dmax        ! [units of side-length] maximum ...
 
    end type type_snapshot
    

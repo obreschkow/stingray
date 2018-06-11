@@ -111,8 +111,7 @@ subroutine write_subsnapshot_into_tile(itile,isnapshot)
    do i = 1,size(sam)
    
       ! check intrinsic property-selection
-      base%sam_selection = sam_selection(sam(i))
-      if (base%sam_selection>0) then
+      if (sam_selection(sam(i))) then
       
          ! compute sky position
          call convert_position_sam_to_sky(sam(i)%getPosition()/para%L,itile,base%dc,base%ra,base%dec)
@@ -122,12 +121,10 @@ subroutine write_subsnapshot_into_tile(itile,isnapshot)
          
             ! check full position-selection
             if (is_in_fov(base%dc*para%L,base%ra,base%dec)) then
-               base%pos_selection = pos_selection(base%dc*para%L,base%ra/degree,base%dec/degree)
-               if (base%pos_selection>0) then
+               if (pos_selection(base%dc*para%L,base%ra/degree,base%dec/degree)) then
                
-                  ! complete base
+                  ! complete sky-base
                   base%tile = itile
-                  base%sky_selection = -1 ! means that no sky selection has yet been assigned
                   
                   ! write selected galaxy into intrinsic sky file
                   nmockgalaxies = nmockgalaxies+1

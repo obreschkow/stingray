@@ -3,6 +3,7 @@ module module_parameters
    use module_constants
    use module_types
    use module_system
+   use module_linalg
    use module_user
    
    private

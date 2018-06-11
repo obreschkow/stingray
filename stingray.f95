@@ -10,20 +10,14 @@ program surfsuite
 
    implicit none
 
-   character(len=255)      :: parameter_filename_custom
-   character(len=255)      :: arg_task
-   character(len=255)      :: arg_option
-   character(len=255)      :: arg_value
-   character(len=255)      :: custom_option
-   integer*4               :: i,narg
-   logical                 :: success
+   character(len=255)   :: parameter_filename_custom
+   character(len=255)   :: arg_task
+   character(len=255)   :: arg_option
+   character(len=255)   :: arg_value
+   character(len=255)   :: custom_option
+   integer*4            :: i,narg
+   logical              :: success
    
-   !type(type_sam)          :: x
-   !x%halo%spinparameter = 5.0
-   !allocate(x%galaxy)
-   !write(*,*) x%galaxy
-   !stop
-     
    narg = iargc() ! number of arguments
    
    if (narg==0) then
@@ -76,6 +70,7 @@ program surfsuite
    
    ! Initialize constants
    call initialize_constants
+   call set_class_pointers
    
    ! Load parameter file
    call make_parameters(parameter_filename_custom)

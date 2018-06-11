@@ -1,4 +1,4 @@
-# Input model; each model requires a custom module "module_user_[SAM].f95"
+# Input model; each model requires a custom module "module_user_[SAM].f03"
 Model = shark
 
 # Compiler

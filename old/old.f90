@@ -1,3 +1,69 @@
+
+
+function convert_properties(sam,id,dc,ra,dec,tile) result(sky)
+
+   ! This is the central function of the user module. It makes the apparent properties of the galaxies
+   ! based on the intrinsic properties and the basic positional properties stored in base.
+   !
+   ! NB: All vectors in sam have been rotated via rotate_vectors, before this function is called
+   !     except for the galaxy position. The correct position (rotated+translated) is provided in spherical
+   !     sky-coordinates: base%dc [comoving simulation length unit] base%ra [rad], base%dec [rad]. Only use this
+   !     position, not the position vector of the  SAM to compute apparent properties.
+
+   implicit none
+   
+   type(type_sam),intent(in)  :: sam      ! intrinsic object properties from SAM
+   integer*8,intent(in)       :: id       ! unique ID of object in mock survey
+   real*4,intent(in)          :: dc       ! [simulation length units] comoving distance
+   real*4,intent(in)          :: ra,dec   ! [rad] sky position
+   integer*4,intent(in)       :: tile     ! unique tile ID
+   type(type_sky)             :: sky      ! apparent galaxy properties
+   
+   real*4                     :: pos(3)   ! [simulation length units] position vector of galaxy
+   real*4                     :: dl       ! [simulation length units] luminosity distance to observer
+   real*4                     :: elos(3)  ! unit vector pointing from the observer to the object in comoving space
+   real*4                     :: mHI
+   
+   if (.false.) then; write(*) sam,id,dc,ra,dec,tile; end if ! dummy statement to avoid compiler warnings
+   
+   ! position vector
+   call sph2car(dc,ra,dec,pos)
+   elos = pos/norm(pos)
+   
+   ! sky coordinates
+   sky%dc  = dc         ! [Mpc/h]
+   sky%ra  = ra         ! [rad]
+   sky%dec = dec        ! [rad]
+   
+   ! make redshift, provided the galaxy position [simulation units] galaxy-velocity [km/s]
+   call make_redshift(pos*(para%length_unit/Mpc),sam%velocity,z=sky%z)
+   
+   ! make inclination and position angle [rad]
+   call make_inclination_and_pa(pos,sam%J,inclination=sky%inclination,pa=sky%pa)
+   
+   ! make IDs
+   sky%id_galaxy_sky   = id
+   sky%id_galaxy_sam   = sam%id_galaxy
+   sky%id_halo_sky     = sam%id_halo+tile*int(1e10,8)
+   sky%id_halo_sam     = sam%id_halo
+   sky%tile            = tile
+   sky%snapshot        = sam%snapshot
+   sky%subsnapshot     = sam%subsnapshot
+   
+   ! copy other properties
+   sky%mvir            = sam%mvir_hosthalo
+   sky%typ             = sam%typ
+   
+   ! convert intrinsic to apparent properties
+   dl = sky%dc*(1+sky%z) ! [Mpc/h]
+   sky%mstars = sam%mstars_disk+sam%mstars_bulge
+   sky%mag = convert_absmag2appmag(convert_stellarmass2absmag(sky%mstars/para%h,1.0),dl/para%h)
+   sky%vrad = sum(sam%velocity*elos)
+   mHI = (sam%matom_disk+sam%matom_bulge)/1.35/para%h ! [Msun] HI mass
+   sky%SHI = convert_luminosity2flux(real(mHI,8)*real(L2MHI,8)*Lsun,dl/para%h)
+   
+end function convert_properties
+
 ! write info (ascii)
    inquire(file=filename, size=bytes)
    filename = trim(para%path_output)//'mocksurvey_info.txt'

@@ -204,7 +204,7 @@ logical function is_point_in_survey(x,user)
    
    if (user) then
    
-      is_point_in_survey = pos_selection(dc,ra/degree,dec/degree)>0
+      is_point_in_survey = pos_selection(dc,ra/degree,dec/degree)
       
    else
    
