@@ -72,27 +72,38 @@ subroutine make_inclination_and_pa(x,J,inclination,pa)
    real*4                           :: eNorth(3)      ! unit vector pointing north (or south) (orthoconal to LOS)
    real*4                           :: eEast(3)       ! unit vector pointing east (or west) (orthoconal to LOS)
    real*4                           :: normx,normJ
+   real*4                           :: rand(2)
    
    normx = norm(x)
    if (normx<=epsilon(normx)) call error('make_inclination_and_pa: norm of x is zero.')
    normJ = norm(J)
-   if (normJ<=epsilon(normJ)) call error('make_inclination_and_pa: norm of J is zero.')
    
-   eLOS = x/normx
-   eJ = J/normJ
+   if (normJ<=epsilon(normJ)) then
+      
+      ! assign random inclination
+      call random_number(rand)
+      pa = rand(1)*2*pi
+      inclination = acos(rand(2))
+      
+   else
    
-   inclination = acos(sum(eLOS*eJ))
-   if (inclination>pi/2.0) inclination = pi-inclination
+      eLOS = x/normx
+      eJ = J/normJ
    
-   eMajor = cross_product(eLOS,eJ)
-   eMajor = eMajor/norm(eMajor)
+      inclination = acos(sum(eLOS*eJ))
+      if (inclination>pi/2.0) inclination = pi-inclination
    
-   eNorth = (/0,0,1/)-eLOS(3)*eLOS
-   eNorth = eNorth/norm(eNorth)
-   eEast = cross_product(eNorth,eLOS)
+      eMajor = cross_product(eLOS,eJ)
+      eMajor = eMajor/norm(eMajor)
    
-   pa = atan2(sum(eMajor*eEast),sum(eMajor*eNorth))
-   if (pa<0) pa = 2*pi-pa
+      eNorth = (/0,0,1/)-eLOS(3)*eLOS
+      eNorth = eNorth/norm(eNorth)
+      eEast = cross_product(eNorth,eLOS)
+   
+      pa = atan2(sum(eMajor*eEast),sum(eMajor*eNorth))
+      if (pa<0) pa = 2*pi-pa
+      
+   end if
    
 end subroutine make_inclination_and_pa
 
@@ -106,11 +117,15 @@ function convert_stellarmass2absmag(M,M2L,magSun) result(mag)
    real*4                     :: mag            ! absolute magnitude
    real*4,parameter           :: magSunV = 4.83 ! absolute visual magnitude of sun
    
-   luminosity = M/M2L ! [Lsun]
-   if (present(magSun)) then
-      mag = magSun-2.5*log10(luminosity)
+   if (M==0) then
+      mag = 99
    else
-      mag = magSunV-2.5*log10(luminosity)
+      luminosity = M/M2L ! [Lsun]
+      if (present(magSun)) then
+         mag = magSun-2.5*log10(luminosity)
+      else
+         mag = magSunV-2.5*log10(luminosity)
+      end if
    end if
 
 end function convert_stellarmass2absmag
@@ -122,7 +137,11 @@ function convert_absmag2appmag(absmag,dl) result(appmag)
    real*4,intent(in) :: dl       ! [Mpc] luminosity distance
    real*4            :: appmag   ! apparent magnitude
 
-   appmag = absmag+5*log10(dl)+25
+   if (absmag>=99) then
+      appmag = 99
+   else
+      appmag = absmag+5*log10(dl)+25
+   end if
 
 end function convert_absmag2appmag
 

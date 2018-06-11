@@ -28,7 +28,6 @@ recursive function determinant(mat,n) result(accum)
     real    :: mat(n, n)
     real    :: submat(n-1, n-1), accum
     integer :: i, sgn
-
     if ( n == 1 ) then
         accum = mat(1,1)
     else
@@ -37,7 +36,6 @@ recursive function determinant(mat,n) result(accum)
         do i = 1, n
             submat( 1:n-1, 1:i-1 ) = mat( 2:n, 1:i-1 )
             submat( 1:n-1, i:n-1 ) = mat( 2:n, i+1:n )
-
             accum = accum + sgn * mat(1, i) * determinant( submat, n-1 )
             sgn = - sgn
         enddo
@@ -63,51 +61,6 @@ function norm(x) result (n)
    n = sqrt(sum(x**2))
    
 end function norm
-
-function matrix_times_vector(A,x) result(y)
-
-   implicit none
-   real*4,intent(in)    :: A(:,:)
-   real*4,intent(in)    :: x(:)
-   real*4,allocatable   :: y(:)
-   integer*4            :: n,i
-   
-   if (size(A,2).ne.size(x)) then
-      write(*,*) 'ERROR in matrix_times_vector: sizes of A and x incompatible.'
-      stop
-   end if
-   
-   n = size(A,1)
-   allocate(y(n))
-   do i = 1,n
-      y(i) = sum(A(i,:)*x)
-   end do
-
-end function matrix_times_vector
-
-function matrix_product(A,B) result(C)
-
-   implicit none
-   real*4,intent(in)    :: A(:,:)
-   real*4,intent(in)    :: B(:,:)
-   real*4,allocatable   :: C(:,:)
-   integer*4            :: n,m,i,j
-   
-   if (size(A,2).ne.size(B,1)) then
-      write(*,*) 'ERROR in matrix_product: sizes of A and B incompatible.'
-      stop
-   end if
-   
-   n = size(A,1)
-   m = size(B,2)
-   allocate(C(n,m))
-   do i = 1,n
-      do j = 1,m
-         C(i,j) = sum(A(i,:)*B(:,j))
-      end do
-   end do
-
-end function matrix_product
 
 function rotation_matrix(axis,angle) result(R)
 

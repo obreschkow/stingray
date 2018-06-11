@@ -18,7 +18,6 @@ subroutine make_sky_apparent
    implicit none
    character(len=255)   :: filename
    integer*8            :: n,i,m
-   integer*4            :: sky_sel
    type(type_base)      :: base
    type(type_sam)       :: sam   ! intrinsic galaxy properties from SAM
    type(type_sky)       :: sky  ! apparent galaxy properties
@@ -30,6 +29,9 @@ subroutine make_sky_apparent
    ! load previous steps
    call load_parameters
    call load_box_list
+   
+   ! set random seed (in case the assignment of sky-properties involves randomness)
+   call set_seed(para%seed)
    
    ! open intrinsic sky
    filename = trim(para%path_output)//'mocksky_intrinsic.bin'
@@ -51,10 +53,9 @@ subroutine make_sky_apparent
       Rvector = tile(base%tile)%Rvector
       Rpseudo = tile(base%tile)%Rpseudo
       call rotate_vectors(sam)
-      sky = convert_properties(sam,m+1,base%dc,base%ra,base%dec,base%tile)
-      sky_sel = sky_selection(sky)
-      if (sky_sel>0) then
-         base%sky_selection = sky_sel
+      sky = convert_properties(sam,m+1,base%dc*para%L,base%ra,base%dec,base%tile)
+      base%sky_selection = sky_selection(sky)
+      if (base%sky_selection>0) then
          m = m+1
          write(1) base,sky
       end if

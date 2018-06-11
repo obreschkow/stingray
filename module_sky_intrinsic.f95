@@ -11,7 +11,6 @@ module module_sky_intrinsic
    private
    public   :: make_sky_intrinsic
    
-   type(type_base),allocatable   :: base(:)
    type(type_sam),allocatable    :: sam(:)
    integer*8                     :: nmockgalaxies
    character(len=255)            :: filename_sky_intrinsic
@@ -51,12 +50,9 @@ subroutine make_sky_intrinsic
          do isubsnapshot = para%subsnapshot_min,para%subsnapshot_max
             call load_sam_snapshot(isnapshot,isubsnapshot,sam,snapshotname)
             call out('Process '//trim(snapshotname))
-            if (allocated(base)) deallocate(base)
-            allocate(base(size(sam)))
             do itile = 1,size(tile)
                if ((snapshot(isnapshot)%dmax>=tile(itile)%dmin).and.(snapshot(isnapshot)%dmin<=tile(itile)%dmax)) then
-                  call convert_position_sam_to_sky(itile)
-                  call write_subsnapshot_into_tile(isnapshot)
+                  call write_subsnapshot_into_tile(itile,isnapshot)
                end if
             end do
          end do
@@ -66,7 +62,6 @@ subroutine make_sky_intrinsic
    ! deallocate arrays
    if (allocated(tile)) deallocate(tile)
    if (allocated(snapshot)) deallocate(snapshot)
-   if (allocated(base)) deallocate(base)
    if (allocated(sam)) deallocate(sam)
    
    ! check number of galaxies
@@ -85,59 +80,58 @@ subroutine make_sky_intrinsic
    
 end subroutine make_sky_intrinsic
 
-subroutine convert_position_sam_to_sky(itile)
+subroutine convert_position_sam_to_sky(position,itile,dc,ra,dec)
+
+   implicit none
+   real*4,intent(in)    :: position(3) ! [box side-length] position in box
+   integer*4,intent(in) :: itile
+   real*4,intent(out)   :: dc,ra,dec ! [box side-length,rad,rad] position on sky
+   real*4               :: x(3)
+   
+   x = matmul(rot(:,:,tile(itile)%rotation),position) ! random 90-degree rotation/inversion
+   x = modulo(x+tile(itile)%translation,1.0) ! periodic translation
+   x = x+tile(itile)%ix-0.5 ! translate coordinates to tile position
+   x = matmul(para%sky_rotation,x) ! convert SAM-coordinates to Sky-coordinates
+   call car2sph(x,dc,ra,dec)
+   
+end subroutine convert_position_sam_to_sky
+
+subroutine write_subsnapshot_into_tile(itile,isnapshot)
 
    implicit none
    integer*4,intent(in) :: itile
-   integer*4            :: i
-   real*4               :: x(3),d
-   
-   ! save box index
-   base%tile = itile
-   
-   do i = 1,size(base)
-      
-      x = sam(i)%getPosition()/para%L ! change length units to units of box side-length
-      x = matmul(rot(:,:,tile(itile)%rotation),x) ! random 90-degree rotation/inversion
-      x = modulo(x+tile(itile)%translation,1.0) ! periodic translation
-      x = x+tile(itile)%ix-0.5 ! translate coordinates to tile position
-      x = matmul(para%sky_rotation,x) ! convert SAM-coordinates to Sky-coordinates
-      call car2sph(x,d,base(i)%ra,base(i)%dec)
-      base(i)%dc = d*para%L
-      
-   end do
-
-end subroutine convert_position_sam_to_sky
-
-subroutine write_subsnapshot_into_tile(isnapshot)
-
-   implicit none
    integer*4,intent(in) :: isnapshot
-   integer*4            :: i,pos_sel,sam_sel
+   integer*4            :: i
+   type(type_base)      :: base
    
    ! open file
    open(1,file=trim(filename_sky_intrinsic),action='write',form='unformatted',status='old',position='append',access='stream')
    
    ! write mock galaxies
-   do i = 1,size(base)
+   do i = 1,size(sam)
+   
+      ! check intrinsic property-selection
+      base%sam_selection = sam_selection(sam(i))
+      if (base%sam_selection>0) then
       
-      ! check distance relative to snapshot
-      if ((base(i)%dc>=snapshot(isnapshot)%dmin*para%L).and.(base(i)%dc<snapshot(isnapshot)%dmax*para%L)) then
+         ! compute sky position
+         call convert_position_sam_to_sky(sam(i)%getPosition()/para%L,itile,base%dc,base%ra,base%dec)
+      
+         ! check distance relative to snapshot
+         if ((base%dc>=snapshot(isnapshot)%dmin).and.(base%dc<snapshot(isnapshot)%dmax)) then
          
-         ! check full position-selection
-         if (is_in_fov(base(i)%dc,base(i)%ra,base(i)%dec)) then
-            pos_sel = pos_selection(base(i)%dc,base(i)%ra/degree,base(i)%dec/degree)
-            if (pos_sel>0) then
-               base(i)%pos_selection = pos_sel
-                 
-               ! check intrinsic property-selection
-               sam_sel = sam_selection(sam(i))
-               if (sam_sel>0) then
-                  base(i)%sam_selection = sam_sel
+            ! check full position-selection
+            if (is_in_fov(base%dc*para%L,base%ra,base%dec)) then
+               base%pos_selection = pos_selection(base%dc*para%L,base%ra/degree,base%dec/degree)
+               if (base%pos_selection>0) then
+               
+                  ! complete base
+                  base%tile = itile
+                  base%sky_selection = -1 ! means that no sky selection has yet been assigned
                   
                   ! write selected galaxy into intrinsic sky file
                   nmockgalaxies = nmockgalaxies+1
-                  write(1) base(i),sam(i)
+                  write(1) base,sam(i)
                   
                end if
             end if
@@ -168,7 +162,7 @@ subroutine make_distance_ranges
          snapshot(i)%dmin = 0.5*(d(i+1)+d(i))
       end if
       if (i==para%snapshot_min) then
-         snapshot(i)%dmax = 1e20
+         snapshot(i)%dmax = 9999.0
       else
          snapshot(i)%dmax = 0.5*(d(i)+d(i-1))
       end if
