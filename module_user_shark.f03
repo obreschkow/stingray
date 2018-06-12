@@ -53,14 +53,16 @@ type type_sam
    real*4      :: J(3)           ! [proper Msun/h Mpc/h km/s ?] angular momentum
    real*4      :: mstars_disk    ! [Msun/h] stellar mass disk
    real*4      :: mstars_bulge   ! [Msun/h] stellar mass bulge
-   real*4      :: mgas_disk      ! [Msun/h] atomic gas mass disk
-   real*4      :: mgas_bulge     ! [Msun/h] atomic gas mass bulge
+   real*4      :: mgas_disk      ! [Msun/h] gas mass disk
+   real*4      :: mgas_bulge     ! [Msun/h] gas mass bulge
    real*4      :: matom_disk     ! [Msun/h] atomic gas mass disk
    real*4      :: matom_bulge    ! [Msun/h] atomic gas mass bulge
-   real*4      :: rstar_disk     ! [cMpc/h] half-mass of stars in the disk
-   real*4      :: rstar_bulge    ! [cMpc/h] half-mass of stars in the bulge
-   real*4      :: rgas_disk      ! [cMpc/h] half-mass of gas in the disk
-   real*4      :: rgas_bulge     ! [cMpc/h] half-mass of gas in the bulge
+   real*4      :: mmol_disk      ! [Msun/h] molecular gas mass disk
+   real*4      :: mmol_bulge     ! [Msun/h] molecular gas mass bulge
+   real*4      :: rstar_disk     ! [cMpc/h] half-mass radius of stars in the disk
+   real*4      :: rstar_bulge    ! [cMpc/h] half-mass radius of stars in the bulge
+   real*4      :: rgas_disk      ! [cMpc/h] half-mass radius of gas in the disk
+   real*4      :: rgas_bulge     ! [cMpc/h] half-mass radius of gas in the bulge
    real*4      :: mvir_hosthalo  ! [Msun/h]
    real*4      :: mvir_subhalo   ! [Msun/h]
    real*4      :: cnfw_subhalo   ! concentration of NFW fit to subhalo
@@ -113,6 +115,9 @@ type,extends(type_sky) :: type_sky_galaxy
    real*4      :: mstars         ! [Msun/h] total stellar mass
    real*4      :: mvir_hosthalo  ! [Msun/h] mass of 1st generation halo (i.e. direct host of type 0 galaxies)
    real*4      :: mvir_subhalo   ! [Msun/h] mass of 1st generation halo (i.e. direct host of type 0 galaxies)
+   real*4      :: rstar_disk     ! [arcsec] apparent half-mass radius of stars in the disk
+   real*4      :: rstar_bulge    ! [arcsec] apparent half-mass radius of stars in the bulge
+   real*4      :: rgas_disk      ! [arcsec] apparent half-mass radius of stars in the disk
    
 end type type_sky_galaxy
 
@@ -359,6 +364,11 @@ subroutine convertSam(sky,sam,nobj,nobjtot,dc,ra,dec,tile)
       mHI = (sam%matom_disk+sam%matom_bulge)/1.35/para%h ! [Msun] HI mass
       sky%SHI = convert_luminosity2flux(real(mHI,8)*real(L2MHI,8)*Lsun,dl/para%h)
       sky%vpecrad = sum(sam%velocity*elos)
+      
+      ! apparent radii (note division by comoving distance, because intrinsic radii given in comoving units)
+      sky%rstar_disk = sam%rstar_disk/dc/degree*3600.0 ! [arcsec]
+      sky%rstar_bulge = sam%rstar_bulge/dc/degree*3600.0 ! [arcsec]
+      sky%rgas_disk = sam%rgas_disk/dc/degree*3600.0 ! [arcsec]
    
    type is (type_sky_group)
    
@@ -498,6 +508,8 @@ subroutine load_sam_snapshot(index,subindex,sam,snapshotname)
    call hdf5_read_data(g//'mgas_bulge',sam%mgas_bulge)
    call hdf5_read_data(g//'matom_disk',sam%matom_disk)
    call hdf5_read_data(g//'matom_bulge',sam%matom_bulge)
+   call hdf5_read_data(g//'mmol_disk',sam%mmol_disk)
+   call hdf5_read_data(g//'mmol_bulge',sam%mmol_bulge)
    call hdf5_read_data(g//'rstar_disk',sam%rstar_disk)
    call hdf5_read_data(g//'rstar_bulge',sam%rstar_bulge)
    call hdf5_read_data(g//'rgas_disk',sam%rgas_disk)
@@ -638,6 +650,9 @@ subroutine make_hdf5
    call hdf5_write_data(trim(name)//'/mstars',sky_galaxy%mstars,'[Msun/h] stellar mass')
    call hdf5_write_data(trim(name)//'/mvir_hosthalo',sky_galaxy%mstars,'[Msun/h] host halo mass')
    call hdf5_write_data(trim(name)//'/mvir_subhalo',sky_galaxy%mstars,'[Msun/h] subhalo mass')
+   call hdf5_write_data(trim(name)//'/rstar_disk',sky_galaxy%rstar_disk,'[arcsec] half-mass radius of stellar disk')
+   call hdf5_write_data(trim(name)//'/rstar_bulge',sky_galaxy%rstar_bulge,'[arcsec] half-mass radius of stellar bulge')
+   call hdf5_write_data(trim(name)//'/rgas_disk',sky_galaxy%rgas_disk,'[arcsec] half-mass radius of gas disk')
    deallocate(sky_galaxy)
    close(1)
    
