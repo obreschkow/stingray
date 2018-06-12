@@ -102,9 +102,9 @@ module module_types
 
    end type type_snapshot
    
-   type(type_para)                  :: para
-   type(type_tile),allocatable      :: tile(:)
-   type(type_snapshot),allocatable  :: snapshot(:)
+   type(type_para)                     :: para
+   type(type_tile),allocatable         :: tile(:)
+   type(type_snapshot),allocatable     :: snapshot(:)
    
    interface line
       module procedure line_string
@@ -113,6 +113,22 @@ module module_types
    end interface line
    
 contains
+
+   subroutine nil(x1,x2,x3,x4,x5,x6,x7,x8,x9,x10,x11,x12,x13,x14,x15,x16,x17,x18,x19,x20)
+      class(*),optional :: x1,x2,x3,x4,x5,x6,x7,x8,x9,x10,x11,x12,x13,x14,x15,x16,x17,x18,x19,x20
+      if (.false.) then
+         select type(x1);  end select;    select type(x2);  end select
+         select type(x3);  end select;    select type(x4);  end select
+         select type(x5);  end select;    select type(x6);  end select
+         select type(x7);  end select;    select type(x8);  end select
+         select type(x9);  end select;    select type(x10); end select
+         select type(x11); end select;    select type(x12); end select
+         select type(x13); end select;    select type(x14); end select
+         select type(x15); end select;    select type(x16); end select
+         select type(x17); end select;    select type(x18); end select
+         select type(x19); end select;    select type(x20); end select
+      end if
+   end subroutine nil
 
    subroutine save_parameters
 
