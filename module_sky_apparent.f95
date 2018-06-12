@@ -44,7 +44,7 @@ subroutine make_sky_apparent
    
    ! initialize master one
    do isky = 1,size(skyclass)
-      write(filename,'(A,A,I02,A)') trim(para%path_output),'mocksky_class',isky,'.bin'
+      write(filename,'(A,A,A,A)') trim(para%path_output),'mocksky_',trim(skyclass(isky)%ptr%name()),'.bin'
       open(isky+1,file=trim(filename),action='write',form="unformatted",status='replace',access='stream')
       write(isky+1) 0_8 ! place holder for number of objects in mock sky
    end do
@@ -80,6 +80,9 @@ subroutine make_sky_apparent
    
    ! user output
    call out('Number of objects in apparent sky:',sum(m))
+   do isky = 1,size(skyclass)
+      call out('  '//trim(skyclass(isky)%ptr%name())//':',m(isky))
+   end do
    call toc
    
 end subroutine make_sky_apparent

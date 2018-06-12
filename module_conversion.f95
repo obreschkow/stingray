@@ -29,33 +29,37 @@ function rotate(x,pseudovector) result(y)
    
 end function rotate
 
-subroutine make_redshift(x,v,z,zcos)
+subroutine make_redshift(x,v,zobs,zcmb,zcos)
 
    implicit none
    real*4,intent(in)             :: x(3)     ! [Mpc] position vector
    real*4,intent(in)             :: v(3)     ! [km/s] velocity of galaxy
-   real*4,intent(out),optional   :: z        ! total redshift
-   real*4,intent(out),optional   :: zcos     ! cosmological redshift due to Hubble flow without accounting for relative velocity
-   real*4                        :: zpec     ! redshift due to the peculiar motion of object relative to Hubble flow
-   real*4                        :: zobs     ! redshift due to the peculiar motion of the observer relative to the Hubble flow
+   real*4,intent(out),optional   :: zobs     ! redshift in observer-frame
+   real*4,intent(out),optional   :: zcmb     ! redshift in CMB frame
+   real*4,intent(out),optional   :: zcos     ! cosmological redshift without peculiar motions
+   real*4                        :: zv1      ! redshift due to the peculiar motion of object relative to Hubble flow
+   real*4                        :: zv2      ! redshift due to the peculiar motion of the observer relative to the Hubble flow
    real*4                        :: elos(3)  ! unit vector pointing along the line of sight
    real*4                        :: dc       ! [box side-length] comoving distance
-   real*4                        :: z_,zcos_
+   real*4                        :: zobs_,zcmb_,zcos_
    
    dc = norm(x)
    if (dc<=epsilon(dc)) then
-      z_ = 0
+      zobs_ = 0
+      zcmb_ = 0
       zcos_ = 0
    else   
       elos = x/dc ! unit-vector along the line of slight
       zcos_ = dc_to_redshift(dc)
-      zpec = min(0.1,max(-0.1,sum(v*elos)/c*1e3)) ! limited to 0.1 to avoid relativistic regime, ok for all practical purposes
-      zobs = min(0.1,max(-0.1,-sum(para%velocity_car*elos)/c*1e3)) ! limited to 0.1 to avoid relativistic regime, ok for all practical purposes
-      z_ = (1+zcos_)*(1+zpec)*(1+zobs)-1 ! following Davis & Scrimgeour 2014
+      zv1 = min(0.1,max(-0.1,sum(v*elos)/c*1e3)) ! limited to 0.1 to avoid relativistic regime, ok for all practical purposes
+      zv2 = min(0.1,max(-0.1,-sum(para%velocity_car*elos)/c*1e3)) ! limited to 0.1 to avoid relativistic regime, ok for all practical purposes
+      zcmb_ = (1+zcos_)*(1+zv1)-1 ! following Davis & Scrimgeour 2014
+      zobs_ = (1+zcos_)*(1+zv1)*(1+zv2)-1 ! following Davis & Scrimgeour 2014
    end if
    
-   if (present(z))      z     = z_
-   if (present(zcos))   zcos  = zcos_
+   if (present(zobs)) zobs = zobs_
+   if (present(zcmb)) zcmb = zcmb_
+   if (present(zcos)) zcos = zcos_
    
 end subroutine make_redshift
 
