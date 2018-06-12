@@ -626,11 +626,10 @@ subroutine make_hdf5
    call hdf5_write_data('Galaxies/dc',sky_galaxy%dc,'[Mpc/h] comoving distance')
    call hdf5_write_data('Galaxies/RA',sky_galaxy%ra/degree,'[deg] right ascension')
    call hdf5_write_data('Galaxies/Dec',sky_galaxy%dec/degree,'[deg] declination')
-   ! ...
-   call hdf5_write_data('Galaxies/id_galaxy_sky',sky_galaxy%id_galaxy_sky,'unique galaxy ID in mock sky')
-   call hdf5_write_data('Galaxies/id_galaxy_sam',sky_galaxy%id_galaxy_sam,'galaxy ID in SAM')
    call hdf5_write_data('Galaxies/id_halo_sky',sky_galaxy%id_halo_sky,'unique parent halo ID in mock sky')
    call hdf5_write_data('Galaxies/id_halo_sam',sky_galaxy%id_halo_sam,'parent halo ID in SAM')
+   call hdf5_write_data('Galaxies/id_galaxy_sky',sky_galaxy%id_galaxy_sky,'unique galaxy ID in mock sky')
+   call hdf5_write_data('Galaxies/id_galaxy_sam',sky_galaxy%id_galaxy_sam,'galaxy ID in SAM')
    call hdf5_write_data('Galaxies/type',sky_galaxy%typ,'galaxy type (0=central, 1=satellite in halo, 2=orphan)')
    call hdf5_write_data('Galaxies/inclination',sky_galaxy%inclination/degree, &
    & '[deg] inclination = angle between line-of-sight and spin axis')
@@ -640,6 +639,8 @@ subroutine make_hdf5
    call hdf5_write_data('Galaxies/SHI',sky_galaxy%SHI,'[W/m^2] integrated HI line flux')
    call hdf5_write_data('Galaxies/vrad',sky_galaxy%vrad,'[proper km/s] radial peculiar velocity')
    call hdf5_write_data('Galaxies/mstars',sky_galaxy%mstars,'[Msun/h] stellar mass')
+   call hdf5_write_data('Galaxies/mvir_hosthalo',sky_galaxy%mstars,'[Msun/h] host halo mass')
+   call hdf5_write_data('Galaxies/mvir_subhalo',sky_galaxy%mstars,'[Msun/h] subhalo mass')
    deallocate(sky_galaxy)
    close(1)
    
@@ -658,7 +659,6 @@ subroutine make_hdf5
    call hdf5_write_data('Groups/dc',sky_group%dc,'[Mpc/h] comoving distance')
    call hdf5_write_data('Groups/RA',sky_group%ra/degree,'[deg] right ascension')
    call hdf5_write_data('Groups/Dec',sky_group%dec/degree,'[deg] declination')
-   ! ...   
    call hdf5_write_data('Groups/id_halo_sky',sky_group%id_halo_sky,'unique parent halo ID in mock sky')
    call hdf5_write_data('Groups/id_halo_sam',sky_group%id_halo_sam,'parent halo ID in SAM')
    call hdf5_write_data('Groups/mvir',sky_group%mvir,'[Msun/h] virial mass')
@@ -680,7 +680,11 @@ subroutine make_hdf5
    call hdf5_write_data('Lenses/dc',sky_lens%dc,'[Mpc/h] comoving distance')
    call hdf5_write_data('Lenses/RA',sky_lens%ra/degree,'[deg] right ascension')
    call hdf5_write_data('Lenses/Dec',sky_lens%dec/degree,'[deg] declination')
-   !...
+   call hdf5_write_data('Lenses/id_galaxy_sky',sky_lens%id_galaxy_sky,'unique galaxy ID in mock sky')
+   call hdf5_write_data('Lenses/mhalo',sky_lens%mhalo,'[Msun/h] halo mass')
+   call hdf5_write_data('Lenses/mdisk',sky_lens%mdisk,'[Msun/h] disk mass')
+   call hdf5_write_data('Lenses/mbluge',sky_lens%mbulge,'[Msun/h] bulge mass')
+   call hdf5_write_data('Lenses/chalo',sky_lens%mhalo,'halo concentration (NFW fit)')
    deallocate(sky_lens)
    close(1)
    
