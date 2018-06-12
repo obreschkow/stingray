@@ -77,8 +77,9 @@ module module_types
    
    type type_base
 
-      real*4      :: dc,ra,dec         ! [simulation length unit,rad,rad] position in spherical Sky-coords
-      integer*4   :: tile              ! unique identifier of box in mock sky
+      real*4      :: dc,ra,dec      ! [simulation length unit,rad,rad] position in spherical Sky-coords
+      integer*4   :: tile           ! unique identifier of box in mock sky
+      integer*4   :: flag           ! group flag (=0 if group complete)   
       
    end type type_base
 

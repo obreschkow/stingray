@@ -1,11 +1,11 @@
 module module_tiling
 
    use module_constants
-   use module_types
    use module_system
+   use module_types
    use module_linalg
-   use module_parameters
    use module_user
+   use module_parameters
    
    private
    public   :: make_tiling, is_in_fov

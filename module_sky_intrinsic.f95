@@ -4,6 +4,7 @@ module module_sky_intrinsic
    use module_system
    use module_types
    use module_cosmology
+   use module_sort
    use module_user
    use module_parameters
    use module_tiling
@@ -80,17 +81,17 @@ subroutine make_sky_intrinsic
    
 end subroutine make_sky_intrinsic
 
-subroutine convert_position_sam_to_sky(position,itile,dc,ra,dec)
+subroutine convert_position_sam_to_sky(position,itile,dc,ra,dec,xbox)
 
    implicit none
    real*4,intent(in)    :: position(3) ! [box side-length] position in box
    integer*4,intent(in) :: itile
    real*4,intent(out)   :: dc,ra,dec ! [box side-length,rad,rad] position on sky
+   real*4,intent(out)   :: xbox(3) ! [box side-length] position in box after symmetry operations
    real*4               :: x(3)
    
-   x = matmul(rot(:,:,tile(itile)%rotation),position) ! random 90-degree rotation/inversion
-   x = modulo(x+tile(itile)%translation,1.0) ! periodic translation
-   x = x+tile(itile)%ix-0.5 ! translate coordinates to tile position
+   xbox = modulo(matmul(rot(:,:,tile(itile)%rotation),position)+tile(itile)%translation,1.0) ! apply symmetries
+   x = xbox+tile(itile)%ix-0.5 ! translate coordinates to tile position
    x = matmul(para%sky_rotation,x) ! convert SAM-coordinates to Sky-coordinates
    call car2sph(x,dc,ra,dec)
    
@@ -99,45 +100,118 @@ end subroutine convert_position_sam_to_sky
 subroutine write_subsnapshot_into_tile(itile,isnapshot)
 
    implicit none
-   integer*4,intent(in) :: itile
-   integer*4,intent(in) :: isnapshot
-   integer*4            :: i
-   type(type_base)      :: base
+   integer*4,intent(in)    :: itile
+   integer*4,intent(in)    :: isnapshot
+   integer*4               :: i,j,k,l,n
+   type(type_base)         :: base
+   real*4                  :: xbox(3)
+   integer*8,allocatable   :: index(:,:)
+   integer*8               :: old_group
+   integer*4               :: group_start
+   real*4                  :: xmin(3),xmax(3)
+   integer*4               :: n_in_group
+   integer*4               :: n_in_snapshot
+   integer*4               :: n_in_survey_volume
+   logical                 :: ok
+   
+   ! set tile
+   base%tile = itile
+   
+   ! sort by groupID
+   n = size(sam)
+   allocate(index(n,2))
+   do i = 1,n
+      index(i,1) = getGroupID(sam(i))
+      index(i,2) = i
+   end do
+   call merge_sort_list(index)
    
    ! open file
    open(1,file=trim(filename_sky_intrinsic),action='write',form='unformatted',status='old',position='append',access='stream')
    
-   ! write mock galaxies
-   do i = 1,size(sam)
+   ! initialise group flagging
+   call reset_flagging(1,index(1,1))
    
-      ! check intrinsic property-selection
-      if (sam_selection(sam(i))) then
+   ! iterate over all mock galaxies, ordered by group
+   do k = 1,n+1
+   
+      ! assign group flags
+      if ((k>n).or.(index(min(k,n),1).ne.old_group)) then
       
-         ! compute sky position
-         call convert_position_sam_to_sky(sam(i)%getPosition()/para%L,itile,base%dc,base%ra,base%dec)
-      
-         ! check distance relative to snapshot
-         if ((base%dc>=snapshot(isnapshot)%dmin).and.(base%dc<snapshot(isnapshot)%dmax)) then
+         ! make group flag
+         base%flag = 0
+         if (n_in_survey_volume.ne.n_in_group) base%flag = base%flag+1  ! group truncated by survey volume
+         if (n_in_snapshot.ne.n_in_group) base%flag = base%flag+2       ! group truncated by snapshot limit
+         if (maxval(xmax-xmin)>0.5) base%flag = base%flag+4              ! group is wrapped around
          
-            ! check full position-selection
-            if (is_in_fov(base%dc*para%L,base%ra,base%dec)) then
-               if (pos_selection(base%dc*para%L,base%ra/degree,base%dec/degree)) then
-               
-                  ! complete sky-base
-                  base%tile = itile
-                  
-                  ! write selected galaxy into intrinsic sky file
+         ! re-iterate over all group members
+         do l = group_start,k-1
+            i = int(index(l,2),4)
+            ! check intrinsic property-selection
+            if (i>0) then
+               if (sam_selection(sam(i))) then
                   nmockgalaxies = nmockgalaxies+1
                   write(1) base,sam(i)
-                  
                end if
             end if
-         end if
+         end do
+         
+         ! exit do-loop
+         if (k>n) exit
+         
+         ! reset group flagging
+         call reset_flagging(k,index(k,1))
+            
       end if
+      
+      i = int(index(k,2),4)
+      ok = .true.
+      
+      ! compute sky position and determine range
+      call convert_position_sam_to_sky(sam(i)%getPosition()/para%L,itile,base%dc,base%ra,base%dec,xbox)
+      do j = 1,3
+         xmin(j) = min(xmin(j),xbox(j))
+         xmax(j) = max(xmax(j),xbox(j))
+      end do
+   
+      ! check if distance is in the range covered by snapshot isnapshot
+      if ((base%dc>=snapshot(isnapshot)%dmin).and.(base%dc<snapshot(isnapshot)%dmax)) then
+         n_in_snapshot = n_in_snapshot+1
+      else
+         ok = .false.
+      end if
+      
+      ! check full position-selection
+      if (is_in_fov(base%dc*para%L,base%ra,base%dec).and. &
+         & pos_selection(base%dc*para%L,base%ra/degree,base%dec/degree)) then
+         n_in_survey_volume = n_in_survey_volume+1
+      else
+         ok = .false.
+      end if
+      
+      n_in_group = n_in_group+1
+      
+      if (.not.ok) index(k,2) = 0
+      
    end do
    
    ! close file
    close(1)
+
+contains
+   
+   subroutine reset_flagging(start,group)
+      implicit none
+      integer*4,intent(in) :: start
+      integer*8,intent(in) :: group
+      xmin = 2.0
+      xmax = -1.0
+      n_in_group = 0
+      n_in_snapshot = 0
+      n_in_survey_volume = 0
+      old_group = group
+      group_start = start
+   end subroutine reset_flagging
 
 end subroutine write_subsnapshot_into_tile
 

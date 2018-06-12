@@ -27,7 +27,7 @@ end subroutine set_seed
 function get_normal_random_number(mu,sigma)
    implicit none
    real,intent(in) :: mu,sigma
-   real,parameter  :: pi = 3.14159265
+   real,parameter  :: pi = 3.14159265359
    real :: get_normal_random_number
    real :: z,u1,u2
    call random_number(u1)

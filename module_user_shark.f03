@@ -1,7 +1,11 @@
-! Notes:
-! Download from hyades
+! ==============================================================================================================
+! PERSONAL NOTES
+! ==============================================================================================================
+
+! Download/upload data from/to hyades
 ! rsync -av --exclude 'star_formation_histories.hdf5' dobreschkow@hyades.icrar.org:/mnt/su3ctm/clagos/SHArk_Out/medi-SURFS/SHArk/19* ~/Data/SURFS/stingray/shark/input/
 ! rsync -av --include '*/0/g*' --exclude '*/*/*' dobreschkow@hyades.icrar.org:/mnt/su3ctm/clagos/SHArk_Out/medi-SURFS/SHArk/ ~/Data/SURFS/stingray/shark/input/
+! scp -r ~/Data/SURFS/stingray/shark/outputDEVILS/mocksky_DEVILS.hdf5 dobreschkow@hyades.icrar.org:/mnt/su3ctm/dobreschkow/Stingray/
 
 module module_user
 
@@ -11,9 +15,9 @@ module module_user
 
 ! default modules, do not edit
 use module_constants
+use module_system
 use module_types
 use module_linalg
-use module_system
 use module_cosmology
 use module_conversion
 
@@ -107,6 +111,7 @@ type,extends(type_sky) :: type_sky_galaxy
    integer*8   :: id_galaxy_sky  ! unique ID in the mock sky
    integer*8   :: id_galaxy_sam  ! galaxy ID in the SAM
    integer*4   :: typ            ! galaxy type (0=central, 1=satellite, 2=orphan)
+   integer*4   :: group_flag     ! 0=group complete, >0 group truncated
    real*4      :: inclination    ! [rad] inclination
    real*4      :: pa             ! [rad] position angle from North to East
    real*4      :: mag            ! apparent magnitude (generic: M/L ratio of 1, no k-correction)
@@ -222,6 +227,12 @@ logical function pos_selection(dc,ra,dec)
       pos_selection = ((ra>= 34.000).and.(ra<= 37.050).and.(dec>= -5.200).and.(dec<= -4.200)).or. &
                     & ((ra>= 52.263).and.(ra<= 53.963).and.(dec>=-28.500).and.(dec<=-27.500)).or. &
                     & ((ra>=149.380).and.(ra<=150.700).and.(dec>= +1.650).and.(dec<= +2.790))
+   case ('GAMA')
+      pos_selection = ((ra>= 30.200).and.(ra<= 38.800).and.(dec>=-10.250).and.(dec<= -3.720)).or. &
+                    & ((ra> 129.000).and.(ra<=141.000).and.(dec>= -2.000).and.(dec<= +3.000)).or. &
+                    & ((ra>=174.000).and.(ra<=186.000).and.(dec>= -2.000).and.(dec<= +3.000)).or. &
+                    & ((ra>=211.500).and.(ra<=223.500).and.(dec>= -2.000).and.(dec<= +3.000)).or. &
+                    & ((ra>=339.000).and.(ra<=351.000).and.(dec>=-35.000).and.(dec<=-30.000))
    case default
       pos_selection = .false.
    end select
@@ -242,6 +253,8 @@ logical function sam_selection(sam)
    select case (trim(para%name))
    case ('DEVILS')
       sam_selection = (sam%mstars_disk>1e8).or.((sam%mvir_hosthalo>1e11).and.(sam%typ==0))
+   case ('GAMA')
+      sam_selection = (sam%mstars_disk>1e8).or.((sam%mvir_hosthalo>1e11).and.(sam%typ==0))
    case default
       sam_selection = .true.
    end select
@@ -254,6 +267,7 @@ logical function selected(sky,sam)
 
    class(type_sky)            :: sky ! self
    type(type_sam),intent(in)  :: sam
+   real*4,parameter           :: dmag = 0.0
    
    call nil(sky,sam) ! dummy to avoid compiler warnings for unused arguments
    
@@ -262,14 +276,16 @@ logical function selected(sky,sam)
    
       select case (trim(para%name))
       case ('DEVILS')
-         selected = sky%mag<=21.2
+         selected = sky%mag<=21.2+dmag
+      case ('GAMA')
+         selected = ((sky%mag<=19.8+dmag).and.(sky%ra<330.0*degree)).or.(sky%mag<=19.2+dmag)
       case default
          selected = .true.
       end select
       
    type is (type_sky_group)
    
-      selected = (sam%mvir_hosthalo>1e11).and.(sam%typ==0)
+      selected = (sam%mvir_hosthalo>1e12).and.(sam%typ==0)
       
    type is (type_sky_lens)
    
@@ -303,13 +319,14 @@ subroutine rotate_vectors(sam)
    
 end subroutine rotate_vectors
 
-subroutine convertSam(sky,sam,nobj,nobjtot,dc,ra,dec,tile)
+subroutine convertSam(sky,sam,nobj,nobjtot,dc,ra,dec,tile,group_flag)
 
    class(type_sky)            :: sky
    type(type_sam),intent(in)  :: sam
    integer*8,intent(in)       :: nobj,nobjtot
    real*4,intent(in)          :: dc,ra,dec
    integer*4,intent(in)       :: tile
+   integer*4,intent(in)       :: group_flag
    
    real*4                     :: pos(3)   ! [simulation length units] position vector of galaxy
    real*4                     :: dl       ! [simulation length units] luminosity distance to observer
@@ -354,6 +371,9 @@ subroutine convertSam(sky,sam,nobj,nobjtot,dc,ra,dec,tile)
       sky%mstars           = sam%mstars_disk+sam%mstars_bulge
       sky%mvir_hosthalo    = sam%mvir_hosthalo
       sky%mvir_subhalo     = sam%mvir_subhalo
+      
+      ! group flag
+      sky%group_flag       = group_flag
       
       ! make inclination and position angle [rad]
       call make_inclination_and_pa(pos,sam%J,inclination=sky%inclination,pa=sky%pa)
@@ -403,7 +423,7 @@ subroutine make_automatic_parameters
    implicit none
    
    character(len=255)   :: filename
-   integer*4            :: isnapshot,isubsnapshot
+   integer*4            :: isnapshot,nsub
    
    isnapshot = -1
    filename = ''
@@ -420,20 +440,11 @@ subroutine make_automatic_parameters
    end do
    para%snapshot_max = isnapshot-1
    
-   isubsnapshot = -1
-   do while (.not.exists(filename,.true.))
-      isubsnapshot = isubsnapshot+1
-      write(filename,'(A,I0,A,I0,A)') trim(para%path_input),para%snapshot_max,'/',isubsnapshot,'/galaxies.hdf5'
-   end do
-   para%subsnapshot_min = isubsnapshot
-   do while (exists(filename,.true.))
-      isubsnapshot = isubsnapshot+1
-      write(filename,'(A,I0,A,I0,A)') trim(para%path_input),para%snapshot_max,'/',isubsnapshot,'/galaxies.hdf5'
-   end do
-   para%subsnapshot_max = isubsnapshot-1
-   
    write(filename,'(A,I0,A)') trim(para%path_input),para%snapshot_min,'/0/galaxies.hdf5'
    call hdf5_open(filename)
+   call hdf5_read_data('/runInfo/tot_n_subvolumes',nsub)
+   para%subsnapshot_min = 0
+   para%subsnapshot_max = nsub-1
    call hdf5_read_data('/Cosmology/h',para%h)
    call hdf5_read_data('/Cosmology/OmegaL',para%OmegaL)
    call hdf5_read_data('/Cosmology/OmegaM',para%OmegaM)
@@ -576,7 +587,7 @@ subroutine make_hdf5
    call load_snapshot_list
    
    ! create HDF5 file
-   filename_hdf5 = trim(para%path_output)//'mocksky.hdf5'
+   filename_hdf5 = trim(para%path_output)//'mocksky_'//trim(para%name)//'.hdf5'
    call hdf5_create(filename_hdf5)
    
    ! open HDF5 file
@@ -640,6 +651,8 @@ subroutine make_hdf5
    call hdf5_write_data(trim(name)//'/id_galaxy_sky',sky_galaxy%id_galaxy_sky,'unique galaxy ID in mock sky')
    call hdf5_write_data(trim(name)//'/id_galaxy_sam',sky_galaxy%id_galaxy_sam,'galaxy ID in SAM')
    call hdf5_write_data(trim(name)//'/type',sky_galaxy%typ,'galaxy type (0=central, 1=satellite in halo, 2=orphan)')
+   call hdf5_write_data(trim(name)//'/group_flag',sky_galaxy%group_flag, &
+   & 'group flag (0=group ok, >0 group truncated)')
    call hdf5_write_data(trim(name)//'/inclination',sky_galaxy%inclination/degree, &
    & '[deg] inclination = angle between line-of-sight and spin axis')
    call hdf5_write_data(trim(name)//'/pa',sky_galaxy%pa/degree,'[deg] position angle from north to east')

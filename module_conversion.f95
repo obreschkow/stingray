@@ -3,8 +3,8 @@ module module_conversion
 ! standard functions for the conversion from intrinsic to apparent galaxy properties
 
    use module_constants
-   use module_linalg
    use module_system
+   use module_linalg
    use module_cosmology
    
    public

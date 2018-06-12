@@ -1,8 +1,8 @@
 module module_sky_apparent
 
    use module_constants
-   use module_types
    use module_system
+   use module_types
    use module_cosmology
    use module_user
    use module_parameters
@@ -58,7 +58,8 @@ subroutine make_sky_apparent
       Rpseudo = tile(base%tile)%Rpseudo
       call rotate_vectors(sam)
       do isky = 1,size(skyclass)
-         call skyclass(isky)%ptr%convertSam(sam,m(isky)+1,sum(m)+1,base%dc*para%L,base%ra,base%dec,base%tile)
+         call skyclass(isky)%ptr%convertSam(sam,m(isky)+1,sum(m)+1, &
+         & base%dc*para%L,base%ra,base%dec,base%tile,base%flag)
          if (skyclass(isky)%ptr%selected(sam)) then
             m(isky) = m(isky)+1
             call skyclass(isky)%ptr%writeToFile(isky+1)

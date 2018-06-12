@@ -1,8 +1,8 @@
 module module_parameters
 
    use module_constants
-   use module_types
    use module_system
+   use module_types
    use module_linalg
    use module_user
    
@@ -27,6 +27,7 @@ subroutine make_parameters(parameter_filename_custom)
    else
       parameter_filename = parameter_filename_default
    end if
+   call out('File: '//trim(parameter_filename))
    call check_exists(parameter_filename)
    call reset_parameters
    call make_automatic_parameters

@@ -2,8 +2,8 @@ program surfsuite
 
    use module_constants
    use module_system
-   use module_parameters
    use module_user
+   use module_parameters
    use module_tiling
    use module_sky_intrinsic
    use module_sky_apparent

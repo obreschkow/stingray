@@ -21,6 +21,7 @@ stingray.o:    module_constants.o \
                module_types.o \
                module_linalg.o \
                module_cosmology.o \
+               module_sort.o \
                module_conversion.o \
                module_hdf5.o \
                module_user_$(Model).o \
@@ -33,6 +34,7 @@ stingray: 	   module_constants.o \
                module_system.o \
                module_types.o \
                module_linalg.o \
+               module_sort.o \
                module_cosmology.o \
                module_conversion.o \
                module_hdf5.o \
