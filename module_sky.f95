@@ -19,11 +19,12 @@ subroutine make_sky
 
    implicit none
    character(len=255)   :: filename
-   integer*8            :: n,i
+   integer*8            :: n,i,n100
    integer*8,allocatable:: m(:)
    integer*4            :: isky
    type(type_base)      :: base
    type(type_sam)       :: sam   ! intrinsic galaxy properties from SAM
+   character(len=3)     :: str
    
    ! write user info
    call tic
@@ -54,7 +55,12 @@ subroutine make_sky
    ! convert galaxy properties and write master sky
    allocate(m(size(skyclass)))
    m = 0
+   n100 = n/100
    do i = 1,n
+      if (modulo(i-1,n100)==0) then
+         write(str,'(I3)') nint(real(i-1,8)/n*100)
+         call out('Progress: '//str//'%')
+      end if
       read(1) base,sam
       Rvector = tile(base%tile)%Rvector
       Rpseudo = tile(base%tile)%Rpseudo
@@ -67,6 +73,7 @@ subroutine make_sky
          end if
       end do
    end do
+   call out('Progress: 100%')
    
    ! add number of objects to beginning of file & close files
    do isky = 1,size(skyclass)
@@ -76,9 +83,9 @@ subroutine make_sky
    close(1)
    
    ! check number of objects
-   do isky = 1,size(skyclass)
-      if (m(isky)==0) call error('No objects in the apparent sky. Consider changing selection function.')
-   end do
+   !do isky = 1,size(skyclass)
+      if (sum(m)==0) call error('No objects in the apparent sky. Consider changing selection function.')
+   !end do
    
    ! user output
    call out('Number of objects in apparent sky:',sum(m))

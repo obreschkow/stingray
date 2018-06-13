@@ -35,6 +35,7 @@ subroutine make_tiling
    intersection = 0
    ntile = 0
    call sph2car(para%dc_min/para%L,(para%ra_min+para%ra_max)/2.0,(para%dec_min+para%dec_max)/2.0,starting_point)
+   starting_point = matmul(starting_point,para%sky_rotation)
    call check_boxes(nint(starting_point))
    call make_boxes
    call save_box_list

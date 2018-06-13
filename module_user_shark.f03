@@ -174,12 +174,12 @@ end subroutine set_class_pointers
 function getPosition(sam) result(position)
    class(type_sam) :: sam
    real*4 :: position(3)
-   position = sam%position ! unique group identifier
+   position = sam%position ! [length_unit of simulation] position if the galaxy in the box
 end function getPosition
 
 integer*8 function getGroupID(sam)
    class(type_sam) :: sam
-   getGroupID = sam%id_halo ! [length_unit of simulation] position if the galaxy in the box
+   getGroupID = sam%id_halo ! unique group identifier
 end function getGroupID
 
 ! For instances of the user-defined sky-types to be saved, add all sky types in the following subroutine
@@ -542,7 +542,7 @@ subroutine load_sam_snapshot(index,subindex,sam,snapshotname)
    call hdf5_close()
    
    ! return snapshot name for screen output
-   write(snapshotname,'(A,I0,A,I0,A,I0,A)') 'snapshot ',index,', subindex ',subindex,' (',n,' galaxies)'
+   write(snapshotname,'(A,I0,A,I0,A,I0,A)') 'snapshot ',index,', subvolume ',subindex,' (',n,' galaxies)'
    
 end subroutine load_sam_snapshot
 
@@ -589,7 +589,11 @@ subroutine make_hdf5
    type(type_sky_group),allocatable    :: sky_group(:)
    type(type_sky_lens),allocatable     :: sky_lens(:)
    integer*8                           :: n,i
-   character(len=255)                  :: name
+   character(len=255)                  :: name,str
+   real*8                              :: test(10)
+   
+   call tic
+   call out('CONVERT MOCK SKY FROM BINARY TO HDF5')
    
    ! load auxilary data
    call load_parameters
@@ -646,6 +650,7 @@ subroutine make_hdf5
    allocate(sky_galaxy(n))
    name = sky_galaxy(1)%name()
    read(1) sky_galaxy
+   close(1)
    call hdf5_add_group(trim(name))
    call hdf5_write_data(trim(name)//'/snapshot',sky_galaxy%snapshot,'snapshot ID')
    call hdf5_write_data(trim(name)//'/subsnapshot',sky_galaxy%subsnapshot,'subsnapshot ID')
@@ -680,9 +685,12 @@ subroutine make_hdf5
    call hdf5_write_data(trim(name)//'/rstar_disk',sky_galaxy%rstar_disk,'[arcsec] half-mass radius of stellar disk')
    call hdf5_write_data(trim(name)//'/rstar_bulge',sky_galaxy%rstar_bulge,'[arcsec] half-mass radius of stellar bulge')
    call hdf5_write_data(trim(name)//'/rgas_disk',sky_galaxy%rgas_disk,'[arcsec] half-mass radius of gas disk')
-   write(*,*) 'Test sums: ',sum(sky_galaxy%group_flag),sum(sky_galaxy%group_flag**2),sum(sky_galaxy%group_flag*sky_galaxy%zobs)
+   test(1) = n
+   test(2) = sum(sky_galaxy%group_flag)+sum(sky_galaxy%group_flag**2)
+   test(3) = sum(sky_galaxy%tile)
+   test(4) = sum(sky_galaxy%inclination)
+   test(5) = sum(sky_galaxy%zobs)
    deallocate(sky_galaxy)
-   close(1)
    
    ! Group "Groups"
    allocate(sky_group(1)); name = sky_group(1)%name(); deallocate(sky_group)
@@ -691,6 +699,7 @@ subroutine make_hdf5
    read(1) n
    allocate(sky_group(n))
    read(1) sky_group
+   close(1)
    call hdf5_add_group(trim(name))
    call hdf5_write_data(trim(name)//'/snapshot',sky_group%snapshot,'snapshot ID')
    call hdf5_write_data(trim(name)//'/subsnapshot',sky_group%subsnapshot,'subsnapshot ID')
@@ -704,8 +713,9 @@ subroutine make_hdf5
    call hdf5_write_data(trim(name)//'/id_halo_sky',sky_group%id_halo_sky,'unique parent halo ID in mock sky')
    call hdf5_write_data(trim(name)//'/id_halo_sam',sky_group%id_halo_sam,'parent halo ID in SAM')
    call hdf5_write_data(trim(name)//'/mvir',sky_group%mvir,'[Msun/h] virial mass')
+   test(6) = sum(sky_group%tile)
+   test(7) = sum(sky_group%zcmb)
    deallocate(sky_group)
-   close(1)
    
    ! Group "Lenses"
    allocate(sky_lens(1)); name = sky_lens(1)%name(); deallocate(sky_lens)
@@ -714,6 +724,7 @@ subroutine make_hdf5
    read(1) n
    allocate(sky_lens(n))
    read(1) sky_lens
+   close(1)
    call hdf5_add_group(trim(name))
    call hdf5_write_data(trim(name)//'/snapshot',sky_lens%snapshot,'snapshot ID')
    call hdf5_write_data(trim(name)//'/subsnapshot',sky_lens%subsnapshot,'subsnapshot ID')
@@ -729,8 +740,10 @@ subroutine make_hdf5
    call hdf5_write_data(trim(name)//'/mdisk',sky_lens%mdisk,'[Msun/h] disk mass')
    call hdf5_write_data(trim(name)//'/mbluge',sky_lens%mbulge,'[Msun/h] bulge mass')
    call hdf5_write_data(trim(name)//'/chalo',sky_lens%mhalo,'halo concentration (NFW fit)')
+   test(8) = n
+   test(9) = sum(sky_lens%subsnapshot)
+   test(10) = sum(sky_lens%dc)*1e-3
    deallocate(sky_lens)
-   close(1)
    
    ! Group "Tiling"
    call hdf5_add_group('Tiling')
@@ -766,6 +779,10 @@ subroutine make_hdf5
    
    ! close HDF5 file
    call hdf5_close()
+   
+   write(str,'(F9.7)') sum(test)/0.3665829109787940979003906250E+04
+   call out('Test sum:'//trim(str))
+   call toc
 
 end subroutine make_hdf5
    

@@ -16,7 +16,7 @@ module module_positioning
    integer*8                     :: nmockgalaxies
    character(len=255)            :: filename_sky_intrinsic
    logical,allocatable           :: sam_sel(:)
-   
+   integer*4                     :: n_sam_selected
    
 contains
 
@@ -52,14 +52,15 @@ subroutine make_positioning
       if ((snapshot(isnapshot)%dmax>=minval(tile%dmin)).and.(snapshot(isnapshot)%dmin<=maxval(tile%dmax))) then
          do isubsnapshot = para%subsnapshot_min,para%subsnapshot_max
             call load_sam_snapshot(isnapshot,isubsnapshot,sam,snapshotname)
-            call preprocess_snapshot
             call out('Process '//trim(snapshotname))
-            do itile = 1,size(tile)
-               if ((snapshot(isnapshot)%dmax>=tile(itile)%dmin).and.(snapshot(isnapshot)%dmin<=tile(itile)%dmax)) then
-                  call write_subsnapshot_into_tile(itile,isnapshot)
-               end if
-            end do
-            deallocate(sam_sel)
+            call preprocess_snapshot(n_sam_selected)
+            if (n_sam_selected>0) then
+               do itile = 1,size(tile)
+                  if ((snapshot(isnapshot)%dmax>=tile(itile)%dmin).and.(snapshot(isnapshot)%dmin<=tile(itile)%dmax)) then
+                     call write_subsnapshot_into_tile(itile,isnapshot)
+                  end if
+               end do
+            end if
          end do
       end if
    end do
@@ -68,10 +69,11 @@ subroutine make_positioning
    if (allocated(tile)) deallocate(tile)
    if (allocated(snapshot)) deallocate(snapshot)
    if (allocated(sam)) deallocate(sam)
+   if (allocated(sam_sel)) deallocate(sam_sel)
    
    ! check number of galaxies
    if (nmockgalaxies==0) then
-      call error('No galaxy in sky. Consider widening the sky geometry or relaxing the selection criteria.')
+      !call error('No galaxy in sky. Consider widening the sky geometry or relaxing the selection criteria.')
    end if
    
    ! add number of objects to beginning of file
@@ -101,16 +103,20 @@ subroutine convert_position_sam_to_sky(position,itile,dc,ra,dec,xbox)
    
 end subroutine convert_position_sam_to_sky
 
-subroutine preprocess_snapshot
+subroutine preprocess_snapshot(n_sam_selected)
    
    implicit none
+   integer*4,intent(out)   :: n_sam_selected
    integer*8,allocatable   :: id(:,:)
    integer*4               :: group_n ! number of objects in current group
    integer*4               :: i,n_objects,n
    logical                 :: group_selected
    
+   !call out('preprocess')
+   
    ! determine if the objects pass the SAM selection
    n = size(sam)
+   if (allocated(sam_sel)) deallocate(sam_sel)
    allocate(sam_sel(n))
    do i = 1,size(sam)
       sam_sel(i) = sam_selection(sam(i))
@@ -144,6 +150,7 @@ subroutine preprocess_snapshot
    ! apply reordering and selection to arrays sam(:) and sam_sel(:)
    sam = sam(id(1:n_objects,2))
    sam_sel = sam_sel(id(1:n_objects,2))
+   n_sam_selected = n_objects
    deallocate(id)
    
 end subroutine preprocess_snapshot
@@ -162,6 +169,8 @@ subroutine write_subsnapshot_into_tile(itile,isnapshot)
    real*4,allocatable      :: dc(:),ra(:),dec(:)
    logical,allocatable     :: ok(:)
    logical                 :: group_selected
+   
+   !call out('write')
    
    ! set tile
    base%tile = itile
@@ -230,7 +239,7 @@ subroutine write_subsnapshot_into_tile(itile,isnapshot)
                if (n_in_survey_volume.ne.base%group_ntot) base%group_flag = base%group_flag+1   ! group truncated by survey volume
                if (n_in_snapshot.ne.base%group_ntot) base%group_flag = base%group_flag+2        ! group truncated by snapshot limit
                if (maxval(xmax-xmin)>0.5) base%group_flag = base%group_flag+4                   ! group wrapped around
-            
+               
                ! re-iterate over all accepted group members to write them in file
                do j = i-base%group_ntot+1,i
                   if (ok(j)) then
