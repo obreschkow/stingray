@@ -25,6 +25,7 @@ use module_conversion
 use module_hdf5
 
 public
+private :: parameter_filename_default ! must be accessed via get_parameter_filename_default()
 
 ! ==============================================================================================================
 ! SET DEFAULT PARAMETER FILENAME
@@ -34,7 +35,7 @@ public
 ! "parameterfile"
 
 character(len=255),parameter  :: parameter_filename_default = &
-   & '/Users/do/Data/SURFS/stingray/shark/parameters_shark_devils.txt'
+   & '/Users/do/Data/SURFS/stingray/shark/parameters_shark_test.txt'
 
 
 ! ==============================================================================================================
@@ -111,6 +112,8 @@ type,extends(type_sky) :: type_sky_galaxy
    integer*8   :: id_galaxy_sky  ! unique ID in the mock sky
    integer*8   :: id_galaxy_sam  ! galaxy ID in the SAM
    integer*4   :: typ            ! galaxy type (0=central, 1=satellite, 2=orphan)
+   integer*4   :: group_ntot     ! total number of galaxies in group
+   integer*4   :: group_nsel     ! number of selected galaxies in group
    integer*4   :: group_flag     ! 0=group complete, >0 group truncated
    real*4      :: inclination    ! [rad] inclination
    real*4      :: pa             ! [rad] position angle from North to East
@@ -319,14 +322,13 @@ subroutine rotate_vectors(sam)
    
 end subroutine rotate_vectors
 
-subroutine convertSam(sky,sam,nobj,nobjtot,dc,ra,dec,tile,group_flag)
+subroutine convertSam(sky,sam,base,nobj,nobjtot)
 
+   implicit none
    class(type_sky)            :: sky
    type(type_sam),intent(in)  :: sam
+   type(type_base),intent(in) :: base
    integer*8,intent(in)       :: nobj,nobjtot
-   real*4,intent(in)          :: dc,ra,dec
-   integer*4,intent(in)       :: tile
-   integer*4,intent(in)       :: group_flag
    
    real*4                     :: pos(3)   ! [simulation length units] position vector of galaxy
    real*4                     :: dl       ! [simulation length units] luminosity distance to observer
@@ -334,23 +336,24 @@ subroutine convertSam(sky,sam,nobj,nobjtot,dc,ra,dec,tile,group_flag)
    real*4                     :: mHI
    integer*8                  :: id_halo_sky,id_galaxy_sky
    
-   call nil(sky,sam,nobj,nobjtot,dc,ra,dec,tile) ! dummy statement to avoid compiler warnings
+   call nil(sky,sam,base,nobj,nobjtot) ! dummy statement to avoid compiler warnings
    
    ! make unique IDs
-   id_halo_sky   = sam%id_halo+tile*int(1e10,8)
-   id_galaxy_sky = sam%id_galaxy+tile*int(1e10,8)
+   id_halo_sky   = sam%id_halo+base%tile*int(1e10,8)
+   id_galaxy_sky = sam%id_galaxy+base%tile*int(1e10,8)
    
-   ! position vector
-   call sph2car(dc,ra,dec,pos)
-   elos = pos/norm(pos)
    
    ! sky coordinates
-   sky%dc  = dc         ! [Mpc/h]
-   sky%ra  = ra         ! [rad]
-   sky%dec = dec        ! [rad]
+   sky%dc  = base%dc*para%L   ! [Mpc/h]
+   sky%ra  = base%ra          ! [rad]
+   sky%dec = base%dec         ! [rad]
+   
+   ! position vector
+   call sph2car(sky%dc,sky%ra,sky%dec,pos)
+   elos = pos/norm(pos)
    
    ! make IDs
-   sky%tile            = tile
+   sky%tile            = base%tile
    sky%snapshot        = sam%snapshot
    sky%subsnapshot     = sam%subsnapshot
    
@@ -373,7 +376,9 @@ subroutine convertSam(sky,sam,nobj,nobjtot,dc,ra,dec,tile,group_flag)
       sky%mvir_subhalo     = sam%mvir_subhalo
       
       ! group flag
-      sky%group_flag       = group_flag
+      sky%group_ntot       = base%group_ntot
+      sky%group_nsel       = base%group_nsel
+      sky%group_flag       = base%group_flag
       
       ! make inclination and position angle [rad]
       call make_inclination_and_pa(pos,sam%J,inclination=sky%inclination,pa=sky%pa)
@@ -386,9 +391,9 @@ subroutine convertSam(sky,sam,nobj,nobjtot,dc,ra,dec,tile,group_flag)
       sky%vpecrad = sum(sam%velocity*elos)
       
       ! apparent radii (note division by comoving distance, because intrinsic radii given in comoving units)
-      sky%rstar_disk = sam%rstar_disk/dc/degree*3600.0 ! [arcsec]
-      sky%rstar_bulge = sam%rstar_bulge/dc/degree*3600.0 ! [arcsec]
-      sky%rgas_disk = sam%rgas_disk/dc/degree*3600.0 ! [arcsec]
+      sky%rstar_disk = sam%rstar_disk/sky%dc/degree*3600.0 ! [arcsec]
+      sky%rstar_bulge = sam%rstar_bulge/sky%dc/degree*3600.0 ! [arcsec]
+      sky%rgas_disk = sam%rgas_disk/sky%dc/degree*3600.0 ! [arcsec]
    
    type is (type_sky_group)
    
@@ -541,6 +546,11 @@ subroutine load_sam_snapshot(index,subindex,sam,snapshotname)
    
 end subroutine load_sam_snapshot
 
+! return default parameter file name
+character(255) function get_parameter_filename_default()
+   get_parameter_filename_default = trim(parameter_filename_default)
+end function get_parameter_filename_default
+
 
 ! ==============================================================================================================
 ! HANDLE CUSTOM TASKS (= optional subroutines and arguments)
@@ -651,8 +661,12 @@ subroutine make_hdf5
    call hdf5_write_data(trim(name)//'/id_galaxy_sky',sky_galaxy%id_galaxy_sky,'unique galaxy ID in mock sky')
    call hdf5_write_data(trim(name)//'/id_galaxy_sam',sky_galaxy%id_galaxy_sam,'galaxy ID in SAM')
    call hdf5_write_data(trim(name)//'/type',sky_galaxy%typ,'galaxy type (0=central, 1=satellite in halo, 2=orphan)')
+   call hdf5_write_data(trim(name)//'/group_ntot',sky_galaxy%group_ntot, &
+   & 'total number of galaxies that live in the same host halo')
+   call hdf5_write_data(trim(name)//'/group_nsel',sky_galaxy%group_nsel, &
+   & 'number of galaxies that live in the same host halo and are present in the mock survey')
    call hdf5_write_data(trim(name)//'/group_flag',sky_galaxy%group_flag, &
-   & 'group flag (0=group ok, >0 group truncated)')
+   & 'group flag (0 if group complete, >0 if truncated by survey edge (+1), snapshot limit (+2), box limit (+4))')
    call hdf5_write_data(trim(name)//'/inclination',sky_galaxy%inclination/degree, &
    & '[deg] inclination = angle between line-of-sight and spin axis')
    call hdf5_write_data(trim(name)//'/pa',sky_galaxy%pa/degree,'[deg] position angle from north to east')
@@ -666,6 +680,7 @@ subroutine make_hdf5
    call hdf5_write_data(trim(name)//'/rstar_disk',sky_galaxy%rstar_disk,'[arcsec] half-mass radius of stellar disk')
    call hdf5_write_data(trim(name)//'/rstar_bulge',sky_galaxy%rstar_bulge,'[arcsec] half-mass radius of stellar bulge')
    call hdf5_write_data(trim(name)//'/rgas_disk',sky_galaxy%rgas_disk,'[arcsec] half-mass radius of gas disk')
+   write(*,*) 'Test sums: ',sum(sky_galaxy%group_flag),sum(sky_galaxy%group_flag**2),sum(sky_galaxy%group_flag*sky_galaxy%zobs)
    deallocate(sky_galaxy)
    close(1)
    

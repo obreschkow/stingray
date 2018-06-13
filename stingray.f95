@@ -5,8 +5,8 @@ program surfsuite
    use module_user
    use module_parameters
    use module_tiling
-   use module_sky_intrinsic
-   use module_sky_apparent
+   use module_positioning
+   use module_sky
 
    implicit none
 
@@ -80,16 +80,16 @@ program surfsuite
    select case (trim(arg_task))
    case ('make.all')
       call make_tiling
-      call make_sky_intrinsic
-      call make_sky_apparent
+      call make_positioning
+      call make_sky
       call handle_custom_arguments('my.additions.to.make.all','',success)
    case ('make.parameters')
    case ('make.tiling')
       call make_tiling
-   case ('make.intrinsic.sky')
-      call make_sky_intrinsic
-   case ('make.apparent.sky')
-      call make_sky_apparent
+   case ('make.positioning')
+      call make_positioning
+   case ('make.sky')
+      call make_sky
    case default
       call handle_custom_arguments(trim(arg_task),trim(custom_option),success)
       if (.not.success) then

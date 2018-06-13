@@ -25,7 +25,7 @@ subroutine make_parameters(parameter_filename_custom)
    if (len(trim(parameter_filename_custom))>0) then
       parameter_filename = parameter_filename_custom
    else
-      parameter_filename = parameter_filename_default
+      parameter_filename = get_parameter_filename_default()
    end if
    call out('File: '//trim(parameter_filename))
    call check_exists(parameter_filename)
@@ -294,7 +294,7 @@ subroutine load_paths(parameter_filename_custom)
    if (len(trim(parameter_filename_custom))>0) then
       parameter_filename = parameter_filename_custom
    else
-      parameter_filename = parameter_filename_default
+      parameter_filename = get_parameter_filename_default()
    end if
    call check_exists(parameter_filename)
    

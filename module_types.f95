@@ -79,7 +79,9 @@ module module_types
 
       real*4      :: dc,ra,dec      ! [simulation length unit,rad,rad] position in spherical Sky-coords
       integer*4   :: tile           ! unique identifier of box in mock sky
-      integer*4   :: flag           ! group flag (=0 if group complete)   
+      integer*4   :: group_ntot     ! total number of members in group
+      integer*4   :: group_nsel     ! selected number of members in group
+      integer*4   :: group_flag     ! group flag (0 if group unclipped, >0 if clipped by survey edge (+1), snapshot limit (+2), box limit (+4))
       
    end type type_base
 

@@ -1,4 +1,6 @@
-module module_sky_apparent
+! Module converts intrinsic into apparent properties
+
+module module_sky
 
    use module_constants
    use module_system
@@ -9,11 +11,11 @@ module module_sky_apparent
    use module_tiling
    
    private
-   public   :: make_sky_apparent
+   public   :: make_sky
    
 contains
 
-subroutine make_sky_apparent
+subroutine make_sky
 
    implicit none
    character(len=255)   :: filename
@@ -58,8 +60,7 @@ subroutine make_sky_apparent
       Rpseudo = tile(base%tile)%Rpseudo
       call rotate_vectors(sam)
       do isky = 1,size(skyclass)
-         call skyclass(isky)%ptr%convertSam(sam,m(isky)+1,sum(m)+1, &
-         & base%dc*para%L,base%ra,base%dec,base%tile,base%flag)
+         call skyclass(isky)%ptr%convertSam(sam,base,m(isky)+1,sum(m)+1)
          if (skyclass(isky)%ptr%selected(sam)) then
             m(isky) = m(isky)+1
             call skyclass(isky)%ptr%writeToFile(isky+1)
@@ -86,6 +87,6 @@ subroutine make_sky_apparent
    end do
    call toc
    
-end subroutine make_sky_apparent
+end subroutine make_sky
 
-end module module_sky_apparent
+end module module_sky

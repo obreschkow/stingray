@@ -1,4 +1,4 @@
-module module_sky_intrinsic
+module module_positioning
 
    use module_constants
    use module_system
@@ -10,22 +10,24 @@ module module_sky_intrinsic
    use module_tiling
    
    private
-   public   :: make_sky_intrinsic
+   public   :: make_positioning
    
    type(type_sam),allocatable    :: sam(:)
    integer*8                     :: nmockgalaxies
    character(len=255)            :: filename_sky_intrinsic
+   logical,allocatable           :: sam_sel(:)
+   
    
 contains
 
-subroutine make_sky_intrinsic
+subroutine make_positioning
 
    implicit none
    integer*4            :: isnapshot,isubsnapshot,itile
    character(len=100)   :: snapshotname
    
    call tic
-   call out('MAKE INTRINSIC SKY')
+   call out('POSITION OBJECTS INTO SKY')
    
    ! load previous steps
    call load_parameters
@@ -50,12 +52,14 @@ subroutine make_sky_intrinsic
       if ((snapshot(isnapshot)%dmax>=minval(tile%dmin)).and.(snapshot(isnapshot)%dmin<=maxval(tile%dmax))) then
          do isubsnapshot = para%subsnapshot_min,para%subsnapshot_max
             call load_sam_snapshot(isnapshot,isubsnapshot,sam,snapshotname)
+            call preprocess_snapshot
             call out('Process '//trim(snapshotname))
             do itile = 1,size(tile)
                if ((snapshot(isnapshot)%dmax>=tile(itile)%dmin).and.(snapshot(isnapshot)%dmin<=tile(itile)%dmax)) then
                   call write_subsnapshot_into_tile(itile,isnapshot)
                end if
             end do
+            deallocate(sam_sel)
          end do
       end if
    end do
@@ -79,7 +83,7 @@ subroutine make_sky_intrinsic
    call out('Number of galaxies in intrinsic sky:',nmockgalaxies)
    call toc
    
-end subroutine make_sky_intrinsic
+end subroutine make_positioning
 
 subroutine convert_position_sam_to_sky(position,itile,dc,ra,dec,xbox)
 
@@ -97,101 +101,154 @@ subroutine convert_position_sam_to_sky(position,itile,dc,ra,dec,xbox)
    
 end subroutine convert_position_sam_to_sky
 
+subroutine preprocess_snapshot
+   
+   implicit none
+   integer*8,allocatable   :: id(:,:)
+   integer*4               :: group_n ! number of objects in current group
+   integer*4               :: i,n_objects,n
+   logical                 :: group_selected
+   
+   ! determine if the objects pass the SAM selection
+   n = size(sam)
+   allocate(sam_sel(n))
+   do i = 1,size(sam)
+      sam_sel(i) = sam_selection(sam(i))
+   end do
+   
+   ! order galaxies by group id
+   allocate(id(n,2))
+   do i = 1,n
+      id(i,1) = getGroupID(sam(i))
+      id(i,2) = i
+   end do
+   call merge_sort_list(id)
+   
+   ! only retain groups, where at least one object is selected based on its SAM properties
+   n_objects = 0
+   group_selected = .false.
+   group_n = 0
+   do i = 1,n
+      group_n = group_n+1
+      group_selected = group_selected.or.sam_sel(id(i,2))
+      if (id(i,1).ne.id(modulo(i,n)+1,1)) then ! check if group id differs from next group id
+         if (group_selected) then
+            id(n_objects+1:n_objects+group_n,:) = id(i-group_n+1:i,:)
+            n_objects = n_objects+group_n 
+         end if
+         group_selected = .false.
+         group_n = 0
+      end if
+   end do
+   
+   ! apply reordering and selection to arrays sam(:) and sam_sel(:)
+   sam = sam(id(1:n_objects,2))
+   sam_sel = sam_sel(id(1:n_objects,2))
+   deallocate(id)
+   
+end subroutine preprocess_snapshot
+
 subroutine write_subsnapshot_into_tile(itile,isnapshot)
 
    implicit none
    integer*4,intent(in)    :: itile
    integer*4,intent(in)    :: isnapshot
-   integer*4               :: i,j,k,l,n
+   integer*4               :: i,j,n
    type(type_base)         :: base
    real*4                  :: xbox(3)
-   integer*8,allocatable   :: index(:,:)
-   integer*8               :: old_group
-   integer*4               :: group_start
    real*4                  :: xmin(3),xmax(3)
-   integer*4               :: n_in_group
    integer*4               :: n_in_snapshot
    integer*4               :: n_in_survey_volume
-   logical                 :: ok
+   real*4,allocatable      :: dc(:),ra(:),dec(:)
+   logical,allocatable     :: ok(:)
+   logical                 :: group_selected
    
    ! set tile
    base%tile = itile
    
-   ! sort by groupID
+   ! allocate arrays
    n = size(sam)
-   allocate(index(n,2))
-   do i = 1,n
-      index(i,1) = getGroupID(sam(i))
-      index(i,2) = i
-   end do
-   call merge_sort_list(index)
+   allocate(dc(n),ra(n),dec(n),ok(n))
+   ok = .true.
    
    ! open file
    open(1,file=trim(filename_sky_intrinsic),action='write',form='unformatted',status='old',position='append',access='stream')
    
    ! initialise group flagging
-   call reset_flagging(1,index(1,1))
+   call reset_flagging
    
-   ! iterate over all mock galaxies, ordered by group
-   do k = 1,n+1
-   
-      ! assign group flags
-      if ((k>n).or.(index(min(k,n),1).ne.old_group)) then
+   ! iterate over all mock galaxies, ordered by group, and check how groups have been truncated
+   do i = 1,n
       
-         ! make group flag
-         base%flag = 0
-         if (n_in_survey_volume.ne.n_in_group) base%flag = base%flag+1  ! group truncated by survey volume
-         if (n_in_snapshot.ne.n_in_group) base%flag = base%flag+2       ! group truncated by snapshot limit
-         if (maxval(xmax-xmin)>0.5) base%flag = base%flag+4              ! group is wrapped around
-         
-         ! re-iterate over all group members
-         do l = group_start,k-1
-            i = int(index(l,2),4)
-            ! check intrinsic property-selection
-            if (i>0) then
-               if (sam_selection(sam(i))) then
-                  nmockgalaxies = nmockgalaxies+1
-                  write(1) base,sam(i)
-               end if
-            end if
-         end do
-         
-         ! exit do-loop
-         if (k>n) exit
-         
-         ! reset group flagging
-         call reset_flagging(k,index(k,1))
-            
-      end if
-      
-      i = int(index(k,2),4)
-      ok = .true.
+      base%group_ntot = base%group_ntot+1
       
       ! compute sky position and determine range
-      call convert_position_sam_to_sky(sam(i)%getPosition()/para%L,itile,base%dc,base%ra,base%dec,xbox)
+      call convert_position_sam_to_sky(sam(i)%getPosition()/para%L,itile,dc(i),ra(i),dec(i),xbox)
       do j = 1,3
          xmin(j) = min(xmin(j),xbox(j))
          xmax(j) = max(xmax(j),xbox(j))
       end do
    
       ! check if distance is in the range covered by snapshot isnapshot
-      if ((base%dc>=snapshot(isnapshot)%dmin).and.(base%dc<snapshot(isnapshot)%dmax)) then
+      if ((dc(i)>=snapshot(isnapshot)%dmin).and.(dc(i)<snapshot(isnapshot)%dmax)) then
          n_in_snapshot = n_in_snapshot+1
+         group_selected = .true.
       else
-         ok = .false.
+         ok(i) = .false. ! => this object will be rejected
       end if
       
       ! check full position-selection
-      if (is_in_fov(base%dc*para%L,base%ra,base%dec).and. &
-         & pos_selection(base%dc*para%L,base%ra/degree,base%dec/degree)) then
+      if (is_in_fov(dc(i)*para%L,ra(i),dec(i)).and. &
+         & pos_selection(dc(i)*para%L,ra(i)/degree,dec(i)/degree)) then
          n_in_survey_volume = n_in_survey_volume+1
+         group_selected = .true.
       else
-         ok = .false.
+         ok(i) = .false. ! => this object will be rejected
       end if
+   
+      ! assign group flags
+      if (getGroupID(sam(i)).ne.getGroupID(sam(modulo(i,n)+1))) then ! check if group id differs from next group id
       
-      n_in_group = n_in_group+1
+         if (group_selected) then
+         
+            ! re-iterate over all accepted group members to check if they also pass the SAM selection
+            base%group_nsel = 0
+            do j = i-base%group_ntot+1,i
+               if (ok(j)) then
+                  if (sam_sel(j)) then
+                     base%group_nsel = base%group_nsel+1
+                  else
+                     ok(j) = .false.
+                  end if
+               end if
+            end do
+            
+            if (base%group_nsel>0) then
       
-      if (.not.ok) index(k,2) = 0
+               ! make group flag
+               base%group_flag = 0
+               if (n_in_survey_volume.ne.base%group_ntot) base%group_flag = base%group_flag+1   ! group truncated by survey volume
+               if (n_in_snapshot.ne.base%group_ntot) base%group_flag = base%group_flag+2        ! group truncated by snapshot limit
+               if (maxval(xmax-xmin)>0.5) base%group_flag = base%group_flag+4                   ! group wrapped around
+            
+               ! re-iterate over all accepted group members to write them in file
+               do j = i-base%group_ntot+1,i
+                  if (ok(j)) then
+                     nmockgalaxies = nmockgalaxies+1
+                     base%dc = dc(j)
+                     base%ra = ra(j)
+                     base%dec = dec(j)
+                     write(1) base,sam(j)
+                  end if
+               end do
+            end if
+         
+         end if
+         
+         ! reset group flagging
+         call reset_flagging
+            
+      end if
       
    end do
    
@@ -200,17 +257,14 @@ subroutine write_subsnapshot_into_tile(itile,isnapshot)
 
 contains
    
-   subroutine reset_flagging(start,group)
+   subroutine reset_flagging
       implicit none
-      integer*4,intent(in) :: start
-      integer*8,intent(in) :: group
       xmin = 2.0
       xmax = -1.0
-      n_in_group = 0
+      base%group_ntot = 0
       n_in_snapshot = 0
       n_in_survey_volume = 0
-      old_group = group
-      group_start = start
+      group_selected = .false.
    end subroutine reset_flagging
 
 end subroutine write_subsnapshot_into_tile
@@ -241,4 +295,4 @@ subroutine make_distance_ranges
 
 end subroutine make_distance_ranges
    
-end module module_sky_intrinsic
+end module module_positioning

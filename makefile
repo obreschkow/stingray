@@ -27,8 +27,8 @@ stingray.o:    module_constants.o \
                module_user_$(Model).o \
                module_parameters.o \
                module_tiling.o \
-               module_sky_intrinsic.o \
-               module_sky_apparent.o
+               module_positioning.o \
+               module_sky.o
                
 stingray: 	   module_constants.o \
                module_system.o \
@@ -41,8 +41,8 @@ stingray: 	   module_constants.o \
                module_user_$(Model).o \
                module_parameters.o \
                module_tiling.o \
-               module_sky_intrinsic.o \
-               module_sky_apparent.o
+               module_positioning.o \
+               module_sky.o
 
 # ======================================================================
 # And now the general rules, these should not require modification

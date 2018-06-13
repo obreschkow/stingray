@@ -51,6 +51,7 @@ recursive subroutine check_boxes(ix)
    implicit none
    integer,intent(in) :: ix(3)
    
+   if (maxval(abs(ix))>imax) return
    if (intersection(ix(1),ix(2),ix(3)).ne.0) return
    
    if (is_box_in_survey(ix,.false.)) then
