@@ -1,5 +1,3 @@
-
-
 function convert_properties(sam,id,dc,ra,dec,tile) result(sky)
 
    ! This is the central function of the user module. It makes the apparent properties of the galaxies

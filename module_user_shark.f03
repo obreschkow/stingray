@@ -5,7 +5,7 @@
 ! Download/upload data from/to hyades
 ! rsync -av --exclude 'star_formation_histories.hdf5' dobreschkow@hyades.icrar.org:/mnt/su3ctm/clagos/SHArk_Out/medi-SURFS/SHArk/19* ~/Data/SURFS/stingray/shark/input/
 ! rsync -av --include '*/0/g*' --exclude '*/*/*' dobreschkow@hyades.icrar.org:/mnt/su3ctm/clagos/SHArk_Out/medi-SURFS/SHArk/ ~/Data/SURFS/stingray/shark/input/
-! scp -r ~/Data/SURFS/stingray/shark/outputDEVILS/mocksky_DEVILS.hdf5 dobreschkow@hyades.icrar.org:/mnt/su3ctm/dobreschkow/Stingray/
+! scp -r ~/Data/SURFS/stingray/shark/output_DEVILS/mocksky_DEVILS.hdf5 dobreschkow@hyades.icrar.org:/mnt/su3ctm/dobreschkow/Stingray/
 
 module module_user
 
@@ -24,8 +24,17 @@ use module_conversion
 ! custom modules
 use module_hdf5
 
-public
-private :: parameter_filename_default ! must be accessed via get_parameter_filename_default()
+private
+
+public :: type_sam   ! SAM class, requires procedures get_position, get_groupid, is_selected, rotate_vectors
+public :: type_sky   ! SKY class, requires procedures make_from_sam, write_to_file, is_selected, get_class_name
+public :: skyclass, set_class_pointers
+public :: pos_selection
+public :: get_parameter_filename_default
+public :: make_automatic_parameters
+public :: make_redshifts
+public :: load_sam_snapshot
+public :: custom_routines
 
 ! ==============================================================================================================
 ! SET DEFAULT PARAMETER FILENAME
@@ -55,7 +64,7 @@ type type_sam
    integer*4   :: typ            ! galaxy type (0=central, 1=satellite in halo, 2=orphan)
    real*4      :: position(3)    ! [Mpc/h] position of galaxy centre in simulation box
    real*4      :: velocity(3)    ! [proper km/s] peculiar velocity
-   real*4      :: J(3)           ! [proper Msun/h Mpc/h km/s ?] angular momentum
+   real*4      :: J(3)           ! [proper Msun/h pMpc/h km/s] angular momentum
    real*4      :: mstars_disk    ! [Msun/h] stellar mass disk
    real*4      :: mstars_bulge   ! [Msun/h] stellar mass bulge
    real*4      :: mgas_disk      ! [Msun/h] gas mass disk
@@ -74,14 +83,16 @@ type type_sam
    
 contains
 
-   procedure   :: getPosition    ! required function
-   procedure   :: getGroupID     ! required function
+   procedure   :: get_position   => sam_get_position     ! required function
+   procedure   :: get_groupid    => sam_get_groupid      ! required function               
+   procedure   :: is_selected    => sam_is_selected      ! required function
+   procedure   :: rotate_vectors => sam_rotate_vectors   ! required subroutine
 
 end type type_sam
 
 ! Here, specify the class or classes of mock object properties in the sky, such as apparent galaxy properties.
 ! Importantly, these classes must all be sub-classes of type_empty_sky to inherit some core functionality.
-! All classes must have the three class-procedures convertSam, writeToFile and selected.
+! All classes must have the three class-procedures sky_make_from_sam, write_to_file and is_selected.
 ! See the existing routines below for clarifications.
    
 type type_sky
@@ -98,10 +109,10 @@ type type_sky
    
    contains
 
-   procedure   :: convertSam     ! required subroutine
-   procedure   :: writeToFile    ! required subroutine
-   procedure   :: selected       ! required logical function
-   procedure   :: name           ! required character function, used for filenames
+   procedure   :: make_from_sam  => sky_make_from_sam    ! required subroutine
+   procedure   :: write_to_file  => sky_write_to_file    ! required subroutine
+   procedure   :: is_selected    => sky_is_selected      ! required logical function
+   procedure   :: get_class_name => sky_get_class_name   ! required character function, used for filenames
 
 end type type_sky
 
@@ -171,20 +182,20 @@ end subroutine set_class_pointers
 ! In order to place the objects in the mock sky, the class type_sam must have the following two functions
 ! enabling stingray to extract the position and group id of each object.
 
-function getPosition(sam) result(position)
+function sam_get_position(sam) result(position)
    class(type_sam) :: sam
    real*4 :: position(3)
    position = sam%position ! [length_unit of simulation] position if the galaxy in the box
-end function getPosition
+end function sam_get_position
 
-integer*8 function getGroupID(sam)
+integer*8 function sam_get_groupid(sam)
    class(type_sam) :: sam
-   getGroupID = sam%id_halo ! unique group identifier
-end function getGroupID
+   sam_get_groupid = sam%id_halo ! unique group identifier
+end function sam_get_groupid
 
 ! For instances of the user-defined sky-types to be saved, add all sky types in the following subroutine
 
-subroutine writeToFile(self,fileID)
+subroutine sky_write_to_file(self,fileID)
    class(type_sky) :: self
    integer*4,intent(in) :: fileID
    select type (self)
@@ -194,20 +205,20 @@ subroutine writeToFile(self,fileID)
    class default
    call error('Unknown class for I/O.')
    end select
-end subroutine writeToFile
+end subroutine sky_write_to_file
 
 ! Give a name without spaces and special characters to each type
 
-character(255) function name(self)
+character(255) function sky_get_class_name(self)
    class(type_sky) :: self
    select type (self)
-   type is (type_sky_galaxy); name = 'Galaxies'
-   type is (type_sky_group); name = 'Groups'
-   type is (type_sky_lens); name = 'Lenses'
+   type is (type_sky_galaxy); sky_get_class_name = 'Galaxies'
+   type is (type_sky_group); sky_get_class_name = 'Groups'
+   type is (type_sky_lens); sky_get_class_name = 'Lenses'
    class default
-   call error('Unknown class for name.')
+   call error('Unknown class in sky_get_class_name.')
    end select
-end function name
+end function sky_get_class_name
 
 
 ! ==============================================================================================================
@@ -246,27 +257,27 @@ end function pos_selection
 ! later in the function 'selected'. The function 'sam_selection' is simply to avoid carrying too many galaxies
 ! through the whole analysis
 
-logical function sam_selection(sam)
+logical function sam_is_selected(sam) result(selected)
 
    implicit none
-   type(type_sam),intent(in)   :: sam
+   class(type_sam),intent(in) :: sam
    
    call nil(sam)  ! dummy to avoid compiler warnings for unused arguments
    
    select case (trim(para%name))
    case ('DEVILS')
-      sam_selection = (sam%mstars_disk>1e8).or.((sam%mvir_hosthalo>1e11).and.(sam%typ==0))
+      selected = (sam%mstars_disk>1e8).or.((sam%mvir_hosthalo>1e11).and.(sam%typ==0))
    case ('GAMA')
-      sam_selection = (sam%mstars_disk>1e8).or.((sam%mvir_hosthalo>1e11).and.(sam%typ==0))
+      selected = (sam%mstars_disk>1e8).or.((sam%mvir_hosthalo>1e11).and.(sam%typ==0))
    case default
-      sam_selection = .true.
+      selected = .true.
    end select
    
-end function sam_selection
+end function sam_is_selected
 
 ! selection applied to sky classes
 
-logical function selected(sky,sam)
+logical function sky_is_selected(sky,sam) result(selected)
 
    class(type_sky)            :: sky ! self
    type(type_sam),intent(in)  :: sam
@@ -298,14 +309,14 @@ logical function selected(sky,sam)
       call error('Unknown class for selection.')
    end select
    
-end function selected
+end function sky_is_selected
 
 
 ! ==============================================================================================================
 ! CONVERSION BETWEEN INTRINSIC AND APPARENT GALAXY PROPERTIES
 ! ==============================================================================================================
 
-subroutine rotate_vectors(sam)
+subroutine sam_rotate_vectors(sam)
 
    ! This function rotates all the vector-properties of the galaxy, specified in type_sam, except for the
    ! position, which has already been processed when producing the intrinsic sky. For each such vector-property
@@ -315,14 +326,14 @@ subroutine rotate_vectors(sam)
    ! or like a pseudo-vector (also known as axial vector)
 
    implicit none
-   type(type_sam),intent(inout)    :: sam
+   class(type_sam),intent(inout)    :: sam
    
    sam%velocity   = rotate(sam%velocity,.false.)
    sam%J          = rotate(sam%J,.true.)
    
-end subroutine rotate_vectors
+end subroutine sam_rotate_vectors
 
-subroutine convertSam(sky,sam,base,nobj,nobjtot)
+subroutine sky_make_from_sam(sky,sam,base,nobj,nobjtot)
 
    implicit none
    class(type_sky)            :: sky
@@ -412,7 +423,7 @@ subroutine convertSam(sky,sam,base,nobj,nobjtot)
    class default
    end select
    
-end subroutine convertSam
+end subroutine sky_make_from_sam
 
 
 ! ==============================================================================================================
@@ -556,7 +567,7 @@ end function get_parameter_filename_default
 ! HANDLE CUSTOM TASKS (= optional subroutines and arguments)
 ! ==============================================================================================================
 
-subroutine handle_custom_arguments(task,custom_option,success)
+subroutine custom_routines(task,custom_option,success)
 
    implicit none
    character(*),intent(in) :: task
@@ -643,12 +654,11 @@ subroutine make_hdf5
    & 'Rotation matrix to map xyz-coordinates of the tiling structure onto sky coordinates.')
    
    ! Group "Galaxies"
-   allocate(sky_galaxy(1)); name = sky_galaxy(1)%name(); deallocate(sky_galaxy)
+   allocate(sky_galaxy(1)); name = sky_galaxy(1)%get_class_name(); deallocate(sky_galaxy)
    filename_bin = trim(para%path_output)//'mocksky_'//trim(name)//'.bin'
    open(1,file=trim(filename_bin),action='read',form='unformatted',access='stream')
    read(1) n
    allocate(sky_galaxy(n))
-   name = sky_galaxy(1)%name()
    read(1) sky_galaxy
    close(1)
    call hdf5_add_group(trim(name))
@@ -693,7 +703,7 @@ subroutine make_hdf5
    deallocate(sky_galaxy)
    
    ! Group "Groups"
-   allocate(sky_group(1)); name = sky_group(1)%name(); deallocate(sky_group)
+   allocate(sky_group(1)); name = sky_group(1)%get_class_name(); deallocate(sky_group)
    filename_bin = trim(para%path_output)//'mocksky_'//trim(name)//'.bin'
    open(1,file=trim(filename_bin),action='read',form='unformatted',access='stream')
    read(1) n
@@ -718,7 +728,7 @@ subroutine make_hdf5
    deallocate(sky_group)
    
    ! Group "Lenses"
-   allocate(sky_lens(1)); name = sky_lens(1)%name(); deallocate(sky_lens)
+   allocate(sky_lens(1)); name = sky_lens(1)%get_class_name(); deallocate(sky_lens)
    filename_bin = trim(para%path_output)//'mocksky_'//trim(name)//'.bin'
    open(1,file=trim(filename_bin),action='read',form='unformatted',access='stream')
    read(1) n
@@ -786,6 +796,6 @@ subroutine make_hdf5
 
 end subroutine make_hdf5
    
-end subroutine handle_custom_arguments
+end subroutine custom_routines
 
 end module module_user

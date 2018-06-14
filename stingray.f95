@@ -2,6 +2,7 @@ program surfsuite
 
    use module_constants
    use module_system
+   use module_types
    use module_user
    use module_parameters
    use module_tiling
@@ -82,7 +83,7 @@ program surfsuite
       call make_tiling
       call make_positioning
       call make_sky
-      call handle_custom_arguments('my.additions.to.make.all','',success)
+      call custom_routines('my.additions.to.make.all','',success)
    case ('make.parameters')
    case ('make.tiling')
       call make_tiling
@@ -91,7 +92,7 @@ program surfsuite
    case ('make.sky')
       call make_sky
    case default
-      call handle_custom_arguments(trim(arg_task),trim(custom_option),success)
+      call custom_routines(trim(arg_task),trim(custom_option),success)
       if (.not.success) then
          call out('ERROR: '//trim(arg_task)//' is an unknown task.')
          stop

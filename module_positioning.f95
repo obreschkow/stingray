@@ -3,6 +3,7 @@ module module_positioning
    use module_constants
    use module_system
    use module_types
+   use module_linalg
    use module_cosmology
    use module_sort
    use module_user
@@ -12,19 +13,22 @@ module module_positioning
    private
    public   :: make_positioning
    
-   type(type_sam),allocatable    :: sam(:)
-   integer*8                     :: nmockgalaxies
    character(len=255)            :: filename_sky_intrinsic
-   logical,allocatable           :: sam_sel(:)
-   integer*4                     :: n_sam_selected
+   integer*8                     :: nmockgalaxies
    
 contains
 
 subroutine make_positioning
 
    implicit none
-   integer*4            :: isnapshot,isubsnapshot,itile
-   character(len=100)   :: snapshotname
+   integer*4                     :: isnapshot,isubsnapshot,itile,i
+   character(len=100)            :: snapshotname
+   integer*4                     :: nsub,nsub_max
+   integer*4,allocatable         :: index(:,:)
+   type(type_sam),allocatable    :: sam(:)
+   logical,allocatable           :: sam_sel(:)
+   character(len=3)              :: str1,str2
+   integer,external              :: OMP_GET_THREAD_NUM,OMP_GET_NUM_THREADS
    
    call tic
    call out('POSITION OBJECTS INTO SKY')
@@ -46,24 +50,44 @@ subroutine make_positioning
    write(1) 0_8 ! place holder for number of galaxies
    close(1)
    
-   ! fill galaxies with intrinsic properties into sky
-   nmockgalaxies = 0
+   ! make snapshot indices
+   nsub_max = (para%snapshot_max-para%snapshot_min+1)*(para%subsnapshot_max-para%subsnapshot_min+1)
+   allocate(index(nsub_max,2))
+   nsub = 0
    do isnapshot = para%snapshot_min,para%snapshot_max
       if ((snapshot(isnapshot)%dmax>=minval(tile%dmin)).and.(snapshot(isnapshot)%dmin<=maxval(tile%dmax))) then
          do isubsnapshot = para%subsnapshot_min,para%subsnapshot_max
-            call load_sam_snapshot(isnapshot,isubsnapshot,sam,snapshotname)
-            call out('Process '//trim(snapshotname))
-            call preprocess_snapshot(n_sam_selected)
-            if (n_sam_selected>0) then
-               do itile = 1,size(tile)
-                  if ((snapshot(isnapshot)%dmax>=tile(itile)%dmin).and.(snapshot(isnapshot)%dmin<=tile(itile)%dmax)) then
-                     call write_subsnapshot_into_tile(itile,isnapshot)
-                  end if
-               end do
+            nsub = nsub+1
+            index(nsub,:) = (/isnapshot,isubsnapshot/)
+         end do
+      end if
+   end do
+   
+   ! fill galaxies with intrinsic properties into sky
+   nmockgalaxies = 0
+   str1 = '1'
+   str2 = '1'
+   !$OMP PARALLEL PRIVATE(itile,sam,sam_sel,snapshotname)
+   !$OMP DO SCHEDULE(DYNAMIC)
+   do i = 1,nsub
+      ! Only do the following by one thread at a time
+      !$OMP CRITICAL
+      call load_sam_snapshot(index(i,1),index(i,2),sam,snapshotname)
+      write(str1,'(I3)') OMP_GET_THREAD_NUM()+1
+      write(str2,'(I3)') OMP_GET_NUM_THREADS()
+      call out('Process '//trim(snapshotname)//' on thread '//trim(adjustl(str1))//'/'//adjustl(trim(str2)))
+      !$OMP END CRITICAL
+      call preprocess_snapshot(sam,sam_sel)
+      if (size(sam)>0) then
+         do itile = 1,size(tile)
+            if ((snapshot(index(i,1))%dmax>=tile(itile)%dmin).and.(snapshot(index(i,1))%dmin<=tile(itile)%dmax)) then
+               call write_subsnapshot_into_tiles(itile,index(i,1),sam,sam_sel)
             end if
          end do
       end if
    end do
+   !$OMP END DO NOWAIT
+   !$OMP END PARALLEL       
    
    ! deallocate arrays
    if (allocated(tile)) deallocate(tile)
@@ -103,31 +127,28 @@ subroutine convert_position_sam_to_sky(position,itile,dc,ra,dec,xbox)
    
 end subroutine convert_position_sam_to_sky
 
-subroutine preprocess_snapshot(n_sam_selected)
+subroutine preprocess_snapshot(sam,sam_sel)
    
    implicit none
-   integer*4,intent(out)   :: n_sam_selected
-   integer*8,allocatable   :: id(:,:)
-   integer*4               :: group_n ! number of objects in current group
-   integer*4               :: i,n_objects,n
-   logical                 :: group_selected
+   type(type_sam),allocatable,intent(inout)  :: sam(:)
+   logical,allocatable,intent(inout)         :: sam_sel(:)
+   integer*8,allocatable                     :: id(:,:)
+   integer*4                                 :: group_n ! number of objects in current group
+   integer*4                                 :: i,n_objects,n
+   logical                                   :: group_selected
    
-   !call out('preprocess')
-   
-   ! determine if the objects pass the SAM selection
+   ! determine if the objects pass the SAM selection and get group IDs
    n = size(sam)
+   
    if (allocated(sam_sel)) deallocate(sam_sel)
-   allocate(sam_sel(n))
-   do i = 1,size(sam)
-      sam_sel(i) = sam_selection(sam(i))
+   allocate(sam_sel(n),id(n,2))
+   do i = 1,n
+      sam_sel(i) = sam(i)%is_selected()
+      id(i,1) = sam(i)%get_groupid()
+      id(i,2) = i
    end do
    
    ! order galaxies by group id
-   allocate(id(n,2))
-   do i = 1,n
-      id(i,1) = getGroupID(sam(i))
-      id(i,2) = i
-   end do
    call merge_sort_list(id)
    
    ! only retain groups, where at least one object is selected based on its SAM properties
@@ -150,25 +171,29 @@ subroutine preprocess_snapshot(n_sam_selected)
    ! apply reordering and selection to arrays sam(:) and sam_sel(:)
    sam = sam(id(1:n_objects,2))
    sam_sel = sam_sel(id(1:n_objects,2))
-   n_sam_selected = n_objects
    deallocate(id)
    
 end subroutine preprocess_snapshot
 
-subroutine write_subsnapshot_into_tile(itile,isnapshot)
+subroutine write_subsnapshot_into_tiles(itile,isnapshot,sam,sam_sel)
 
    implicit none
-   integer*4,intent(in)    :: itile
-   integer*4,intent(in)    :: isnapshot
-   integer*4               :: i,j,n
-   type(type_base)         :: base
-   real*4                  :: xbox(3)
-   real*4                  :: xmin(3),xmax(3)
-   integer*4               :: n_in_snapshot
-   integer*4               :: n_in_survey_volume
-   real*4,allocatable      :: dc(:),ra(:),dec(:)
-   logical,allocatable     :: ok(:)
-   logical                 :: group_selected
+   integer*4,intent(in)                      :: itile
+   integer*4,intent(in)                      :: isnapshot
+   type(type_sam),allocatable,intent(in)     :: sam(:)
+   logical,allocatable,intent(in)            :: sam_sel(:)
+   type(type_base),allocatable               :: base_out(:)
+   type(type_sam),allocatable                :: sam_out(:)
+   integer*4                                 :: n_out
+   integer*4                                 :: i,j,n
+   type(type_base)                           :: base
+   real*4                                    :: xbox(3)
+   real*4                                    :: xmin(3),xmax(3)
+   integer*4                                 :: n_in_snapshot
+   integer*4                                 :: n_in_survey_volume
+   real*4,allocatable                        :: dc(:),ra(:),dec(:)
+   logical,allocatable                       :: ok(:)
+   logical                                   :: group_selected
    
    !call out('write')
    
@@ -177,14 +202,12 @@ subroutine write_subsnapshot_into_tile(itile,isnapshot)
    
    ! allocate arrays
    n = size(sam)
-   allocate(dc(n),ra(n),dec(n),ok(n))
+   allocate(dc(n),ra(n),dec(n),ok(n),sam_out(n),base_out(n))
    ok = .true.
-   
-   ! open file
-   open(1,file=trim(filename_sky_intrinsic),action='write',form='unformatted',status='old',position='append',access='stream')
    
    ! initialise group flagging
    call reset_flagging
+   n_out = 0
    
    ! iterate over all mock galaxies, ordered by group, and check how groups have been truncated
    do i = 1,n
@@ -192,7 +215,7 @@ subroutine write_subsnapshot_into_tile(itile,isnapshot)
       base%group_ntot = base%group_ntot+1
       
       ! compute sky position and determine range
-      call convert_position_sam_to_sky(sam(i)%getPosition()/para%L,itile,dc(i),ra(i),dec(i),xbox)
+      call convert_position_sam_to_sky(sam(i)%get_position()/para%L,itile,dc(i),ra(i),dec(i),xbox)
       do j = 1,3
          xmin(j) = min(xmin(j),xbox(j))
          xmax(j) = max(xmax(j),xbox(j))
@@ -216,7 +239,7 @@ subroutine write_subsnapshot_into_tile(itile,isnapshot)
       end if
    
       ! assign group flags
-      if (getGroupID(sam(i)).ne.getGroupID(sam(modulo(i,n)+1))) then ! check if group id differs from next group id
+      if (sam(i)%get_groupid().ne.sam(modulo(i,n)+1)%get_groupid()) then ! check if group id differs from next group id
       
          if (group_selected) then
          
@@ -243,11 +266,12 @@ subroutine write_subsnapshot_into_tile(itile,isnapshot)
                ! re-iterate over all accepted group members to write them in file
                do j = i-base%group_ntot+1,i
                   if (ok(j)) then
-                     nmockgalaxies = nmockgalaxies+1
+                     n_out = n_out+1
                      base%dc = dc(j)
                      base%ra = ra(j)
                      base%dec = dec(j)
-                     write(1) base,sam(j)
+                     base_out(n_out) = base
+                     sam_out(n_out) = sam(j)
                   end if
                end do
             end if
@@ -261,8 +285,16 @@ subroutine write_subsnapshot_into_tile(itile,isnapshot)
       
    end do
    
-   ! close file
+   sam_out = sam_out(1:n_out)
+   base_out = base_out(1:n_out)
+   
+   ! Only do the following by one thread at a time
+   !$OMP CRITICAL
+   open(1,file=trim(filename_sky_intrinsic),action='write',form='unformatted',status='old',position='append',access='stream')
+   write(1) (base_out(i),sam_out(i),i=1,n_out)     
    close(1)
+   nmockgalaxies = nmockgalaxies+n_out
+   !$OMP END CRITICAL  
 
 contains
    
@@ -276,7 +308,7 @@ contains
       group_selected = .false.
    end subroutine reset_flagging
 
-end subroutine write_subsnapshot_into_tile
+end subroutine write_subsnapshot_into_tiles
 
 subroutine make_distance_ranges
 

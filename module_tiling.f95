@@ -44,7 +44,7 @@ subroutine make_tiling
    call out('Number of points checked = ',counter*1_8)
    if (allocated(tile)) deallocate(tile)
    call toc
-   
+
 end subroutine make_tiling
 
 recursive subroutine check_boxes(ix)
@@ -79,9 +79,7 @@ end subroutine check_boxes
 subroutine make_boxes
 
    implicit none
-   real*4                     :: d ! distance from observer to cube centre to in units of box side-lengths
-   real*4,parameter           :: h3 = sqrt(3.0)/2.0 ! half the space diagonal of a unit cube
-   real*4                     :: rand
+   real*4                     :: rand,dmin,dmax
    integer*4                  :: i,j,k,ntile,itile
    
    ntile = count(intersection>0)
@@ -100,10 +98,10 @@ subroutine make_boxes
                tile(itile)%ix = (/i,j,k/)
       
                ! distance range of box
-               d = norm(tile(itile)%ix*1.0)
-               tile(itile)%dmin = max(para%dc_min/para%L,d-h3)
-               tile(itile)%dmax = min(para%dc_max/para%L,d+h3)
-
+               call get_distance_range_of_cube(tile(itile)%ix,dmin,dmax)
+               tile(itile)%dmin = max(para%dc_min/para%L,dmin)
+               tile(itile)%dmax = min(para%dc_max/para%L,dmax)
+               
                ! choose random proper rotation
                if (para%rotate==1) then
                   call random_number(rand)
@@ -133,6 +131,89 @@ subroutine make_boxes
    end do
 
 end subroutine make_boxes
+
+subroutine get_distance_range_of_cube(ix,dmin,dmax)
+
+   implicit none
+   integer*4,intent(in) :: ix(3)
+   real*4,intent(out)   :: dmin,dmax
+   real*4               :: dmin_sq(6)
+   integer*4            :: i,j,k
+   
+   if (maxval(abs(ix))==0) then
+      dmin = 0
+   else
+      dmin_sq(1) = get_min_distance_to_square(ix+(/-0.5,0.0,0.0/),(/0.0,1.0,0.0/),(/0.0,0.0,1.0/))
+      dmin_sq(2) = get_min_distance_to_square(ix+(/+0.5,0.0,0.0/),(/0.0,1.0,0.0/),(/0.0,0.0,1.0/))
+      dmin_sq(3) = get_min_distance_to_square(ix+(/0.5,-0.5,0.0/),(/1.0,0.0,0.0/),(/0.0,0.0,1.0/))
+      dmin_sq(4) = get_min_distance_to_square(ix+(/0.5,+0.5,0.0/),(/1.0,0.0,0.0/),(/0.0,0.0,1.0/))
+      dmin_sq(5) = get_min_distance_to_square(ix+(/0.0,0.0,-0.5/),(/1.0,0.0,0.0/),(/0.0,1.0,0.0/))
+      dmin_sq(6) = get_min_distance_to_square(ix+(/0.0,0.0,+0.5/),(/1.0,0.0,0.0/),(/0.0,1.0,0.0/))
+      dmin = minval(dmin_sq)
+   end if
+   
+   dmax = 0
+   do i = -1,1,2
+      do j = -1,1,2
+         do k = -1,1,2
+            dmax = max(dmax,norm(real(ix)+(/i*0.5,j*0.5,k*0.5/)))
+         end do
+      end do
+   end do
+               
+end subroutine get_distance_range_of_cube
+
+function get_min_distance_to_square(p,e1,e2) result(dmin)
+   
+   implicit none
+   real*4,intent(in)    :: p(3)        ! center of square
+   real*4,intent(in)    :: e1(3),e2(3) ! orthonormal basis in the plane of the square, parallel to the edges
+   real*4               :: dmin        ! minimal distance from the origin (0,0,0) to the square
+   real*4               :: p1,p2       ! projections of p onto square
+   real*4               :: s1,s2
+   
+   ! project p onto square
+   p1 = sum(p*e1)
+   p2 = sum(p*e2)
+   s1 = sign(1.0,p1) ! sign of p1
+   s2 = sign(1.0,p2) ! sign of p2
+   
+   ! handle the situation where projection lands inside the square => closest point lies inside square
+   if (max(abs(p1),abs(p2))<=0.5) then
+      dmin = sqrt(sum(p**2)-sum(p*e1)**2-sum(p*e2)**2) ! equation for the minimum distance to a plane
+      return
+   end if
+   
+   ! handle the situation where the closes point lies along an edge
+   if ((min(abs(p1),abs(p2))<=0.5).and.(max(abs(p1),abs(p2))>0.5)) then
+      if (abs(p1)>0.5) then
+         dmin = get_min_distance_to_line(p-s1*e1/2,e2)
+      else if (abs(p2)>0.5) then
+         dmin = get_min_distance_to_line(p-s2*e2/2,e1)
+      end if
+      return
+   end if
+   
+   ! handle the situation where the closest point is a corner
+   if (min(abs(p1),abs(p2))>0.5) then
+      dmin = norm(p-s1*e1/2-s2*e2/2)
+      return
+   else
+      stop('Error in get_min_distance_to_square')
+   end if
+   
+end function get_min_distance_to_square
+
+function get_min_distance_to_line(p,e) result(dmin)
+
+   implicit none
+   real*4,intent(in)    :: p(3)  ! position on the line
+   real*4,intent(in)    :: e(3)  ! unit vector parallel to the line
+   real*4               :: dmin  ! minimal distance from the origin (0,0,0) to the line
+   
+   dmin = sqrt(sum(p**2)-sum(p*e)**2)
+   
+end function get_min_distance_to_line
 
 logical function is_box_in_survey(ix,user)
 

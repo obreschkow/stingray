@@ -30,19 +30,8 @@ contains
       list1(1:n1,:) = list(1:n1,:)
       list2(1:n2,:) = list(n0/2+1:n0,:)
       
-      if (next_level<3) then ! => maximally 2^2 = 4 nested threads (more also need more memory)
-         !$OMP PARALLEL
-         !$OMP SECTIONS
-         !$OMP SECTION
-         if (n1>1) call merge_sort_list(list1,next_level)
-         !$OMP SECTION
-         if (n2>1) call merge_sort_list(list2,next_level)
-         !$OMP END SECTIONS
-         !$OMP END PARALLEL
-      else
-         if (n1>1) call merge_sort_list(list1,next_level)
-         if (n2>1) call merge_sort_list(list2,next_level)
-      end if
+      if (n1>1) call merge_sort_list(list1,next_level)
+      if (n2>1) call merge_sort_list(list2,next_level)
       
       ! merge sorted sublists
       i0 = 1

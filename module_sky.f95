@@ -6,6 +6,7 @@ module module_sky
    use module_system
    use module_types
    use module_cosmology
+   use module_conversion
    use module_user
    use module_parameters
    use module_tiling
@@ -47,7 +48,7 @@ subroutine make_sky
    
    ! initialize master one
    do isky = 1,size(skyclass)
-      write(filename,'(A,A,A,A)') trim(para%path_output),'mocksky_',trim(skyclass(isky)%ptr%name()),'.bin'
+      write(filename,'(A,A,A,A)') trim(para%path_output),'mocksky_',trim(skyclass(isky)%ptr%get_class_name()),'.bin'
       open(isky+1,file=trim(filename),action='write',form="unformatted",status='replace',access='stream')
       write(isky+1) 0_8 ! place holder for number of objects in mock sky
    end do
@@ -64,12 +65,12 @@ subroutine make_sky
       read(1) base,sam
       Rvector = tile(base%tile)%Rvector
       Rpseudo = tile(base%tile)%Rpseudo
-      call rotate_vectors(sam)
+      call sam%rotate_vectors
       do isky = 1,size(skyclass)
-         call skyclass(isky)%ptr%convertSam(sam,base,m(isky)+1,sum(m)+1)
-         if (skyclass(isky)%ptr%selected(sam)) then
+         call skyclass(isky)%ptr%make_from_sam(sam,base,m(isky)+1,sum(m)+1)
+         if (skyclass(isky)%ptr%is_selected(sam)) then
             m(isky) = m(isky)+1
-            call skyclass(isky)%ptr%writeToFile(isky+1)
+            call skyclass(isky)%ptr%write_to_file(isky+1)
          end if
       end do
    end do
@@ -90,7 +91,7 @@ subroutine make_sky
    ! user output
    call out('Number of objects in apparent sky:',sum(m))
    do isky = 1,size(skyclass)
-      call out('  '//trim(skyclass(isky)%ptr%name())//':',m(isky))
+      call out('  '//trim(skyclass(isky)%ptr%get_class_name())//':',m(isky))
    end do
    call toc
    
