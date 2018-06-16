@@ -5,6 +5,7 @@ module module_sky
    use module_constants
    use module_system
    use module_types
+   use module_io
    use module_cosmology
    use module_conversion
    use module_user

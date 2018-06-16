@@ -3,6 +3,7 @@ module module_tiling
    use module_constants
    use module_system
    use module_types
+   use module_io
    use module_linalg
    use module_user
    use module_parameters
@@ -199,7 +200,8 @@ function get_min_distance_to_square(p,e1,e2) result(dmin)
       dmin = norm(p-s1*e1/2-s2*e2/2)
       return
    else
-      stop('Error in get_min_distance_to_square')
+      write(*,*) 'Error in get_min_distance_to_square'
+      stop
    end if
    
 end function get_min_distance_to_square

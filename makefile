@@ -10,6 +10,8 @@ FC = gfortran
 # Compiler flags for optimized execution
 FCFLAGS = -O3 -fopenmp -I/usr/local/lib/hdf5/include -L/usr/local/lib/hdf5/lib -lhdf5_fortran -lhdf5
 
+#FCFLAGS = -O3 -fopenmp -I/opt/bldr/local/storage/hdf5/1.8.17/include -L/opt/bldr/local/storage/hdf5/1.8.17/lib -lhdf5_fortran -lhdf5
+
 # List of executables to be built within the package
 PROGRAMS = stingray
 
@@ -19,6 +21,7 @@ all: $(PROGRAMS)
 stingray.o:    module_constants.o \
                module_system.o \
                module_types.o \
+               module_io.o \
                module_linalg.o \
                module_cosmology.o \
                module_sort.o \
@@ -33,6 +36,7 @@ stingray.o:    module_constants.o \
 stingray: 	   module_constants.o \
                module_system.o \
                module_types.o \
+               module_io.o \
                module_linalg.o \
                module_sort.o \
                module_cosmology.o \

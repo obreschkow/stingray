@@ -3,11 +3,12 @@ module module_parameters
    use module_constants
    use module_system
    use module_types
+   use module_io
    use module_linalg
    use module_user
    
    private
-   public   :: make_parameters, load_parameters, load_paths
+   public   :: make_parameters, load_paths
    
 contains
 

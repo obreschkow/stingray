@@ -1,3 +1,60 @@
+module module_tmp
+
+   use module_types
+   use module_user
+   
+   public
+   
+contains
+
+   subroutine save_tmp_snapshot(snapshot,subsnapshot,sam)
+   
+      implicit none
+      integer*4,intent(in)                   :: snapshot
+      integer*4,intent(in)                   :: subsnapshot
+      type(type_sam),allocatable,intent(in)  :: sam(:)            ! derived type of all the relevant SAM properties
+      integer*8                              :: n
+      
+      n = size(sam)
+      open(1,file=trim(tmp_snapshot_name(snapshot,subsnapshot)), &
+      & action='write',form='unformatted',status='replace',access='stream')
+      write(1) n
+      write(1) sam
+      close(1) 
+
+   end subroutine save_tmp_snapshot
+   
+   subroutine load_tmp_snapshot(snapshot,subsnapshot,sam)
+   
+      implicit none
+      integer*4,intent(in)                   :: snapshot
+      integer*4,intent(in)                   :: subsnapshot
+      type(type_sam),allocatable,intent(out) :: sam(:)            ! derived type of all the relevant SAM properties
+      integer*8                              :: n
+      
+      open(1,file=trim(tmp_snapshot_name(snapshot,subsnapshot)), &
+      & action='read',form='unformatted',access='stream')
+      read(1) n
+      if (allocated(sam)) deallocate(sam)
+      allocate(sam(n))
+      read(1) sam
+      close(1) 
+
+   end subroutine load_tmp_snapshot
+   
+   function tmp_snapshot_name(snapshot,subsnapshot) result(filename)
+   
+      implicit none
+      integer*4,intent(in) :: snapshot
+      integer*4,intent(in) :: subsnapshot
+      character(255)       :: filename
+
+      write(filename,'(A,A,I0.4,A,I0.4,A)') trim(para%path_temporary),'snapshot_',snapshot,'_',subsnapshot,'.bin'
+         
+   end function tmp_snapshot_name
+   
+end module module_tmp
+
 function convert_properties(sam,id,dc,ra,dec,tile) result(sky)
 
    ! This is the central function of the user module. It makes the apparent properties of the galaxies

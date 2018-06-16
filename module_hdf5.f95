@@ -490,7 +490,10 @@ contains
          else
             write(fortran_type,'(A,I0)') 'real*',size
          end if
-         if (trim(fortran_type).ne.expected_fortran_type) stop('HDF5: Data type does not match expectation.')
+         if (trim(fortran_type).ne.expected_fortran_type) then
+            write(*,*) 'HDF5: Data type does not match expectation.'
+            stop
+         end if
       end if
 
    end function get_mem_type_id

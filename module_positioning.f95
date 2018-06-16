@@ -3,6 +3,7 @@ module module_positioning
    use module_constants
    use module_system
    use module_types
+   use module_io
    use module_linalg
    use module_cosmology
    use module_sort
@@ -22,12 +23,11 @@ subroutine make_positioning
 
    implicit none
    integer*4                     :: isnapshot,isubsnapshot,itile,i
-   character(len=100)            :: snapshotname
+   character(255)                :: str
    integer*4                     :: nsub,nsub_max
    integer*4,allocatable         :: index(:,:)
    type(type_sam),allocatable    :: sam(:)
    logical,allocatable           :: sam_sel(:)
-   character(len=3)              :: str1,str2
    integer,external              :: OMP_GET_THREAD_NUM,OMP_GET_NUM_THREADS
    
    call tic
@@ -65,17 +65,15 @@ subroutine make_positioning
    
    ! fill galaxies with intrinsic properties into sky
    nmockgalaxies = 0
-   str1 = '1'
-   str2 = '1'
-   !$OMP PARALLEL PRIVATE(itile,sam,sam_sel,snapshotname)
+   !$OMP PARALLEL PRIVATE(itile,sam,sam_sel)
    !$OMP DO SCHEDULE(DYNAMIC)
    do i = 1,nsub
       ! Only do the following by one thread at a time
       !$OMP CRITICAL
-      call load_sam_snapshot(index(i,1),index(i,2),sam,snapshotname)
-      write(str1,'(I3)') OMP_GET_THREAD_NUM()+1
-      write(str2,'(I3)') OMP_GET_NUM_THREADS()
-      call out('Process '//trim(snapshotname)//' on thread '//trim(adjustl(str1))//'/'//adjustl(trim(str2)))
+      call load_sam_snapshot(index(i,1),index(i,2),sam)
+      write(str,'(A,I0,A,I0,A,I0,A,I0,A,I0)') 'Process snapshot ',index(i,1),', subvolume ',index(i,2),' (', &
+      & size(sam),' galaxies) on thread ',OMP_GET_THREAD_NUM()+1,'/',OMP_GET_NUM_THREADS()
+      call out(trim(str))
       !$OMP END CRITICAL
       call preprocess_snapshot(sam,sam_sel)
       if (size(sam)>0) then

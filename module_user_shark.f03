@@ -6,6 +6,7 @@
 ! rsync -av --exclude 'star_formation_histories.hdf5' dobreschkow@hyades.icrar.org:/mnt/su3ctm/clagos/SHArk_Out/medi-SURFS/SHArk/19* ~/Data/SURFS/stingray/shark/input/
 ! rsync -av --include '*/0/g*' --exclude '*/*/*' dobreschkow@hyades.icrar.org:/mnt/su3ctm/clagos/SHArk_Out/medi-SURFS/SHArk/ ~/Data/SURFS/stingray/shark/input/
 ! scp -r ~/Data/SURFS/stingray/shark/output_DEVILS/mocksky_DEVILS.hdf5 dobreschkow@hyades.icrar.org:/mnt/su3ctm/dobreschkow/Stingray/
+! rsync -av --exclude '.*'  ~/Dropbox/Code/Fortran/stingray/ dobreschkow@hyades.icrar.org:~/stingray/
 
 module module_user
 
@@ -17,6 +18,7 @@ module module_user
 use module_constants
 use module_system
 use module_types
+use module_io
 use module_linalg
 use module_cosmology
 use module_conversion
@@ -281,7 +283,7 @@ logical function sky_is_selected(sky,sam) result(selected)
 
    class(type_sky)            :: sky ! self
    type(type_sam),intent(in)  :: sam
-   real*4,parameter           :: dmag = 0.0
+   real*4,parameter           :: dmag = 1.0
    
    call nil(sky,sam) ! dummy to avoid compiler warnings for unused arguments
    
@@ -493,14 +495,13 @@ end subroutine make_redshifts
 
 ! load SAM snapshot file
 
-subroutine load_sam_snapshot(index,subindex,sam,snapshotname)
+subroutine load_sam_snapshot(index,subindex,sam)
 
    ! variable declaration
    implicit none
    integer*4,intent(in)                            :: index             ! snapshot index
    integer*4,intent(in)                            :: subindex          ! subindex, if the snapshot is split into several files
    type(type_sam),allocatable,intent(out)          :: sam(:)            ! derived type of all the relevant SAM properties
-   character(len=100),intent(out)                  :: snapshotname      ! snapshot name to be returned for user display
    character(len=255)                              :: filename
    integer*8                                       :: n
    character(*),parameter                          :: g = '/Galaxies/'  ! group name
@@ -551,9 +552,6 @@ subroutine load_sam_snapshot(index,subindex,sam,snapshotname)
    
    ! close file
    call hdf5_close()
-   
-   ! return snapshot name for screen output
-   write(snapshotname,'(A,I0,A,I0,A,I0,A)') 'snapshot ',index,', subvolume ',subindex,' (',n,' galaxies)'
    
 end subroutine load_sam_snapshot
 
@@ -790,7 +788,7 @@ subroutine make_hdf5
    ! close HDF5 file
    call hdf5_close()
    
-   write(str,'(F9.7)') sum(test)/0.3665829109787940979003906250E+04
+   write(str,'(F14.7)') sum(test)/5307.753769517
    call out('Test sum:'//trim(str))
    call toc
 
