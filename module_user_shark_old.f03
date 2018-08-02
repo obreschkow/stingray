@@ -184,6 +184,7 @@ subroutine sky_write_to_file(self,fileID)
    select type (self)
    type is (type_sky_galaxy); write(fileID) self
    type is (type_sky_group); write(fileID) self
+   type is (type_sky_lens); write(fileID) self
    class default
    call error('Unknown class for I/O.')
    end select
@@ -196,6 +197,7 @@ character(255) function sky_get_class_name(self)
    select type (self)
    type is (type_sky_galaxy); sky_get_class_name = 'galaxies'
    type is (type_sky_group); sky_get_class_name = 'halos'
+   type is (type_sky_lens); sky_get_class_name = 'lenses'
    class default
    call error('Unknown class in sky_get_class_name.')
    end select
@@ -281,6 +283,10 @@ logical function sky_is_selected(sky,sam) result(selected)
    type is (type_sky_group)
    
       selected = (sam%mvir_hosthalo>1e12).and.(sam%typ==0)
+      
+   type is (type_sky_lens)
+   
+      selected = sam%mvir_subhalo>1e13
    
    class default
       call error('Unknown class for selection.')
@@ -388,6 +394,14 @@ subroutine sky_make_from_sam(sky,sam,base,nobj,nobjtot)
       sky%id_halo_sam  = sam%id_halo
       sky%id_halo_sky  = id_halo_sky   ! unique parent halo ID in the mock sky
       sky%mvir         = sam%mvir_hosthalo
+   
+   type is (type_sky_lens)
+   
+      sky%id_galaxy_sky = id_galaxy_sky
+      sky%mhalo         = sam%mvir_subhalo
+      sky%mdisk         = sam%mstars_disk+sam%mgas_disk
+      sky%mbulge        = sam%mstars_bulge+sam%mgas_bulge
+      sky%chalo         = sam%cnfw_subhalo
    
    class default
    end select
@@ -563,6 +577,7 @@ subroutine make_hdf5
    character(len=255)                  :: filename_hdf5
    type(type_sky_galaxy),allocatable   :: sky_galaxy(:)
    type(type_sky_group),allocatable    :: sky_group(:)
+   type(type_sky_lens),allocatable     :: sky_lens(:)
    integer*8                           :: n,i
    character(len=255)                  :: name,str
    real*8                              :: test(10),expected_sum
@@ -690,6 +705,34 @@ subroutine make_hdf5
    test(6) = sum(sky_group%tile)
    test(7) = sum(sky_group%zcmb)
    deallocate(sky_group)
+   
+   ! Group "Lenses"
+   allocate(sky_lens(1)); name = sky_lens(1)%get_class_name(); deallocate(sky_lens)
+   filename_bin = trim(para%path_output)//'mocksky_'//trim(name)//'.bin'
+   open(1,file=trim(filename_bin),action='read',form='unformatted',access='stream')
+   read(1) n
+   allocate(sky_lens(n))
+   read(1) sky_lens
+   close(1)
+   call hdf5_add_group(trim(name))
+   call hdf5_write_data(trim(name)//'/snapshot',sky_lens%snapshot,'snapshot ID')
+   call hdf5_write_data(trim(name)//'/subsnapshot',sky_lens%subsnapshot,'subsnapshot ID')
+   call hdf5_write_data(trim(name)//'/tile',sky_lens%tile,'tile ID in tiling array')
+   call hdf5_write_data(trim(name)//'/zobs',sky_lens%zobs,'redshift in observer-frame')
+   call hdf5_write_data(trim(name)//'/zcmb',sky_lens%zcmb,'redshift in CMB frame')
+   call hdf5_write_data(trim(name)//'/zcos',sky_lens%zcos,'cosmological redshift without peculiar motions')
+   call hdf5_write_data(trim(name)//'/dc',sky_lens%dc,'[Mpc/h] comoving distance')
+   call hdf5_write_data(trim(name)//'/RA',sky_lens%ra/degree,'[deg] right ascension')
+   call hdf5_write_data(trim(name)//'/Dec',sky_lens%dec/degree,'[deg] declination')
+   call hdf5_write_data(trim(name)//'/id_galaxy_sky',sky_lens%id_galaxy_sky,'unique galaxy ID in mock sky')
+   call hdf5_write_data(trim(name)//'/mhalo',sky_lens%mhalo,'[Msun/h] halo mass')
+   call hdf5_write_data(trim(name)//'/mdisk',sky_lens%mdisk,'[Msun/h] disk mass')
+   call hdf5_write_data(trim(name)//'/mbluge',sky_lens%mbulge,'[Msun/h] bulge mass')
+   call hdf5_write_data(trim(name)//'/chalo',sky_lens%mhalo,'halo concentration (NFW fit)')
+   test(8) = n
+   test(9) = sum(sky_lens%subsnapshot)
+   test(10) = sum(sky_lens%dc)*1e-3
+   deallocate(sky_lens)
    
    ! Group "Tiling"
    call hdf5_add_group('tiling')

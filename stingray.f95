@@ -91,6 +91,7 @@ program surfsuite
       call make_positioning
    case ('make.sky')
       call make_sky
+      call custom_routines('my.additions.to.make.all','',success)
    case default
       call custom_routines(trim(arg_task),trim(custom_option),success)
       if (.not.success) then

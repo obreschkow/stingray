@@ -4,7 +4,7 @@ module module_constants
 
    public
    
-   character(*),parameter  :: version = '0.2'
+   character(*),parameter  :: version = '0.3'
    
    ! Universal constants
    real*4,parameter        :: pi = 3.14159265359

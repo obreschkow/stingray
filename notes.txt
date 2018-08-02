@@ -1,0 +1,9 @@
+Download/upload data from/to hyades
+rsync -av --exclude 'star_formation_histories.hdf5' dobreschkow@hyades.icrar.org:/mnt/su3ctm/clagos/SHARK_Out/medi-SURFS/Shark-Lagos18/19* ~/Data/SURFS/stingray/shark/input/
+rsync -av --include '*/0/g*' --exclude '*/*/*' dobreschkow@hyades.icrar.org:/mnt/su3ctm/clagos/SHARK_Out/medi-SURFS/Shark-Lagos18/ ~/Data/SURFS/stingray/shark/input/
+scp -r ~/Data/SURFS/stingray/shark/output_DEVILS/mocksky_DEVILS.hdf5 dobreschkow@hyades.icrar.org:/mnt/su3ctm/dobreschkow/Stingray/
+rsync -av --exclude '.*'  ~/Dropbox/Code/Fortran/stingray/ dobreschkow@hyades.icrar.org:~/stingray/
+on hyades:
+module load hdf5
+module load gcc
+make clean; make

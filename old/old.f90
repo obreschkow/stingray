@@ -1,3 +1,15 @@
+
+
+type,extends(type_sky) :: type_sky_lens
+
+   integer*8   :: id_galaxy_sky  ! unique ID in the mock sky
+   real*4      :: mhalo
+   real*4      :: mdisk
+   real*4      :: mbulge
+   real*4      :: chalo
+
+end type type_sky_lens
+
 module module_tmp
 
    use module_types

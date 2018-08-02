@@ -271,7 +271,7 @@ contains
       integer(hid_t)                :: attr_id ! Attribute identifier
       integer(hid_t)                :: aspace_id ! Attribute Dataspace identifier
       integer(hid_t)                :: atype_id ! Attribute Dataspace identifier
-      integer(hid_t),dimension(1)   :: adims = (/1/) ! Attribute dimension
+      integer*8,dimension(1)        :: adims = (/1/) ! Attribute dimension
       integer*4,parameter           :: arank = 1 ! Attribure rank
       integer(size_t)               :: attrlen ! Length of the attribute string
       character(*),parameter        :: aname = "Comment" ! Attribute name

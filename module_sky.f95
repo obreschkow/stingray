@@ -44,9 +44,6 @@ subroutine make_sky
    open(1,file=trim(filename),action='read',form='unformatted',status='old',access='stream')
    read(1) n ! number of galaxies
    
-   ! write user info
-   call out('Number of galaxies in intrinsic sky:',n)
-   
    ! initialize master one
    do isky = 1,size(skyclass)
       write(filename,'(A,A,A,A)') trim(para%path_output),'mocksky_',trim(skyclass(isky)%ptr%get_class_name()),'.bin'
@@ -67,6 +64,8 @@ subroutine make_sky
       Rvector = tile(base%tile)%Rvector
       Rpseudo = tile(base%tile)%Rpseudo
       call sam%rotate_vectors
+      !$OMP PARALLEL
+      !$OMP DO SCHEDULE(DYNAMIC)
       do isky = 1,size(skyclass)
          call skyclass(isky)%ptr%make_from_sam(sam,base,m(isky)+1,sum(m)+1)
          if (skyclass(isky)%ptr%is_selected(sam)) then
@@ -74,6 +73,8 @@ subroutine make_sky
             call skyclass(isky)%ptr%write_to_file(isky+1)
          end if
       end do
+      !$OMP END DO NOWAIT
+      !$OMP END PARALLEL
    end do
    call out('Progress: 100%')
    
@@ -85,11 +86,10 @@ subroutine make_sky
    close(1)
    
    ! check number of objects
-   !do isky = 1,size(skyclass)
-      if (sum(m)==0) call error('No objects in the apparent sky. Consider changing selection function.')
-   !end do
+   if (sum(m)==0) call error('No objects in the apparent sky. Consider changing selection function.')
    
    ! user output
+   call out('Number of galaxies in intrinsic sky:',n)
    call out('Number of objects in apparent sky:',sum(m))
    do isky = 1,size(skyclass)
       call out('  '//trim(skyclass(isky)%ptr%get_class_name())//':',m(isky))
