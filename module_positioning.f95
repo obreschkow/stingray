@@ -72,7 +72,7 @@ subroutine make_positioning
       !$OMP CRITICAL
       call load_sam_snapshot(index(i,1),index(i,2),sam)
       write(str,'(A,I0,A,I0,A,I0,A,I0,A,I0)') 'Process snapshot ',index(i,1),', subvolume ',index(i,2),' (', &
-      & size(sam),' galaxies) on thread ',OMP_GET_THREAD_NUM()+1,'/',OMP_GET_NUM_THREADS()
+      & size(sam),' galaxies)'!,OMP_GET_THREAD_NUM()+1,'/',OMP_GET_NUM_THREADS()
       call out(trim(str))
       !$OMP END CRITICAL
       call preprocess_snapshot(sam,sam_sel)

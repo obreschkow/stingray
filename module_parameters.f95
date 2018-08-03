@@ -55,9 +55,9 @@ subroutine reset_parameters
    para%subsnapshot_min = huge(para%subsnapshot_min)
    para%subsnapshot_max = huge(para%subsnapshot_max)
    para%h = huge(para%h)
-   para%OmegaL = huge(para%OmegaL)
-   para%OmegaM = huge(para%OmegaM)
-   para%OmegaB = huge(para%OmegaB)
+   para%omega_l = huge(para%omega_l)
+   para%omega_m = huge(para%omega_m)
+   para%omega_b = huge(para%omega_b)
    para%dc_min = huge(para%dc_min)
    para%dc_max = huge(para%dc_max)
    para%ra_min = huge(para%ra_min)
@@ -94,9 +94,9 @@ subroutine check_parameters
    if (para%subsnapshot_min == huge(para%subsnapshot_min)) call wrong('subsnapshot_min')
    if (para%subsnapshot_max == huge(para%subsnapshot_max)) call wrong('subsnapshot_max')
    if (para%h == huge(para%h)) call wrong('h')
-   if (para%OmegaL == huge(para%OmegaL)) call wrong('OmegaL')
-   if (para%OmegaM == huge(para%OmegaM)) call wrong('OmegaM')
-   if (para%OmegaB == huge(para%OmegaB)) call wrong('OmegaB')
+   if (para%omega_l == huge(para%omega_l)) call wrong('omega_l')
+   if (para%omega_m == huge(para%omega_m)) call wrong('omega_m')
+   if (para%omega_b == huge(para%omega_b)) call wrong('omega_b')
    if (para%dc_min == huge(para%dc_min)) call wrong('dc_min')
    if (para%dc_max == huge(para%dc_max)) call wrong('dc_max')
    if (para%ra_min == huge(para%dc_min)) call wrong('ra_min')
@@ -122,12 +122,12 @@ subroutine check_parameters
    if (para%snapshot_min>para%snapshot_max) call error('snapshot_min must be smaller than snapshot_max')
    if (para%subsnapshot_min>para%subsnapshot_max) call error('subsnapshot_min must be smaller than subsnapshot_max')
    if (para%h<=0) call error('h must be larger than 0')
-   if (para%OmegaL<0) call error('OmegaL must be >=0')
-   if (para%OmegaM<0) call error('OmegaM must be >=0')
-   if (para%OmegaB<0) call error('OmegaB must be >=0')
-   if (para%OmegaL>1) call error('OmegaL must be <=1')
-   if (para%OmegaM>1) call error('OmegaM must be <=1')
-   if (para%OmegaB>para%OmegaM) call error('OmegaB must be <= OmegaM')
+   if (para%omega_l<0) call error('omega_l must be >=0')
+   if (para%omega_m<0) call error('omega_m must be >=0')
+   if (para%omega_b<0) call error('omega_b must be >=0')
+   if (para%omega_l>1) call error('omega_l must be <=1')
+   if (para%omega_m>1) call error('omega_m must be <=1')
+   if (para%omega_b>para%omega_m) call error('omega_b must be <= omega_m')
    if (para%dc_min<0) call error('dc_min must be >=0')
    if (para%dc_max<=0) call error('dc_min must be >0')
    if (para%dc_max<=para%dc_min) call error('dc_min must smaller than dc_max')
@@ -227,12 +227,12 @@ subroutine load_user_parameters(parameter_filename)
                if (manual) read(var_value,*) para%subsnapshot_max
             case ('h')
                if (manual) read(var_value,*) para%h
-            case ('OmegaL')
-               if (manual) read(var_value,*) para%OmegaL
-            case ('OmegaM')
-               if (manual) read(var_value,*) para%OmegaM
-            case ('OmegaB')
-               if (manual) read(var_value,*) para%OmegaB
+            case ('omega_l')
+               if (manual) read(var_value,*) para%omega_l
+            case ('omega_m')
+               if (manual) read(var_value,*) para%omega_m
+            case ('omega_b')
+               if (manual) read(var_value,*) para%omega_b
             case ('dc_min')
                if (manual) read(var_value,*) para%dc_min
             case ('dc_max')

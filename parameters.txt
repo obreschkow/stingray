@@ -1,0 +1,54 @@
+# Parameters given a value 'auto' must be set programmatically in the user module.
+# If parameters are set in the user model *and* given a numerical value in this parameter file,
+# the parameter file takes priority.
+
+# Name of mock survey
+name                    test
+
+# Paths
+path_output             /Users/do/Data/SURFS/stingray/shark/output/
+path_input              /Users/do/Data/SURFS/stingray/shark/input/
+
+# Snapshot parameters
+L                       auto           [length_unit] side-length of simulation box
+length_unit             auto           [m] SI-value of comoving length unit, here Mpc/h
+snapshot_min            auto
+snapshot_max            auto
+subsnapshot_min         0
+subsnapshot_max         0
+
+# Cosmology
+h                       auto           [-] Hubble parameter H0=h*100 km/s/Mpc
+omega_l                 auto           Space density of dark energy relative to closure density
+omega_m                 auto           Space density of all matter relative to closure density
+omega_b                 auto           Space density of baryonic matter relative to closure density
+
+# Considered distance range and field-of-view. Additional and/or more complex positional selection criteria can
+# be coded in the user module function "pos_selection".
+dc_min                  0              [simulation units] minimal comoving distance
+dc_max                  1000           [simulation units] maximal comoving distance
+ra_min                  0              [deg] min right ascension
+ra_max                  20             [deg] max right ascension
+dec_min                 -10            [deg] min declination
+dec_max                 10             [deg] max declination
+
+# Mapping of SAM-coordinates on to survey-coordinates
+zaxis_ra                0              [deg] direction of the SAM z-axis in spherical survey coordinates
+zaxis_dec               0              [deg] direction of the SAM z-axis in spherical survey coordinates
+xy_angle                0              [deg]
+
+# Symmetry operations applied to boxes
+# 1 = random symmetry is applied, 0 = symmetry is not applied
+seed                    1
+translate               1
+rotate                  1
+invert                  1
+
+# Observer velocity relative to CMB
+velocity_norm           369.0          [km/s] J2000 coordinates of WMAP dipole velocity (arxiv 0803.0732)
+velocity_ra             167.93         [deg]  J2000 coordinates of WMAP dipole velocity
+velocity_dec            -6.9269        [deg]  J2000 coordinates of WMAP dipole velocity
+
+# Advanced options
+search_angle            0.5            [deg]
+volume_search_level     0              [-] value >=0, giving the number of search points (2^#)^3 inside each box

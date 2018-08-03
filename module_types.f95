@@ -35,9 +35,9 @@ module module_types
    
       ! cosmology
       real*4               :: h
-      real*4               :: OmegaL
-      real*4               :: OmegaM
-      real*4               :: OmegaB
+      real*4               :: omega_l
+      real*4               :: omega_m
+      real*4               :: omega_b
       
       ! distance range
       real*4               :: dc_min   ! [length unit of simulation]

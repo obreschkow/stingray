@@ -19,8 +19,8 @@ use module_hdf5
 private
 
 public :: type_sam   ! SAM class, requires procedures get_position, get_groupid, is_selected, rotate_vectors
-public :: type_sky   ! SKY class, requires procedures make_from_sam, write_to_file, is_selected, get_class_name
-public :: skyclass, set_class_pointers
+public :: skyclass   ! pointer to sky_classes
+public :: set_class_pointers
 public :: pos_selection
 public :: get_parameter_filename_default
 public :: make_automatic_parameters
@@ -36,7 +36,7 @@ public :: custom_routines
 ! "parameterfile"
 
 character(len=255),parameter  :: parameter_filename_default = &
-   & '/Users/do/Data/SURFS/stingray/shark/parameters_shark_gama.txt'
+   & '/Users/do/Dropbox/Code/Fortran/stingray/parameters.txt'
 
 
 ! ==============================================================================================================
@@ -87,7 +87,11 @@ contains
 end type type_sam
 
 ! Here, specify the class or classes of mock object properties in the sky, such as apparent galaxy properties.
-! See the existing routines below for clarifications.
+! See the existing routines below for clarifications. The class must contain the following class functions:
+! make_from_sam
+! write_to_file
+! is_selected
+! get_class_name
    
 type type_sky
 
@@ -195,7 +199,7 @@ character(255) function sky_get_class_name(self)
    class(type_sky) :: self
    select type (self)
    type is (type_sky_galaxy); sky_get_class_name = 'galaxies'
-   type is (type_sky_group); sky_get_class_name = 'halos'
+   type is (type_sky_group); sky_get_class_name = 'groups'
    class default
    call error('Unknown class in sky_get_class_name.')
    end select
@@ -218,11 +222,13 @@ logical function pos_selection(dc,ra,dec)
    call nil(dc,ra,dec) ! dummy to avoid compiler warnings for unused arguments
    
    select case (trim(para%name))
-   case ('DEVILS')
+   case ('test')
+      pos_selection = ((ra>=5.0).and.(ra<=10.0).and.(dec>=-1.0).and.(dec<=3.0))
+   case ('devils')
       pos_selection = ((ra>= 34.000).and.(ra<= 37.050).and.(dec>= -5.200).and.(dec<= -4.200)).or. &
                     & ((ra>= 52.263).and.(ra<= 53.963).and.(dec>=-28.500).and.(dec<=-27.500)).or. &
                     & ((ra>=149.380).and.(ra<=150.700).and.(dec>= +1.650).and.(dec<= +2.790))
-   case ('GAMA')
+   case ('gama')
       pos_selection = ((ra>= 30.200).and.(ra<= 38.800).and.(dec>=-10.250).and.(dec<= -3.720)).or. &
                     & ((ra> 129.000).and.(ra<=141.000).and.(dec>= -2.000).and.(dec<= +3.000)).or. &
                     & ((ra>=174.000).and.(ra<=186.000).and.(dec>= -3.000).and.(dec<= +2.000)).or. &
@@ -246,9 +252,11 @@ logical function sam_is_selected(sam) result(selected)
    call nil(sam)  ! dummy to avoid compiler warnings for unused arguments
    
    select case (trim(para%name))
-   case ('DEVILS')
+   case ('test')
+      selected = (sam%mstars_disk>1e8)
+   case ('devils')
       selected = (sam%mstars_disk>1e8).or.((sam%mvir_hosthalo>1e11).and.(sam%typ==0))
-   case ('GAMA')
+   case ('gama')
       selected = (sam%mstars_disk>1e8).or.((sam%mvir_hosthalo>1e11).and.(sam%typ==0))
    case default
       selected = .true.
@@ -270,9 +278,9 @@ logical function sky_is_selected(sky,sam) result(selected)
    type is (type_sky_galaxy)
    
       select case (trim(para%name))
-      case ('DEVILS')
+      case ('devils')
          selected = sky%mag<=21.2+dmag
-      case ('GAMA')
+      case ('gama')
          selected = ((sky%mag<=19.8+dmag).and.(sky%ra<330.0*degree)).or.(sky%mag<=19.2+dmag)
       case default
          selected = .true.
@@ -313,16 +321,16 @@ end subroutine sam_rotate_vectors
 subroutine sky_make_from_sam(sky,sam,base,nobj,nobjtot)
 
    implicit none
-   class(type_sky)            :: sky
-   type(type_sam),intent(in)  :: sam
-   type(type_base),intent(in) :: base
-   integer*8,intent(in)       :: nobj,nobjtot
-   
-   real*4                     :: pos(3)   ! [simulation length units] position vector of galaxy
-   real*4                     :: dl       ! [simulation length units] luminosity distance to observer
-   real*4                     :: elos(3)  ! unit vector pointing from the observer to the object in comoving space
-   real*4                     :: mHI
-   integer*8                  :: id_halo_sky,id_galaxy_sky
+   class(type_sky),intent(out)   :: sky
+   type(type_sam),intent(in)     :: sam
+   type(type_base),intent(in)    :: base     ! basic properties of the position of this galaxy in the sky
+   integer*8,intent(in)          :: nobj     ! index of this object in its subclass 
+   integer*8,intent(in)          :: nobjtot  ! index of this object across all sky classes
+   real*4                        :: pos(3)   ! [simulation length units] position vector of galaxy
+   real*4                        :: dl       ! [simulation length units] luminosity distance to observer
+   real*4                        :: elos(3)  ! unit vector pointing from the observer to the object in comoving space
+   real*4                        :: mHI
+   integer*8                     :: id_halo_sky,id_galaxy_sky
    
    call nil(sky,sam,base,nobj,nobjtot) ! dummy statement to avoid compiler warnings
    
@@ -427,14 +435,14 @@ subroutine make_automatic_parameters
    
    write(filename,'(A,I0,A)') trim(para%path_input),para%snapshot_min,'/0/galaxies.hdf5'
    call hdf5_open(filename)
-   call hdf5_read_data('/runInfo/tot_n_subvolumes',nsub)
+   call hdf5_read_data('/run_info/tot_n_subvolumes',nsub)
    para%subsnapshot_min = 0
    para%subsnapshot_max = nsub-1
-   call hdf5_read_data('/Cosmology/h',para%h)
-   call hdf5_read_data('/Cosmology/OmegaL',para%OmegaL)
-   call hdf5_read_data('/Cosmology/OmegaM',para%OmegaM)
-   call hdf5_read_data('/Cosmology/OmegaB',para%OmegaB)
-   call hdf5_read_data('/runInfo/lbox',para%L)
+   call hdf5_read_data('/cosmology/h',para%h)
+   call hdf5_read_data('/cosmology/omega_l',para%omega_l)
+   call hdf5_read_data('/cosmology/omega_m',para%omega_m)
+   call hdf5_read_data('/cosmology/omega_b',para%omega_b)
+   call hdf5_read_data('/run_info/lbox',para%L)
    para%length_unit = Mpc/para%h
    call hdf5_close()
    
@@ -453,7 +461,7 @@ subroutine make_redshifts
    do isnapshot = para%snapshot_min,para%snapshot_max
       write(filename,'(A,I0,A)') trim(para%path_input),isnapshot,'/0/galaxies.hdf5'
       call hdf5_open(filename) ! NB: this routine also checks if the file exists
-      call hdf5_read_data('/runInfo/redshift',z)
+      call hdf5_read_data('/run_info/redshift',z)
       snapshot(isnapshot)%redshift = real(z,4)
       call hdf5_close()
    end do
@@ -471,7 +479,7 @@ subroutine load_sam_snapshot(index,subindex,sam)
    type(type_sam),allocatable,intent(out)          :: sam(:)            ! derived type of all the relevant SAM properties
    character(len=255)                              :: filename
    integer*8                                       :: n
-   character(*),parameter                          :: g = '/Galaxies/'  ! group name
+   character(*),parameter                          :: g = '/galaxies/'  ! group name
    
    ! open file
    write(filename,'(A,I0,A,I0,A)') trim(para%path_input),index,'/',subindex,'/galaxies.hdf5'
@@ -494,9 +502,9 @@ subroutine load_sam_snapshot(index,subindex,sam)
    call hdf5_read_data(g//'velocity_x',sam%velocity(1))
    call hdf5_read_data(g//'velocity_y',sam%velocity(2))
    call hdf5_read_data(g//'velocity_z',sam%velocity(3))
-   call hdf5_read_data(g//'L_x',sam%J(1))
-   call hdf5_read_data(g//'L_y',sam%J(2))
-   call hdf5_read_data(g//'L_z',sam%J(3))
+   call hdf5_read_data(g//'l_x',sam%J(1))
+   call hdf5_read_data(g//'l_y',sam%J(2))
+   call hdf5_read_data(g//'l_z',sam%J(3))
    call hdf5_read_data(g//'mstars_disk',sam%mstars_disk)
    call hdf5_read_data(g//'mstars_bulge',sam%mstars_bulge)
    call hdf5_read_data(g//'mgas_disk',sam%mgas_disk)
@@ -542,12 +550,12 @@ subroutine custom_routines(task,custom_option,success)
    ! custom task handler
    success = .true.
    select case (trim(task))
-   case ('my.task') ! dymmy argument to illustrate the use
-      call out('Here, specify what to do as "my.task"')
+   case ('my_task') ! dymmy argument to illustrate the use
+      call out('Here, specify what to do as "my_task"')
       if (len(custom_option)>0) call out('Using the custom option: '//custom_option)
-   case ('make.hdf5')
+   case ('make_hdf5')
       call make_hdf5
-   case ('my.additions.to.make.all')
+   case ('my_additions_to_make_all')
       ! here add optional commands to be executed automatically at the end of a make.all run
       call make_hdf5
    case default
@@ -576,7 +584,7 @@ subroutine make_hdf5
    call load_snapshot_list
    
    ! create HDF5 file
-   filename_hdf5 = trim(para%path_output)//'mocksky_'//trim(para%name)//'.hdf5'
+   filename_hdf5 = trim(para%path_output)//'mocksky.hdf5'
    call hdf5_create(filename_hdf5)
    
    ! open HDF5 file
@@ -593,9 +601,9 @@ subroutine make_hdf5
    call hdf5_write_data('parameters/subsnapshot_min',para%subsnapshot_min)
    call hdf5_write_data('parameters/subsnapshot_max',para%subsnapshot_max)
    call hdf5_write_data('parameters/h',para%h,'Normalization of Hubble parameter H0 = h * 100 km/s/Mpc')
-   call hdf5_write_data('parameters/omega_l',para%OmegaL)
-   call hdf5_write_data('parameters/omega_m',para%OmegaM)
-   call hdf5_write_data('parameters/omega_b',para%OmegaB)
+   call hdf5_write_data('parameters/omega_l',para%omega_l)
+   call hdf5_write_data('parameters/omega_m',para%omega_m)
+   call hdf5_write_data('parameters/omega_b',para%omega_b)
    call hdf5_write_data('parameters/dc_min',para%dc_min)
    call hdf5_write_data('parameters/dc_max',para%dc_max)
    call hdf5_write_data('parameters/ra_min',para%ra_min/degree)
@@ -651,7 +659,7 @@ subroutine make_hdf5
    call hdf5_write_data(trim(name)//'/pa',sky_galaxy%pa/degree,'[deg] position angle from north to east')
    call hdf5_write_data(trim(name)//'/mag',sky_galaxy%mag, &
    & 'apparent magnitude (generic: M/L ratio of 1, no k-correction)')
-   call hdf5_write_data(trim(name)//'/SHI',sky_galaxy%SHI,'[W/m^2] integrated HI line flux')
+   call hdf5_write_data(trim(name)//'/s_hi',sky_galaxy%SHI,'[W/m^2] integrated HI line flux')
    call hdf5_write_data(trim(name)//'/vpecrad',sky_galaxy%vpecrad,'[proper km/s] radial peculiar velocity')
    call hdf5_write_data(trim(name)//'/mstars',sky_galaxy%mstars,'[Msun/h] stellar mass')
    call hdf5_write_data(trim(name)//'/mvir_hosthalo',sky_galaxy%mstars,'[Msun/h] host halo mass')
@@ -682,8 +690,8 @@ subroutine make_hdf5
    call hdf5_write_data(trim(name)//'/zcmb',sky_group%zcmb,'redshift in CMB frame')
    call hdf5_write_data(trim(name)//'/zcos',sky_group%zcos,'cosmological redshift without peculiar motions')
    call hdf5_write_data(trim(name)//'/dc',sky_group%dc,'[Mpc/h] comoving distance')
-   call hdf5_write_data(trim(name)//'/RA',sky_group%ra/degree,'[deg] right ascension')
-   call hdf5_write_data(trim(name)//'/Dec',sky_group%dec/degree,'[deg] declination')
+   call hdf5_write_data(trim(name)//'/ra',sky_group%ra/degree,'[deg] right ascension')
+   call hdf5_write_data(trim(name)//'/dec',sky_group%dec/degree,'[deg] declination')
    call hdf5_write_data(trim(name)//'/id_halo_sky',sky_group%id_halo_sky,'unique parent halo ID in mock sky')
    call hdf5_write_data(trim(name)//'/id_halo_sam',sky_group%id_halo_sam,'parent halo ID in SAM')
    call hdf5_write_data(trim(name)//'/mvir',sky_group%mvir,'[Msun/h] virial mass')
@@ -693,7 +701,7 @@ subroutine make_hdf5
    
    ! Group "Tiling"
    call hdf5_add_group('tiling')
-   call hdf5_write_data('tiling/BoxID',(/(i,i=1,size(tile),1)/),'unique ID of cubic box')
+   call hdf5_write_data('tiling/box_id',(/(i,i=1,size(tile),1)/),'unique ID of cubic box')
    call hdf5_write_data('tiling/center_x',tile%ix(1),'x-coordinate of box-centre in units of box side length')
    call hdf5_write_data('tiling/center_y',tile%ix(2),'y-coordinate of box-centre in units of box side length')
    call hdf5_write_data('tiling/center_z',tile%ix(3),'z-coordinate of box-centre in units of box side length')
@@ -711,6 +719,7 @@ subroutine make_hdf5
    ! Group "runInfo"
    call hdf5_add_group('run_info')
    call hdf5_write_data('run_info/version',version,'Version of Stingray used to produce this mock survey')
+   call hdf5_write_data('run_info/survey_name',para%name)
    
    ! Group "Snapshots"
    call hdf5_add_group('snapshots')

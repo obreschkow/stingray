@@ -21,7 +21,7 @@ contains
       integer              :: i,n
       real                 :: DH
       real                 :: OmegaK
-      OmegaK = 1-para%OmegaM-para%OmegaL
+      OmegaK = 1-para%omega_m-para%omega_l
       DH = 2.9979e8/para%h*1e-5    ! Hubble distance [Mpc] = c/H0
       dz = 0.01
       ! Simpson Integration
@@ -31,7 +31,7 @@ contains
       z    = (/(i*dz,i=0,n)/)
       w(0)=1; w(1)=4; w(n)=1
       do i=2,n-2,2 ;  w(i+1)=4 ; w(i)=2 ; end do
-      f = 1/sqrt(para%OmegaM*(1+z)**3+OmegaK*(1+z)**2+para%OmegaL) ! = 1/E(z)
+      f = 1/sqrt(para%omega_m*(1+z)**3+OmegaK*(1+z)**2+para%omega_l) ! = 1/E(z)
       integral = sum(f*w)*dz/3.0
       ! End Simpson Integration
       redshift_to_dc = DH*integral
@@ -50,7 +50,7 @@ contains
     real                :: OmegaK
     real                :: tH
     tH = 9.77793e9/para%h ! Hubble time [yrs]
-    OmegaK = 1-para%OmegaM-para%OmegaL
+    OmegaK = 1-para%omega_m-para%omega_l
     dz = 0.01
     ! Simpson Integration
     n   = int(zmax/dz/2)*2+2  ! even number of subintervals
@@ -59,7 +59,7 @@ contains
     z    = (/(i*dz,i=0,n)/)
     w(0)=1; w(1)=4; w(n)=1
     do i=2,n-2,2 ;  w(i+1)=4 ; w(i)=2 ; end do
-    f        = 1/(1+z)/sqrt(para%OmegaM*(1+z)**3+OmegaK*(1+z)**2+para%OmegaL) ! = 1/(1+z)/E(z)
+    f        = 1/(1+z)/sqrt(para%omega_m*(1+z)**3+OmegaK*(1+z)**2+para%omega_l) ! = 1/(1+z)/E(z)
     integral = sum(f*w)*dz/3.0
     ! End Simpson Integration
     redshift_to_tl = tH*integral
@@ -107,7 +107,7 @@ contains
     real             :: dc_to_dm
     real             :: DH
     real             :: OmegaK
-    OmegaK = 1-para%OmegaM-para%OmegaL
+    OmegaK = 1-para%omega_m-para%omega_l
     DH = 2.9979e8/para%h*1e-5    ! Hubble distance [Mpc] = c/H0
     if (OmegaK==0) then
        dc_to_dm = dc
@@ -122,8 +122,8 @@ contains
     real :: HoverH0
     real :: universe_age
     real :: OmegaK
-    OmegaK = 1-para%OmegaM-para%OmegaL
-    HoverH0 = sqrt(para%OmegaM*(1.0+z)**3.0+OmegaK*(1.0+z)**2.0+para%OmegaL) 
+    OmegaK = 1-para%omega_m-para%omega_l
+    HoverH0 = sqrt(para%omega_m*(1.0+z)**3.0+OmegaK*(1.0+z)**2.0+para%omega_l) 
     universe_age = 9.739e9/para%h/HoverH0 ! [years]
   end function universe_age
 

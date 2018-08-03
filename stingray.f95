@@ -79,19 +79,18 @@ program surfsuite
    ! Execute tasks
    call getarg(1,arg_task)
    select case (trim(arg_task))
-   case ('make.all')
+   case ('make_all')
       call make_tiling
       call make_positioning
       call make_sky
-      call custom_routines('my.additions.to.make.all','',success)
-   case ('make.parameters')
-   case ('make.tiling')
+      call custom_routines('my_additions_to_make_all','',success)
+   case ('make_tiling')
       call make_tiling
-   case ('make.positioning')
+   case ('make_positioning')
       call make_positioning
-   case ('make.sky')
+   case ('make_sky')
       call make_sky
-      call custom_routines('my.additions.to.make.all','',success)
+      call custom_routines('my_additions_to_make_all','',success)
    case default
       call custom_routines(trim(arg_task),trim(custom_option),success)
       if (.not.success) then
