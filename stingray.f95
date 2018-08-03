@@ -23,7 +23,7 @@ program surfsuite
    
    if (narg==0) then
       write(*,'(A)') 'The general use is stingray task [-option ...]'
-      write(*,'(A)') 'Consult the README file for additional information.'
+      !write(*,'(A)') 'Consult the README file for additional information.'
       stop
    end if
    
@@ -107,7 +107,7 @@ program surfsuite
    subroutine  task_version
       implicit none
       write(*,'(A,A,A)') 'This is Stingray Version ',version,'.'
-      write(*,'(A)') 'Consult the README file for additional information.'
+      !write(*,'(A)') 'Consult the README file for additional information.'
       stop
    end subroutine task_version
     
