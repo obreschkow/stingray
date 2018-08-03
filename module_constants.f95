@@ -9,7 +9,7 @@ module module_constants
    ! Universal constants
    real*4,parameter        :: pi = 3.14159265359
    real*4,parameter        :: G = 6.67408e-11 ! [m^3/kg/s^2]
-   real*4,parameter        :: c = 299792458 ! [m/s] light speed
+   real*4,parameter        :: c = 299792458.0 ! [m/s] light speed
    real*8,parameter        :: kb = 1.38064852e-23 ! [m^2/kg/s^2/K] Boltzmann constant
    real*8,parameter        :: Msun = 1.989e30 ! [kg] solar mass
    real*8,parameter        :: Lsun = 3.828e26 ! [W] solar luminosity
