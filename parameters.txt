@@ -6,8 +6,10 @@
 name                    test
 
 # Paths
-path_output             /Users/do/Data/SURFS/stingray/shark/output/
-path_input              /Users/do/Data/SURFS/stingray/shark/input/
+#path_output             /Users/do/Data/SURFS/stingray/shark/output/
+path_output             /mnt/su3ctm/dobreschkow/Stingray/output/
+#path_input              /Users/do/Data/SURFS/stingray/shark/input/
+path_input              /mnt/su3ctm/clagos/SHARK_Out/medi-SURFS/Shark-Lagos18/
 
 # Snapshot parameters
 L                       auto           [length_unit] side-length of simulation box
