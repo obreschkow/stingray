@@ -588,7 +588,7 @@ subroutine make_hdf5
    call hdf5_create(filename_hdf5)
    
    ! open HDF5 file
-   call hdf5_open(filename_hdf5)
+   call hdf5_open(filename_hdf5,.true.)
    
    ! Group "Parameters"
    call hdf5_add_group('parameters')

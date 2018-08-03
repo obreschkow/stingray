@@ -37,15 +37,26 @@ module module_hdf5
    
 contains
 
-   subroutine hdf5_open(filename) ! opens an existing HDF5 file for read and write
+   subroutine hdf5_open(filename,write_access) ! opens an existing HDF5 file for read and write
    
       implicit none
-      character(*),intent(in)    :: filename
-      integer*4                  :: status
+      character(*),intent(in)       :: filename
+      logical,optional,intent(in)   :: write_access
+      integer*4                     :: status
+      logical                       :: wa
+      
+      wa = .false.
+      if (present(write_access)) then
+         wa = write_access
+      end if
 
       if (exists(filename)) then
          call h5open_f(status) ! Initialize the Fortran interface
-         call h5fopen_f(filename,H5F_ACC_RDWR_F,file_id,status) ! Open an hdf5 file
+         if (wa) then
+            call h5fopen_f(filename,H5F_ACC_RDWR_F,file_id,status) ! Open an hdf5 file
+         else
+            call h5fopen_f(filename,H5F_ACC_RDONLY_F,file_id,status) ! Open an hdf5 file
+         end if
       end if
       
    end subroutine hdf5_open
