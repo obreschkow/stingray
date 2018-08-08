@@ -74,25 +74,27 @@ subroutine make_positioning
    !$OMP PARALLEL PRIVATE(itile,sam,sam_sel,sam_replica)
    !$OMP DO SCHEDULE(DYNAMIC)
    do i = 1,nsub
-      ! Only do the following by one thread at a time
-      !$OMP CRITICAL
-      call load_sam_snapshot(index(i,1),index(i,2),sam)
-      write(str,'(A,I0,A,I0,A,I0,A,I0,A,I0)') 'Process snapshot ',index(i,1),', subvolume ',index(i,2),' (', &
-      & size(sam),' galaxies)'!,OMP_GET_THREAD_NUM()+1,'/',OMP_GET_NUM_THREADS()
-      call out(trim(str))
-      !$OMP END CRITICAL
-      call preprocess_snapshot(sam,sam_sel)
-      if (size(sam)>0) then
-         allocate(sam_replica(size(sam)))
-         sam_replica = 0
-         do itile = 1,size(tile)
-            if ((snapshot(index(i,1))%dmax>=tile(itile)%dmin).and.(snapshot(index(i,1))%dmin<=tile(itile)%dmax)) then
-               call write_subsnapshot_into_tiles(itile,index(i,1),sam,sam_sel,sam_replica)
-            end if
-         end do
-         n_distinct_galaxies = n_distinct_galaxies+count(sam_replica>0)
-         n_replica_max = max(n_replica_max,maxval(sam_replica))
-         deallocate(sam_replica)
+      if (snapshot(index(i,1))%n_replication>0) then
+         ! Only do the following by one thread at a time
+         !$OMP CRITICAL
+         call load_sam_snapshot(index(i,1),index(i,2),sam)
+         write(str,'(A,I0,A,I0,A,I0,A,I0,A,I0)') 'Process snapshot ',index(i,1),', subvolume ',index(i,2),' (', &
+         & size(sam),' galaxies)'!,OMP_GET_THREAD_NUM()+1,'/',OMP_GET_NUM_THREADS()
+         call out(trim(str))
+         !$OMP END CRITICAL
+         call preprocess_snapshot(sam,sam_sel)
+         if (size(sam)>0) then
+            allocate(sam_replica(size(sam)))
+            sam_replica = 0
+            do itile = 1,size(tile)
+               if ((snapshot(index(i,1))%dmax>=tile(itile)%dmin).and.(snapshot(index(i,1))%dmin<=tile(itile)%dmax)) then
+                  call write_subsnapshot_into_tiles(itile,index(i,1),sam,sam_sel,sam_replica)
+               end if
+            end do
+            n_distinct_galaxies = n_distinct_galaxies+count(sam_replica>0)
+            n_replica_max = max(n_replica_max,maxval(sam_replica))
+            deallocate(sam_replica)
+         end if
       end if
    end do
    !$OMP END DO NOWAIT
