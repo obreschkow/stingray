@@ -14,8 +14,8 @@ path_input              /mnt/su3ctm/clagos/SHARK_Out/medi-SURFS/Shark-Lagos18/
 # Snapshot parameters
 L                       auto           [length_unit] side-length of simulation box
 length_unit             auto           [m] SI-value of comoving length unit, here Mpc/h
-snapshot_min            auto
-snapshot_max            auto
+snapshot_min            113
+snapshot_max            199
 subvolume_min           0
 subvolume_max           0
 
