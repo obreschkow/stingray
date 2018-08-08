@@ -1,5 +1,0 @@
-#!/bin/bash
-#PBS -l walltime=72:00:00
-#PBS -l nodes=1:ppn=1:compute
-#PBS -l mem=80gb
-/home/dobreschkow/stingray make_all -parameterfile /home/dobreschkow/stingray/parameters.txt
