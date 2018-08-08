@@ -681,7 +681,7 @@ subroutine make_hdf5
    call hdf5_write_data(trim(name)//'/n_galaxies_selected',sky_group%group_nsel, &
    & 'number of galaxies that live in the same group (host halo) and are present in the mock survey')
    call hdf5_write_data(trim(name)//'/flag',sky_group%group_flag, &
-   & 'group flag (0 if group complete, >0 if truncated by survey edge (+1), snapshot limit (+2), box limit (+4))')
+   & 'group flag (0 if group complete, >0 if truncated by survey edge (+1), snapshot limit (+2), tile edge (+4))')
    test(6) = sum(sky_group%tile)
    test(7) = sum(sky_group%zcmb)
    test(2) = sum(sky_group%group_flag)+sum(sky_group%group_flag**2)
@@ -689,7 +689,7 @@ subroutine make_hdf5
    
    ! Group "Tiling"
    call hdf5_add_group('tiling')
-   call hdf5_write_data('tiling/box_id',(/(i,i=1,size(tile),1)/),'unique ID of cubic box')
+   call hdf5_write_data('tiling/tile_id',(/(i,i=1,size(tile),1)/),'unique ID of cubic tile')
    call hdf5_write_data('tiling/center_x',tile%ix(1),'x-coordinate of box-centre in units of box side length')
    call hdf5_write_data('tiling/center_y',tile%ix(2),'y-coordinate of box-centre in units of box side length')
    call hdf5_write_data('tiling/center_z',tile%ix(3),'z-coordinate of box-centre in units of box side length')
