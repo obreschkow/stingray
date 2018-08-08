@@ -358,8 +358,6 @@ subroutine sky_make_from_sam(sky,sam,base,galaxyid,groupid,group_nselected)
    
    type is (type_sky_group)
    
-      if (sam%typ.ne.0) stop('group error')
-   
       sky%id_halo_sam  = sam%id_halo
       sky%id_group     = groupid          ! unique group id
       sky%mvir         = sam%mvir_hosthalo
