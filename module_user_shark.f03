@@ -19,8 +19,8 @@ use module_hdf5
 private
 
 public :: type_sam   ! SAM class, requires procedures get_position, get_groupid, is_selected, rotate_vectors
-public :: skyclass   ! pointer to sky_classes
-public :: set_class_pointers
+public :: type_sky_galaxy
+public :: type_sky_group
 public :: pos_selection
 public :: get_parameter_filename_default
 public :: make_automatic_parameters
@@ -49,6 +49,7 @@ character(len=255),parameter  :: parameter_filename_default = &
 ! get_position: returns xyz-position of the galaxy
 ! get_groupid: returns the group id of the galaxy
 ! is_selected: logical function specifying if the galaxy is selected
+! is_group_center: logical function specifying if the galaxy is the group_center
 ! rotate_vectors: specification of how objects are rotated
 
 type type_sam
@@ -56,7 +57,7 @@ type type_sam
    integer*8   :: id_galaxy      ! unique galaxy ID
    integer*8   :: id_halo        ! unique ID of parent halo
    integer*4   :: snapshot       ! snapshot ID
-   integer*4   :: subsnapshot    ! subsnapshot ID
+   integer*4   :: subvolume      ! subvolume index
    integer*4   :: typ            ! galaxy type (0=central, 1=satellite in halo, 2=orphan)
    real*4      :: position(3)    ! [Mpc/h] position of galaxy centre in simulation box
    real*4      :: velocity(3)    ! [proper km/s] peculiar velocity
@@ -79,10 +80,11 @@ type type_sam
    
 contains
 
-   procedure   :: get_position   => sam_get_position     ! required function
-   procedure   :: get_groupid    => sam_get_groupid      ! required function               
-   procedure   :: is_selected    => sam_is_selected      ! required function
-   procedure   :: rotate_vectors => sam_rotate_vectors   ! required subroutine
+   procedure   :: get_position      => sam_get_position     ! required function
+   procedure   :: get_groupid       => sam_get_groupid      ! required function               
+   procedure   :: is_selected       => sam_is_selected      ! required function
+   procedure   :: is_group_center   => sam_is_group_center  ! required function
+   procedure   :: rotate_vectors    => sam_rotate_vectors   ! required subroutine
 
 end type type_sam
 
@@ -91,12 +93,11 @@ end type type_sam
 ! make_from_sam
 ! write_to_file
 ! is_selected
-! get_class_name
    
 type type_sky
 
    integer*4   :: snapshot       ! snapshot ID
-   integer*4   :: subsnapshot    ! subsnapshot ID
+   integer*4   :: subvolume      ! subvolume index
    integer*4   :: tile           ! tile ID
    real*4      :: zobs           ! redshift in observer-frame
    real*4      :: zcmb           ! redshift in CMB frame
@@ -110,20 +111,16 @@ type type_sky
    procedure   :: make_from_sam  => sky_make_from_sam    ! required subroutine
    procedure   :: write_to_file  => sky_write_to_file    ! required subroutine
    procedure   :: is_selected    => sky_is_selected      ! required logical function
-   procedure   :: get_class_name => sky_get_class_name   ! required character function, used for filenames
 
 end type type_sky
 
-type,extends(type_sky) :: type_sky_galaxy
+type,extends(type_sky) :: type_sky_galaxy ! must exist
 
-   integer*8   :: id_halo_sky    ! unique parent halo ID in the mock sky
-   integer*8   :: id_halo_sam    ! galaxy parent halo ID in the SAM
-   integer*8   :: id_galaxy_sky  ! unique ID in the mock sky
+   integer*8   :: id_galaxy      ! unique ID in the mock sky
+   integer*8   :: id_group       ! unique group ID in the mock sky
    integer*8   :: id_galaxy_sam  ! galaxy ID in the SAM
+   integer*8   :: id_halo_sam    ! galaxy parent halo ID in the SAM
    integer*4   :: typ            ! galaxy type (0=central, 1=satellite, 2=orphan)
-   integer*4   :: group_ntot     ! total number of galaxies in group
-   integer*4   :: group_nsel     ! number of selected galaxies in group
-   integer*4   :: group_flag     ! 0=group complete, >0 group truncated
    real*4      :: inclination    ! [rad] inclination
    real*4      :: pa             ! [rad] position angle from North to East
    real*4      :: mag            ! apparent magnitude (generic: M/L ratio of 1, no k-correction)
@@ -138,47 +135,37 @@ type,extends(type_sky) :: type_sky_galaxy
    
 end type type_sky_galaxy
 
-type,extends(type_sky) :: type_sky_group
+type,extends(type_sky) :: type_sky_group ! must exist
    
-   integer*8   :: id_halo_sky    ! unique parent halo ID in the mock sky
    integer*8   :: id_halo_sam    ! galaxy parent halo ID in the SAM
-   real*4      :: mvir
+   integer*8   :: id_group       ! unique group ID in the mock sky
+   real*4      :: mvir           ! [Msun/h] virial mass of group
+   integer*4   :: group_ntot     ! total number of galaxies in group
+   integer*4   :: group_nsel     ! number of selected galaxies in group
+   integer*4   :: group_flag     ! 0=group complete, >0 group truncated
    
 end type type_sky_group
-
-! Now link up the types of mock properties to the pointers 'skyclass()'
-! It is important that each type is is given exactly one statement
-! allocate([type name] :: skyclass(1)%ptr)
-! in the subroutine set_class_pointers
-
-type skyclass_pointer
-   class(type_sky),allocatable :: ptr
-end type skyclass_pointer
-
-type(skyclass_pointer),allocatable :: skyclass(:)
-
-contains
-
-subroutine set_class_pointers
-   implicit none
-   allocate(skyclass(2))
-   allocate(type_sky_galaxy :: skyclass(1)%ptr)
-   allocate(type_sky_group :: skyclass(2)%ptr)
-end subroutine set_class_pointers
 
 ! In order to place the objects in the mock sky, the class type_sam must have the following two functions
 ! enabling stingray to extract the position and group id of each object.
 
-function sam_get_position(sam) result(position)
-   class(type_sam) :: sam
+contains
+
+function sam_get_position(self) result(position)
+   class(type_sam) :: self
    real*4 :: position(3)
-   position = sam%position ! [length_unit of simulation] position if the galaxy in the box
+   position = self%position ! [length_unit of simulation] position if the galaxy in the box
 end function sam_get_position
 
-integer*8 function sam_get_groupid(sam)
-   class(type_sam) :: sam
-   sam_get_groupid = sam%id_halo ! unique group identifier
+integer*8 function sam_get_groupid(self)
+   class(type_sam) :: self
+   sam_get_groupid = self%id_halo ! unique group identifier
 end function sam_get_groupid
+
+logical function sam_is_group_center(self)
+   class(type_sam) :: self
+   sam_is_group_center = self%typ==0
+end function sam_is_group_center
 
 ! For instances of the user-defined sky-types to be saved, add all sky types in the following subroutine
 
@@ -193,21 +180,9 @@ subroutine sky_write_to_file(self,fileID)
    end select
 end subroutine sky_write_to_file
 
-! Give a name without spaces and special characters to each type
-
-character(255) function sky_get_class_name(self)
-   class(type_sky) :: self
-   select type (self)
-   type is (type_sky_galaxy); sky_get_class_name = 'galaxies'
-   type is (type_sky_group); sky_get_class_name = 'groups'
-   class default
-   call error('Unknown class in sky_get_class_name.')
-   end select
-end function sky_get_class_name
-
 
 ! ==============================================================================================================
-! SELECTION OF GALAXIES IN THE MOCK OBSERVING sky FILE
+! SELECTION OF GALAXIES IN THE MOCK SKY
 ! ==============================================================================================================
 
 ! selection function acting on comoving position, applied when making the tiling and intrinsic sky
@@ -288,7 +263,7 @@ logical function sky_is_selected(sky,sam) result(selected)
       
    type is (type_sky_group)
    
-      selected = (sam%mvir_hosthalo>1e12).and.(sam%typ==0)
+      selected = (sam%typ==0)
    
    class default
       call error('Unknown class for selection.')
@@ -318,26 +293,21 @@ subroutine sam_rotate_vectors(sam)
    
 end subroutine sam_rotate_vectors
 
-subroutine sky_make_from_sam(sky,sam,base,nobj,nobjtot)
+subroutine sky_make_from_sam(sky,sam,base,galaxyid,groupid,group_nselected)
 
    implicit none
    class(type_sky),intent(out)   :: sky
    type(type_sam),intent(in)     :: sam
-   type(type_base),intent(in)    :: base     ! basic properties of the position of this galaxy in the sky
-   integer*8,intent(in)          :: nobj     ! index of this object in its subclass 
-   integer*8,intent(in)          :: nobjtot  ! index of this object across all sky classes
-   real*4                        :: pos(3)   ! [simulation length units] position vector of galaxy
-   real*4                        :: dl       ! [simulation length units] luminosity distance to observer
-   real*4                        :: elos(3)  ! unit vector pointing from the observer to the object in comoving space
+   type(type_base),intent(in)    :: base              ! basic properties of the position of this galaxy in the sky
+   integer*8,intent(in),optional :: galaxyid          ! (only for galaxy types) unique galaxy in sky index
+   integer*8,intent(in),optional :: groupid           ! unique group in sky index
+   integer*4,intent(in),optional :: group_nselected   ! (only for group types) number of galaxies selected in group
+   real*4                        :: pos(3)            ! [simulation length units] position vector of galaxy
+   real*4                        :: dl                ! [simulation length units] luminosity distance to observer
+   real*4                        :: elos(3)           ! unit vector pointing from the observer to the object in comoving space
    real*4                        :: mHI
-   integer*8                     :: id_halo_sky,id_galaxy_sky
    
-   call nil(sky,sam,base,nobj,nobjtot) ! dummy statement to avoid compiler warnings
-   
-   ! make unique IDs
-   id_halo_sky   = sam%id_halo+base%tile*int(1e10,8)
-   id_galaxy_sky = sam%id_galaxy+base%tile*int(1e10,8)
-   
+   call nil(sky,sam,base,galaxyid,groupid,group_nselected) ! dummy statement to avoid compiler warnings
    
    ! sky coordinates
    sky%dc  = base%dc*para%L   ! [Mpc/h]
@@ -349,9 +319,9 @@ subroutine sky_make_from_sam(sky,sam,base,nobj,nobjtot)
    elos = pos/norm(pos)
    
    ! make IDs
-   sky%tile            = base%tile
-   sky%snapshot        = sam%snapshot
-   sky%subsnapshot     = sam%subsnapshot
+   sky%tile          = base%tile
+   sky%snapshot      = sam%snapshot
+   sky%subvolume     = sam%subvolume
    
    ! make redshift, provided the galaxy position [simulation units] galaxy-velocity [km/s]
    call make_redshift(pos*(para%length_unit/Mpc),sam%velocity,zobs=sky%zobs,zcmb=sky%zcmb,zcos=sky%zcos)
@@ -361,20 +331,15 @@ subroutine sky_make_from_sam(sky,sam,base,nobj,nobjtot)
    
       ! make IDs
       sky%id_galaxy_sam    = sam%id_galaxy   ! copy other properties
-      sky%id_galaxy_sky    = id_galaxy_sky
-      sky%id_halo_sam      = sam%id_halo
-      sky%id_halo_sky      = id_halo_sky   ! unique parent halo ID in the mock sky
+      sky%id_galaxy        = galaxyid        ! unique galaxy id
+      sky%id_halo_sam      = sam%id_halo     ! ...
+      sky%id_group         = groupid         ! unique group id
       
       ! copy properties
       sky%typ              = sam%typ
       sky%mstars           = sam%mstars_disk+sam%mstars_bulge
       sky%mvir_hosthalo    = sam%mvir_hosthalo
       sky%mvir_subhalo     = sam%mvir_subhalo
-      
-      ! group flag
-      sky%group_ntot       = base%group_ntot
-      sky%group_nsel       = base%group_nsel
-      sky%group_flag       = base%group_flag
       
       ! make inclination and position angle [rad]
       call make_inclination_and_pa(pos,sam%J,inclination=sky%inclination,pa=sky%pa)
@@ -393,9 +358,14 @@ subroutine sky_make_from_sam(sky,sam,base,nobj,nobjtot)
    
    type is (type_sky_group)
    
+      if (sam%typ.ne.0) stop('group error')
+   
       sky%id_halo_sam  = sam%id_halo
-      sky%id_halo_sky  = id_halo_sky   ! unique parent halo ID in the mock sky
+      sky%id_group     = groupid          ! unique group id
       sky%mvir         = sam%mvir_hosthalo
+      sky%group_ntot   = base%group_ntot
+      sky%group_nsel   = group_nselected
+      sky%group_flag   = base%group_flag
    
    class default
    end select
@@ -436,8 +406,8 @@ subroutine make_automatic_parameters
    write(filename,'(A,I0,A)') trim(para%path_input),para%snapshot_min,'/0/galaxies.hdf5'
    call hdf5_open(filename)
    call hdf5_read_data('/run_info/tot_n_subvolumes',nsub)
-   para%subsnapshot_min = 0
-   para%subsnapshot_max = nsub-1
+   para%subvolume_min = 0
+   para%subvolume_max = nsub-1
    call hdf5_read_data('/cosmology/h',para%h)
    call hdf5_read_data('/cosmology/omega_l',para%omega_l)
    call hdf5_read_data('/cosmology/omega_m',para%omega_m)
@@ -523,7 +493,7 @@ subroutine load_sam_snapshot(index,subindex,sam)
    
    ! assign other properties
    sam%snapshot = index
-   sam%subsnapshot = subindex
+   sam%subvolume = subindex
    
    ! close file
    call hdf5_close()
@@ -567,13 +537,19 @@ contains
 subroutine make_hdf5
    
    implicit none
+   logical,parameter                   :: show_test_sum = .false.
    character(len=255)                  :: filename_bin
    character(len=255)                  :: filename_hdf5
    type(type_sky_galaxy),allocatable   :: sky_galaxy(:)
    type(type_sky_group),allocatable    :: sky_group(:)
    integer*8                           :: n,i
    character(len=255)                  :: name,str
+   character(len=255)                  :: filename
+   character(len=255)                  :: shark_version,shark_git_revision,shark_timestamp
    real*8                              :: test(10),expected_sum
+   integer*8                           :: empty_int8
+   real*4                              :: n_replica_mean
+   integer*4                           :: n_replica_max
    
    call tic
    call out('CONVERT MOCK SKY FROM BINARY TO HDF5')
@@ -582,6 +558,20 @@ subroutine make_hdf5
    call load_parameters
    call load_box_list
    call load_snapshot_list
+   
+   ! load auxilary data from shark output
+   write(filename,'(A,I0,A)') trim(para%path_input),para%snapshot_min,'/0/galaxies.hdf5'
+   call hdf5_open(filename)
+   call hdf5_read_data('/run_info/shark_version',shark_version)
+   call hdf5_read_data('/run_info/shark_git_revision',shark_git_revision)
+   call hdf5_read_data('/run_info/timestamp',shark_timestamp)
+   call hdf5_close()
+   
+   ! load auxiliary data on replication
+   filename = trim(para%path_output)//'mocksky_intrinsic.bin'
+   open(1,file=trim(filename),action='read',form='unformatted',status='old',access='stream')
+   read(1) empty_int8,n_replica_mean,n_replica_max ! number of galaxies
+   close(1)
    
    ! create HDF5 file
    filename_hdf5 = trim(para%path_output)//'mocksky.hdf5'
@@ -598,8 +588,8 @@ subroutine make_hdf5
    call hdf5_write_data('parameters/length_unit',para%length_unit)
    call hdf5_write_data('parameters/snapshot_min',para%snapshot_min)
    call hdf5_write_data('parameters/snapshot_max',para%snapshot_max)
-   call hdf5_write_data('parameters/subsnapshot_min',para%subsnapshot_min)
-   call hdf5_write_data('parameters/subsnapshot_max',para%subsnapshot_max)
+   call hdf5_write_data('parameters/subvolume_min',para%subvolume_min)
+   call hdf5_write_data('parameters/subvolume_max',para%subvolume_max)
    call hdf5_write_data('parameters/h',para%h,'Normalization of Hubble parameter H0 = h * 100 km/s/Mpc')
    call hdf5_write_data('parameters/omega_l',para%omega_l)
    call hdf5_write_data('parameters/omega_m',para%omega_m)
@@ -625,9 +615,9 @@ subroutine make_hdf5
    call hdf5_write_data('parameters/skyrotation',para%sky_rotation, &
    & 'Rotation matrix to map xyz-coordinates of the tiling structure onto sky coordinates.')
    
-   ! Group "Galaxies"
-   allocate(sky_galaxy(1)); name = sky_galaxy(1)%get_class_name(); deallocate(sky_galaxy)
-   filename_bin = trim(para%path_output)//'mocksky_'//trim(name)//'.bin'
+   ! Group "galaxies"
+   name = 'galaxies'
+   filename_bin = trim(para%path_output)//'mocksky_galaxies.bin'
    open(1,file=trim(filename_bin),action='read',form='unformatted',access='stream')
    read(1) n
    allocate(sky_galaxy(n))
@@ -635,7 +625,7 @@ subroutine make_hdf5
    close(1)
    call hdf5_add_group(trim(name))
    call hdf5_write_data(trim(name)//'/snapshot',sky_galaxy%snapshot,'snapshot ID')
-   call hdf5_write_data(trim(name)//'/subsnapshot',sky_galaxy%subsnapshot,'subsnapshot ID')
+   call hdf5_write_data(trim(name)//'/subvolume',sky_galaxy%subvolume,'subvolume index')
    call hdf5_write_data(trim(name)//'/tile',sky_galaxy%tile,'tile ID in tiling array')
    call hdf5_write_data(trim(name)//'/zobs',sky_galaxy%zobs,'redshift in observer-frame')
    call hdf5_write_data(trim(name)//'/zcmb',sky_galaxy%zcmb,'redshift in CMB frame')
@@ -643,17 +633,11 @@ subroutine make_hdf5
    call hdf5_write_data(trim(name)//'/dc',sky_galaxy%dc,'[Mpc/h] comoving distance')
    call hdf5_write_data(trim(name)//'/ra',sky_galaxy%ra/degree,'[deg] right ascension')
    call hdf5_write_data(trim(name)//'/dec',sky_galaxy%dec/degree,'[deg] declination')
-   call hdf5_write_data(trim(name)//'/id_halo_sky',sky_galaxy%id_halo_sky,'unique parent halo ID in mock sky')
-   call hdf5_write_data(trim(name)//'/id_halo_sam',sky_galaxy%id_halo_sam,'parent halo ID in SAM')
-   call hdf5_write_data(trim(name)//'/id_galaxy_sky',sky_galaxy%id_galaxy_sky,'unique galaxy ID in mock sky')
+   call hdf5_write_data(trim(name)//'/id_galaxy',sky_galaxy%id_galaxy,'unique galaxy ID in mock sky')
+   call hdf5_write_data(trim(name)//'/id_group',sky_galaxy%id_group,'unique group id if galaxy is in a group, -1 otherwise')
    call hdf5_write_data(trim(name)//'/id_galaxy_sam',sky_galaxy%id_galaxy_sam,'galaxy ID in SAM')
+   call hdf5_write_data(trim(name)//'/id_halo_sam',sky_galaxy%id_halo_sam,'host halo ID in SAM')
    call hdf5_write_data(trim(name)//'/type',sky_galaxy%typ,'galaxy type (0=central, 1=satellite in halo, 2=orphan)')
-   call hdf5_write_data(trim(name)//'/group_ntot',sky_galaxy%group_ntot, &
-   & 'total number of galaxies that live in the same host halo')
-   call hdf5_write_data(trim(name)//'/group_nsel',sky_galaxy%group_nsel, &
-   & 'number of galaxies that live in the same host halo and are present in the mock survey')
-   call hdf5_write_data(trim(name)//'/group_flag',sky_galaxy%group_flag, &
-   & 'group flag (0 if group complete, >0 if truncated by survey edge (+1), snapshot limit (+2), box limit (+4))')
    call hdf5_write_data(trim(name)//'/inclination',sky_galaxy%inclination/degree, &
    & '[deg] inclination = angle between line-of-sight and spin axis')
    call hdf5_write_data(trim(name)//'/pa',sky_galaxy%pa/degree,'[deg] position angle from north to east')
@@ -668,15 +652,14 @@ subroutine make_hdf5
    call hdf5_write_data(trim(name)//'/rstar_bulge',sky_galaxy%rstar_bulge,'[arcsec] half-mass radius of stellar bulge')
    call hdf5_write_data(trim(name)//'/rgas_disk',sky_galaxy%rgas_disk,'[arcsec] half-mass radius of gas disk')
    test(1) = n
-   test(2) = sum(sky_galaxy%group_flag)+sum(sky_galaxy%group_flag**2)
    test(3) = sum(sky_galaxy%tile)
    test(4) = sum(sky_galaxy%inclination)
    test(5) = sum(sky_galaxy%zobs)
    deallocate(sky_galaxy)
    
-   ! Group "Groups"
-   allocate(sky_group(1)); name = sky_group(1)%get_class_name(); deallocate(sky_group)
-   filename_bin = trim(para%path_output)//'mocksky_'//trim(name)//'.bin'
+   ! Group "groups"
+   name = 'groups'
+   filename_bin = trim(para%path_output)//'mocksky_groups.bin'
    open(1,file=trim(filename_bin),action='read',form='unformatted',access='stream')
    read(1) n
    allocate(sky_group(n))
@@ -684,7 +667,7 @@ subroutine make_hdf5
    close(1)
    call hdf5_add_group(trim(name))
    call hdf5_write_data(trim(name)//'/snapshot',sky_group%snapshot,'snapshot ID')
-   call hdf5_write_data(trim(name)//'/subsnapshot',sky_group%subsnapshot,'subsnapshot ID')
+   call hdf5_write_data(trim(name)//'/subvolume',sky_group%subvolume,'subvolume index')
    call hdf5_write_data(trim(name)//'/tile',sky_group%tile,'tile ID in tiling array')
    call hdf5_write_data(trim(name)//'/zobs',sky_group%zobs,'redshift in observer-frame')
    call hdf5_write_data(trim(name)//'/zcmb',sky_group%zcmb,'redshift in CMB frame')
@@ -692,11 +675,18 @@ subroutine make_hdf5
    call hdf5_write_data(trim(name)//'/dc',sky_group%dc,'[Mpc/h] comoving distance')
    call hdf5_write_data(trim(name)//'/ra',sky_group%ra/degree,'[deg] right ascension')
    call hdf5_write_data(trim(name)//'/dec',sky_group%dec/degree,'[deg] declination')
-   call hdf5_write_data(trim(name)//'/id_halo_sky',sky_group%id_halo_sky,'unique parent halo ID in mock sky')
+   call hdf5_write_data(trim(name)//'/id_group',sky_group%id_group,'unique parent halo ID in mock sky')
    call hdf5_write_data(trim(name)//'/id_halo_sam',sky_group%id_halo_sam,'parent halo ID in SAM')
    call hdf5_write_data(trim(name)//'/mvir',sky_group%mvir,'[Msun/h] virial mass')
+   call hdf5_write_data(trim(name)//'/n_galaxies_total',sky_group%group_ntot, &
+   & 'total number of galaxies that live in the same group (host halo)')
+   call hdf5_write_data(trim(name)//'/n_galaxies_selected',sky_group%group_nsel, &
+   & 'number of galaxies that live in the same group (host halo) and are present in the mock survey')
+   call hdf5_write_data(trim(name)//'/flag',sky_group%group_flag, &
+   & 'group flag (0 if group complete, >0 if truncated by survey edge (+1), snapshot limit (+2), box limit (+4))')
    test(6) = sum(sky_group%tile)
    test(7) = sum(sky_group%zcmb)
+   test(2) = sum(sky_group%group_flag)+sum(sky_group%group_flag**2)
    deallocate(sky_group)
    
    ! Group "Tiling"
@@ -718,8 +708,15 @@ subroutine make_hdf5
    
    ! Group "runInfo"
    call hdf5_add_group('run_info')
-   call hdf5_write_data('run_info/version',version,'Version of Stingray used to produce this mock survey')
    call hdf5_write_data('run_info/survey_name',para%name)
+   call hdf5_write_data('run_info/stingray_version',version,'Version of Stingray used to produce this mock survey')
+   call hdf5_write_data('run_info/shark_version',trim(shark_version),'Version of Shark used to produce this mock survey')
+   call hdf5_write_data('run_info/shark_git_revision',trim(shark_git_revision),'Git revision of shark used to produce this data')
+   call hdf5_write_data('run_info/shark_timestamp',trim(shark_timestamp),'Time at which this shark execution started')
+   call hdf5_write_data('run_info/n_replica_mean',n_replica_mean,'Mean number a galaxy was replicated in the intrinsic cone '&
+   &//'(before selection by apparent properties)')
+   call hdf5_write_data('run_info/n_replica_max',n_replica_max,'Maximum number a galaxy was replicated in the intrinsic cone '&
+   &//'(before selection by apparent properties)')
    
    ! Group "Snapshots"
    call hdf5_add_group('snapshots')
@@ -731,17 +728,23 @@ subroutine make_hdf5
    & '[Mpc/h] minimal comoving distance at which this snapshot is used')
    call hdf5_write_data('snapshots/dc_max',snapshot%dmax*para%L, &
    & '[Mpc/h] maximal comoving distance at which this snapshot is used')
+   call hdf5_write_data('snapshots/n_replication',snapshot%n_replication, &
+   & 'Number of tiles this snapshot has been considered for, irrespective of whether a galaxy was selected')
    
    ! close HDF5 file
    call hdf5_close()
    
-   expected_sum = 5307.753769517
-   write(str,'(F14.7)') sum(test)/expected_sum
-   call out('Test sum:'//trim(str))
-   if (abs(sum(test)/expected_sum-1)>1e-5) then
-      write(str,'(F16.9)') sum(test)
-      call out('Test sum:'//trim(str))
+   ! check test sum
+   if (show_test_sum) then
+      expected_sum = 17520.368820190
+      if (abs(sum(test)/expected_sum-1)>1e-5) then
+         write(str,'(F16.9)') sum(test)
+         call out('Test sum FAILED, expected_sum = '//trim(str))
+      else
+         call out('Test sum OK.')
+      end if
    end if
+   
    call toc
 
 end subroutine make_hdf5

@@ -30,8 +30,8 @@ module module_types
       real*4               :: length_unit ! [m]
       integer*4            :: snapshot_min
       integer*4            :: snapshot_max
-      integer*4            :: subsnapshot_min
-      integer*4            :: subsnapshot_max
+      integer*4            :: subvolume_min
+      integer*4            :: subvolume_max
    
       ! cosmology
       real*4               :: h
@@ -80,8 +80,9 @@ module module_types
       real*4      :: dc,ra,dec      ! [simulation length unit,rad,rad] position in spherical Sky-coords
       integer*4   :: tile           ! unique identifier of box in mock sky
       integer*4   :: group_ntot     ! total number of members in group
-      integer*4   :: group_nsel     ! selected number of members in group
       integer*4   :: group_flag     ! group flag (0 if group unclipped, >0 if clipped by survey edge (+1), snapshot limit (+2), box limit (+4))
+      logical     :: sam_selected   ! logical flag specifying if this galaxy is selected according to its position and SAM properties
+                                    ! normally this always true, except for central group members that have been rejected, but are kept to make groups
       
    end type type_base
 
@@ -99,9 +100,10 @@ module module_types
 
    type type_snapshot
 
-      real*4   :: redshift
-      real*4   :: dmin        ! [units of side-length] minimum comoving distance at which galaxies are drawn from this redshift
-      real*4   :: dmax        ! [units of side-length] maximum ...
+      real*4      :: redshift
+      real*4      :: dmin           ! [units of side-length] minimum comoving distance at which galaxies are drawn from this redshift
+      real*4      :: dmax           ! [units of side-length] maximum ...
+      integer*4   :: n_replication  ! Number of tiles this snapshot has been considered for, irrespective of whether a galaxy was selected
 
    end type type_snapshot
    

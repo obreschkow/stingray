@@ -14,6 +14,7 @@ module module_hdf5
       module procedure read_dataset_0d_int8
       module procedure read_dataset_0d_real4
       module procedure read_dataset_0d_real8
+      module procedure read_dataset_0d_string
       module procedure read_dataset_1d_int4
       module procedure read_dataset_1d_int8
       module procedure read_dataset_1d_real4
@@ -386,6 +387,26 @@ contains
       call h5dclose_f(dataset_id, err)
    
    end subroutine read_dataset_0d_real8
+   
+   subroutine read_dataset_0d_string(dataset, dat)
+   
+      implicit none
+      character(*),intent(in)       :: dataset
+      character(255),intent(inout)  :: dat
+      integer*4                     :: err,hdferr
+      integer(hsize_t)              :: size(2)
+      integer(hid_t)                :: dataset_id,filetype
+      integer*8                     :: n(1)
+      
+      n(1) = 255
+      
+      call h5dopen_f(file_id, dataset, dataset_id, err)
+      call H5Tcopy_f(H5T_FORTRAN_S1, filetype, hdferr)
+      call H5Tset_size_f(filetype, n(1), hdferr)
+      call h5dread_f(dataset_id, filetype, dat, size, err)
+      call h5dclose_f(dataset_id, err)
+   
+   end subroutine read_dataset_0d_string
    
    subroutine read_dataset_1d_int4(dataset, dat)
    
