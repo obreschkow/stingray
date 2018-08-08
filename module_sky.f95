@@ -100,14 +100,14 @@ subroutine make_sky
       end if
       
       if (base%sam_selected) then
+         if (base%group_ntot==1) then
+            call sky_galaxy%make_from_sam(sam,base,galaxyid=n_galaxies,groupid=-1_8)
+         else
+            call sky_galaxy%make_from_sam(sam,base,galaxyid=n_galaxies,groupid=n_groups+1)
+         end if
          if (sky_galaxy%is_selected(sam)) then
             n_galaxies = n_galaxies+1
             group_nsel = group_nsel+1
-            if (base%group_ntot==1) then
-               call sky_galaxy%make_from_sam(sam,base,galaxyid=n_galaxies,groupid=-1_8)
-            else
-               call sky_galaxy%make_from_sam(sam,base,galaxyid=n_galaxies,groupid=n_groups+1)
-            end if
             call sky_galaxy%write_to_file(2)
          end if
       end if
@@ -124,7 +124,7 @@ subroutine make_sky
    
    ! check number of objects
    if (n_galaxies==0) call error('No galaxies in the apparent sky. Consider changing selection function.')
-   if (n_groups==0) call error('No groups in the apparent sky. Consider changing selection function.')
+   !if (n_groups==0) call error('No groups in the apparent sky. Consider changing selection function.')
    
    ! user output
    call out('Number of galaxies in intrinsic sky:',n)

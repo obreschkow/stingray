@@ -3,7 +3,7 @@
 # the parameter file takes priority.
 
 # Name of mock survey
-name                    test
+name                    gama
 
 # Paths
 #path_output             /Users/do/Data/SURFS/stingray/shark/output/
@@ -16,8 +16,8 @@ L                       auto           [length_unit] side-length of simulation b
 length_unit             auto           [m] SI-value of comoving length unit, here Mpc/h
 snapshot_min            113
 snapshot_max            199
-subvolume_min           0
-subvolume_max           0
+subvolume_min           auto
+subvolume_max           auto
 
 # Cosmology
 h                       auto           [-] Hubble parameter H0=h*100 km/s/Mpc
@@ -30,9 +30,9 @@ omega_b                 auto           Space density of baryonic matter relative
 dc_min                  0              [simulation units] minimal comoving distance
 dc_max                  1000           [simulation units] maximal comoving distance
 ra_min                  0              [deg] min right ascension
-ra_max                  10             [deg] max right ascension
-dec_min                 -40            [deg] min declination
-dec_max                 10             [deg] max declination
+ra_max                  360            [deg] max right ascension
+dec_min                 -90            [deg] min declination
+dec_max                 90             [deg] max declination
 
 # Mapping of SAM-coordinates on to survey-coordinates
 zaxis_ra                7.5              [deg] direction of the SAM z-axis in spherical survey coordinates

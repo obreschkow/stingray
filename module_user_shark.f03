@@ -110,8 +110,7 @@ type type_sky
 
    procedure   :: make_from_sam  => sky_make_from_sam    ! required subroutine
    procedure   :: write_to_file  => sky_write_to_file    ! required subroutine
-   procedure   :: is_selected    => sky_is_selected      ! required logical function
-
+   
 end type type_sky
 
 type,extends(type_sky) :: type_sky_galaxy ! must exist
@@ -132,6 +131,10 @@ type,extends(type_sky) :: type_sky_galaxy ! must exist
    real*4      :: rstar_disk     ! [arcsec] apparent half-mass radius of stars in the disk
    real*4      :: rstar_bulge    ! [arcsec] apparent half-mass radius of stars in the bulge
    real*4      :: rgas_disk      ! [arcsec] apparent half-mass radius of stars in the disk
+   
+   contains
+   
+   procedure   :: is_selected    => sky_is_selected      ! required logical function
    
 end type type_sky_galaxy
 
@@ -243,30 +246,19 @@ end function sam_is_selected
 
 logical function sky_is_selected(sky,sam) result(selected)
 
-   class(type_sky)            :: sky ! self
+   class(type_sky_galaxy)     :: sky ! self
    type(type_sam),intent(in)  :: sam
    real*4,parameter           :: dmag = 2.0
    
    call nil(sky,sam) ! dummy to avoid compiler warnings for unused arguments
    
-   select type (sky)
-   type is (type_sky_galaxy)
-   
-      select case (trim(para%name))
-      case ('devils')
-         selected = sky%mag<=21.2+dmag
-      case ('gama')
-         selected = ((sky%mag<=19.8+dmag).and.(sky%ra<330.0*degree)).or.(sky%mag<=19.2+dmag)
-      case default
-         selected = .true.
-      end select
-      
-   type is (type_sky_group)
-   
-      selected = (sam%typ==0)
-   
-   class default
-      call error('Unknown class for selection.')
+   select case (trim(para%name))
+   case ('devils')
+      selected = sky%mag<=21.2+dmag
+   case ('gama')
+      selected = ((sky%mag<=19.8+dmag).and.(sky%ra<330.0*degree)).or.(sky%mag<=19.2+dmag)
+   case default
+      selected = .true.
    end select
    
 end function sky_is_selected
