@@ -6,4 +6,4 @@
 #SBATCH --nodes=1
 #SBATCH --tasks-per-node=4
 
-/home/dobreschkow/stingray/ make_all -parameterfile /home/dobreschkow/stingray/parameters.txt
+/home/dobreschkow/stingray/stingray make_all -parameterfile /home/dobreschkow/stingray/parameters.txt
