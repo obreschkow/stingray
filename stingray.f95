@@ -18,7 +18,7 @@ program surfsuite
    character(len=255)   :: custom_option
    integer*4            :: i,narg
    logical              :: success
-   
+      
    narg = iargc() ! number of arguments
    
    if (narg==0) then
@@ -71,7 +71,6 @@ program surfsuite
    
    ! Initialize constants
    call initialize_constants
-   call set_class_pointers
    
    ! Load parameter file
    call make_parameters(parameter_filename_custom)

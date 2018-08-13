@@ -37,8 +37,8 @@ contains
       call line('length_unit',para%length_unit)
       call line('snapshot_min',para%snapshot_min)
       call line('snapshot_max',para%snapshot_max)
-      call line('subsnapshot_min',para%subsnapshot_min)
-      call line('subsnapshot_max',para%subsnapshot_max)
+      call line('subvolume_min',para%subvolume_min)
+      call line('subvolume_max',para%subvolume_max)
       call line('h',para%h)
       call line('omega_l',para%omega_l)
       call line('omega_m',para%omega_m)
@@ -89,14 +89,15 @@ contains
       filename = trim(para%path_output)//'snapshots.txt'
       open(1,file=trim(filename),action='write',form="formatted",status='replace')
       write(1,'(A)') 'Stingray snapshot list'
-      write(1,'(A)') '------------------------------------------------------------------------------------------'
+      write(1,'(A)') '--------------------------------------------------------------------------------------------------------'
       write(1,'(A)') 'Col  1:  Snapshot ID'
       write(1,'(A)') 'Col  2:  Redshift corresponding to the cosmic time of the snapshot'
       write(1,'(A)') 'Col  3:  [sim units] min comoving distance at which galaxies are drawn from this snapshot.'
       write(1,'(A)') 'Col  4:  [sim units] max comoving distance at which galaxies are drawn from this snapshot.'
-      write(1,'(A)') '------------------------------------------------------------------------------------------'
+      write(1,'(A)') 'Col  5:  Number of tiles this sn has been considered for, irrespective of whether a galaxy was selected.'
+      write(1,'(A)') '--------------------------------------------------------------------------------------------------------'
       do i = lbound(snapshot,1),ubound(snapshot,1)
-         write(1,'(I6,3F14.7,I3,3F9.5)') i,snapshot(i)%redshift,snapshot(i)%dmin,snapshot(i)%dmax
+         write(1,'(I6,3F14.7,I3,3F9.5)') i,snapshot(i)%redshift,snapshot(i)%dmin,snapshot(i)%dmax,snapshot(i)%n_replication
       end do
       close(1)
       

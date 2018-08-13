@@ -23,7 +23,7 @@ rgl.done = function() par3d(skipRedraw=FALSE)
 
 rgl.tiling = function(tile,rotationmatrix=diag(c(1,1,1)),zoom=1,col='grey') {
   par3d(skipRedraw=TRUE) # stop drawing
-  for (i in seq(length(tile$box_id))) {
+  for (i in seq(length(tile$tile_id))) {
     rgl.cube(tile$center_x[i],tile$center_y[i],tile$center_z[i],rotationmatrix,as.numeric(zoom),col=col)
   }
   par3d(skipRedraw=FALSE) # draw noe

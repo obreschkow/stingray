@@ -28,7 +28,10 @@ subroutine make_positioning
    integer*4,allocatable         :: index(:,:)
    type(type_sam),allocatable    :: sam(:)
    logical,allocatable           :: sam_sel(:)
+   integer*4,allocatable         :: sam_replica(:)
    integer,external              :: OMP_GET_THREAD_NUM,OMP_GET_NUM_THREADS
+   integer*8                     :: n_distinct_galaxies
+   integer*4                     :: n_replica_max
    
    call tic
    call out('POSITION OBJECTS INTO SKY')
@@ -42,21 +45,22 @@ subroutine make_positioning
    allocate(snapshot(para%snapshot_min:para%snapshot_max))
    call make_redshifts
    call make_distance_ranges
+   call count_replica_per_snapshot
    call save_snapshot_list
    
    ! create new file
    filename_sky_intrinsic = trim(para%path_output)//'mocksky_intrinsic.bin'
    open(1,file=trim(filename_sky_intrinsic),action='write',form="unformatted",status='replace',access='stream')
-   write(1) 0_8 ! place holder for number of galaxies
+   write(1) 0_8,0.0_4,0_4 ! place holder for number of galaxies
    close(1)
    
    ! make snapshot indices
-   nsub_max = (para%snapshot_max-para%snapshot_min+1)*(para%subsnapshot_max-para%subsnapshot_min+1)
+   nsub_max = (para%snapshot_max-para%snapshot_min+1)*(para%subvolume_max-para%subvolume_min+1)
    allocate(index(nsub_max,2))
    nsub = 0
    do isnapshot = para%snapshot_min,para%snapshot_max
       if ((snapshot(isnapshot)%dmax>=minval(tile%dmin)).and.(snapshot(isnapshot)%dmin<=maxval(tile%dmax))) then
-         do isubsnapshot = para%subsnapshot_min,para%subsnapshot_max
+         do isubsnapshot = para%subvolume_min,para%subvolume_max
             nsub = nsub+1
             index(nsub,:) = (/isnapshot,isubsnapshot/)
          end do
@@ -65,23 +69,32 @@ subroutine make_positioning
    
    ! fill galaxies with intrinsic properties into sky
    nmockgalaxies = 0
-   !$OMP PARALLEL PRIVATE(itile,sam,sam_sel)
+   n_distinct_galaxies = 0
+   n_replica_max = 0
+   !$OMP PARALLEL PRIVATE(itile,sam,sam_sel,sam_replica)
    !$OMP DO SCHEDULE(DYNAMIC)
    do i = 1,nsub
-      ! Only do the following by one thread at a time
-      !$OMP CRITICAL
-      call load_sam_snapshot(index(i,1),index(i,2),sam)
-      write(str,'(A,I0,A,I0,A,I0,A,I0,A,I0)') 'Process snapshot ',index(i,1),', subvolume ',index(i,2),' (', &
-      & size(sam),' galaxies)'!,OMP_GET_THREAD_NUM()+1,'/',OMP_GET_NUM_THREADS()
-      call out(trim(str))
-      !$OMP END CRITICAL
-      call preprocess_snapshot(sam,sam_sel)
-      if (size(sam)>0) then
-         do itile = 1,size(tile)
-            if ((snapshot(index(i,1))%dmax>=tile(itile)%dmin).and.(snapshot(index(i,1))%dmin<=tile(itile)%dmax)) then
-               call write_subsnapshot_into_tiles(itile,index(i,1),sam,sam_sel)
-            end if
-         end do
+      if (snapshot(index(i,1))%n_replication>0) then
+         ! Only do the following by one thread at a time
+         !$OMP CRITICAL
+         call load_sam_snapshot(index(i,1),index(i,2),sam)
+         write(str,'(A,I0,A,I0,A,I0,A,I0,A,I0)') 'Process snapshot ',index(i,1),', subvolume ',index(i,2),' (', &
+         & size(sam),' galaxies)'!,OMP_GET_THREAD_NUM()+1,'/',OMP_GET_NUM_THREADS()
+         call out(trim(str))
+         !$OMP END CRITICAL
+         call preprocess_snapshot(sam,sam_sel)
+         if (size(sam)>0) then
+            allocate(sam_replica(size(sam)))
+            sam_replica = 0
+            do itile = 1,size(tile)
+               if ((snapshot(index(i,1))%dmax>=tile(itile)%dmin).and.(snapshot(index(i,1))%dmin<=tile(itile)%dmax)) then
+                  call write_subsnapshot_into_tiles(itile,index(i,1),sam,sam_sel,sam_replica)
+               end if
+            end do
+            n_distinct_galaxies = n_distinct_galaxies+count(sam_replica>0)
+            n_replica_max = max(n_replica_max,maxval(sam_replica))
+            deallocate(sam_replica)
+         end if
       end if
    end do
    !$OMP END DO NOWAIT
@@ -100,7 +113,7 @@ subroutine make_positioning
    
    ! add number of objects to beginning of file
    open(1,file=trim(filename_sky_intrinsic),action='write',form='unformatted',status='old',access='stream')
-   write(1,pos=1) nmockgalaxies
+   write(1,pos=1) nmockgalaxies,real(real(nmockgalaxies,8)/n_distinct_galaxies,4),n_replica_max
    close(1) 
    
    ! finalize output
@@ -132,6 +145,7 @@ subroutine preprocess_snapshot(sam,sam_sel)
    logical,allocatable,intent(inout)         :: sam_sel(:)
    integer*8,allocatable                     :: id(:,:)
    integer*4                                 :: group_n ! number of objects in current group
+   integer*4                                 :: group_central_n ! number of central objects in current group
    integer*4                                 :: i,n_objects,n
    logical                                   :: group_selected
    
@@ -142,7 +156,8 @@ subroutine preprocess_snapshot(sam,sam_sel)
    allocate(sam_sel(n),id(n,2))
    do i = 1,n
       sam_sel(i) = sam(i)%is_selected()
-      id(i,1) = sam(i)%get_groupid()
+      id(i,1) = sam(i)%get_groupid()*2+1
+      if (sam(i)%is_group_center()) id(i,1)=id(i,1)-1 ! to make sure that this galaxy gets listed first
       id(i,2) = i
    end do
    
@@ -153,16 +168,23 @@ subroutine preprocess_snapshot(sam,sam_sel)
    n_objects = 0
    group_selected = .false.
    group_n = 0
+   group_central_n = 0
    do i = 1,n
       group_n = group_n+1
+      if (mod(id(i,1),2)==0) group_central_n = group_central_n+1
       group_selected = group_selected.or.sam_sel(id(i,2))
-      if (id(i,1).ne.id(modulo(i,n)+1,1)) then ! check if group id differs from next group id
+      if (id(i,1)/2.ne.id(modulo(i,n)+1,1)/2) then ! check if group id differs from next group id
+         if (group_central_n.ne.1) then
+            write(*,*) group_central_n
+            call error('Each group must have exactly one central member.')
+         end if
          if (group_selected) then
             id(n_objects+1:n_objects+group_n,:) = id(i-group_n+1:i,:)
             n_objects = n_objects+group_n 
          end if
          group_selected = .false.
          group_n = 0
+         group_central_n = 0
       end if
    end do
    
@@ -173,17 +195,18 @@ subroutine preprocess_snapshot(sam,sam_sel)
    
 end subroutine preprocess_snapshot
 
-subroutine write_subsnapshot_into_tiles(itile,isnapshot,sam,sam_sel)
+subroutine write_subsnapshot_into_tiles(itile,isnapshot,sam,sam_sel,sam_replica)
 
    implicit none
    integer*4,intent(in)                      :: itile
    integer*4,intent(in)                      :: isnapshot
    type(type_sam),allocatable,intent(in)     :: sam(:)
    logical,allocatable,intent(in)            :: sam_sel(:)
+   integer*4,allocatable,intent(inout)       :: sam_replica(:)
    type(type_base),allocatable               :: base_out(:)
    type(type_sam),allocatable                :: sam_out(:)
    integer*4                                 :: n_out
-   integer*4                                 :: i,j,n
+   integer*4                                 :: i,j,n,jmin
    type(type_base)                           :: base
    real*4                                    :: xbox(3)
    real*4                                    :: xmin(3),xmax(3)
@@ -192,8 +215,9 @@ subroutine write_subsnapshot_into_tiles(itile,isnapshot,sam,sam_sel)
    real*4,allocatable                        :: dc(:),ra(:),dec(:)
    logical,allocatable                       :: ok(:)
    logical                                   :: group_selected
+   integer*4                                 :: group_nsel
    
-   !call out('write')
+   ! call out('write')
    
    ! set tile
    base%tile = itile
@@ -242,18 +266,18 @@ subroutine write_subsnapshot_into_tiles(itile,isnapshot,sam,sam_sel)
          if (group_selected) then
          
             ! re-iterate over all accepted group members to check if they also pass the SAM selection
-            base%group_nsel = 0
+            group_nsel = 0
             do j = i-base%group_ntot+1,i
                if (ok(j)) then
                   if (sam_sel(j)) then
-                     base%group_nsel = base%group_nsel+1
+                     group_nsel = group_nsel+1
                   else
                      ok(j) = .false.
                   end if
                end if
             end do
             
-            if (base%group_nsel>0) then
+            if (group_nsel>0) then
       
                ! make group flag
                base%group_flag = 0
@@ -262,14 +286,17 @@ subroutine write_subsnapshot_into_tiles(itile,isnapshot,sam,sam_sel)
                if (maxval(xmax-xmin)>0.5) base%group_flag = base%group_flag+4                   ! group wrapped around
                
                ! re-iterate over all accepted group members to write them in file
-               do j = i-base%group_ntot+1,i
-                  if (ok(j)) then
+               jmin = i-base%group_ntot+1
+               do j = jmin,i
+                  if (ok(j).or.(j==jmin)) then ! to ensure that first group members are always written
                      n_out = n_out+1
                      base%dc = dc(j)
                      base%ra = ra(j)
                      base%dec = dec(j)
+                     base%sam_selected = ok(j)
                      base_out(n_out) = base
                      sam_out(n_out) = sam(j)
+                     sam_replica(j) = sam_replica(j)+1
                   end if
                end do
             end if
@@ -333,5 +360,21 @@ subroutine make_distance_ranges
    end do
 
 end subroutine make_distance_ranges
+
+subroutine count_replica_per_snapshot
+
+   implicit none
+   integer*4   :: isnapshot,itile
+
+   snapshot%n_replication = 0
+   do isnapshot = para%snapshot_min,para%snapshot_max
+      do itile = 1,size(tile)
+         if ((snapshot(isnapshot)%dmax>=tile(itile)%dmin).and.(snapshot(isnapshot)%dmin<=tile(itile)%dmax)) then
+            snapshot(isnapshot)%n_replication = snapshot(isnapshot)%n_replication+1
+         end if
+      end do
+   end do
+   
+end subroutine count_replica_per_snapshot
    
 end module module_positioning

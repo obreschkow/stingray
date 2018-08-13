@@ -52,8 +52,8 @@ subroutine reset_parameters
    para%length_unit = huge(para%length_unit)
    para%snapshot_min = huge(para%snapshot_min)
    para%snapshot_max = huge(para%snapshot_max)
-   para%subsnapshot_min = huge(para%subsnapshot_min)
-   para%subsnapshot_max = huge(para%subsnapshot_max)
+   para%subvolume_min = huge(para%subvolume_min)
+   para%subvolume_max = huge(para%subvolume_max)
    para%h = huge(para%h)
    para%omega_l = huge(para%omega_l)
    para%omega_m = huge(para%omega_m)
@@ -91,8 +91,8 @@ subroutine check_parameters
    if (para%length_unit == huge(para%length_unit)) call wrong('length_unit')
    if (para%snapshot_min == huge(para%snapshot_min)) call wrong('snapshot_min')
    if (para%snapshot_max == huge(para%snapshot_max)) call wrong('snapshot_max')
-   if (para%subsnapshot_min == huge(para%subsnapshot_min)) call wrong('subsnapshot_min')
-   if (para%subsnapshot_max == huge(para%subsnapshot_max)) call wrong('subsnapshot_max')
+   if (para%subvolume_min == huge(para%subvolume_min)) call wrong('subvolume_min')
+   if (para%subvolume_max == huge(para%subvolume_max)) call wrong('subvolume_max')
    if (para%h == huge(para%h)) call wrong('h')
    if (para%omega_l == huge(para%omega_l)) call wrong('omega_l')
    if (para%omega_m == huge(para%omega_m)) call wrong('omega_m')
@@ -120,7 +120,7 @@ subroutine check_parameters
    if (para%L<=0) call error('L must be larger than 0')
    if (para%length_unit<=0) call error('length_unit must be larger than 0')
    if (para%snapshot_min>para%snapshot_max) call error('snapshot_min must be smaller than snapshot_max')
-   if (para%subsnapshot_min>para%subsnapshot_max) call error('subsnapshot_min must be smaller than subsnapshot_max')
+   if (para%subvolume_min>para%subvolume_max) call error('subvolume_min must be smaller than subvolume_max')
    if (para%h<=0) call error('h must be larger than 0')
    if (para%omega_l<0) call error('omega_l must be >=0')
    if (para%omega_m<0) call error('omega_m must be >=0')
@@ -221,10 +221,10 @@ subroutine load_user_parameters(parameter_filename)
                if (manual) read(var_value,*) para%snapshot_min
             case ('snapshot_max')
                if (manual) read(var_value,*) para%snapshot_max
-            case ('subsnapshot_min')
-               if (manual) read(var_value,*) para%subsnapshot_min
-            case ('subsnapshot_max')
-               if (manual) read(var_value,*) para%subsnapshot_max
+            case ('subvolume_min')
+               if (manual) read(var_value,*) para%subvolume_min
+            case ('subvolume_max')
+               if (manual) read(var_value,*) para%subvolume_max
             case ('h')
                if (manual) read(var_value,*) para%h
             case ('omega_l')
