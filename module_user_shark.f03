@@ -74,6 +74,10 @@ type type_sam
    real*4      :: rstar_bulge    ! [cMpc/h] half-mass radius of stars in the bulge
    real*4      :: rgas_disk      ! [cMpc/h] half-mass radius of gas in the disk
    real*4      :: rgas_bulge     ! [cMpc/h] half-mass radius of gas in the bulge
+   real*4      :: sfr_disk       ! [Msun/Gyr/h] star formation rate in the disk
+   real*4      :: sfr_burst      ! [Msun/Gyr/h] star formation rate in the bulge
+   real*4      :: mgas_metals_disk  ! [Msun/h] mass of metals locked up in the disk
+   real*4      :: mgas_metals_bulge ! [Msun/h] mass of metals locked up in the bulge
    real*4      :: mvir_hosthalo  ! [Msun/h]
    real*4      :: mvir_subhalo   ! [Msun/h]
    real*4      :: cnfw_subhalo   ! concentration of NFW fit to subhalo
@@ -131,7 +135,12 @@ type,extends(type_sky) :: type_sky_galaxy ! must exist
    real*4      :: rstar_disk     ! [arcsec] apparent half-mass radius of stars in the disk
    real*4      :: rstar_bulge    ! [arcsec] apparent half-mass radius of stars in the bulge
    real*4      :: rgas_disk      ! [arcsec] apparent half-mass radius of stars in the disk
-   
+   real*4      :: sfr_disk       ! [Msun/Gyr/h] star formation rate in the disk
+   real*4      :: sfr_burst      ! [Msun/Gyr/h] star formation rate in the bulge
+   real*4      :: mmol_disk      ! [Msun/h] molecular gas mass in the disk
+   real*4      :: mmol_bulge     ! [Msun/h] molecular gas mass in the bulge
+   real*4      :: zgas_disk      ! metallicity of the gas in the disk
+   real*4      :: zgas_bulge     ! metallicity of the gas in the disk
    contains
    
    procedure   :: is_selected    => sky_is_selected      ! required logical function
@@ -212,6 +221,8 @@ logical function pos_selection(dc,ra,dec)
                     & ((ra>=174.000).and.(ra<=186.000).and.(dec>= -3.000).and.(dec<= +2.000)).or. &
                     & ((ra>=211.500).and.(ra<=223.500).and.(dec>= -2.000).and.(dec<= +3.000)).or. &
                     & ((ra>=339.000).and.(ra<=351.000).and.(dec>=-35.000).and.(dec<=-30.000))
+   case ('deep-optical')
+      pos_selection = ((ra>=174.000).and.(ra<=186.000).and.(dec>= -4.3000).and.(dec<= +4.3000))
    case default
       pos_selection = .false.
    end select
@@ -236,6 +247,8 @@ logical function sam_is_selected(sam) result(selected)
       selected = (sam%mstars_disk>1e8).or.((sam%mvir_hosthalo>1e11).and.(sam%typ==0))
    case ('gama')
       selected = (sam%mstars_disk>1e8).or.((sam%mvir_hosthalo>1e11).and.(sam%typ==0))
+   case ('deep-optical')
+      selected = (sam%mstars_disk + sam%mstars_bulge>1e8).or.((sam%mvir_hosthalo>1e10))
    case default
       selected = .true.
    end select
@@ -257,6 +270,8 @@ logical function sky_is_selected(sky,sam) result(selected)
       selected = sky%mag<=21.2+dmag
    case ('gama')
       selected = ((sky%mag<=19.8+dmag).and.(sky%ra<330.0*degree)).or.(sky%mag<=19.2+dmag)
+   case ('deep-optical')
+      selected = (sky%mag<=30.0+dmag)
    case default
       selected = .true.
    end select
@@ -332,7 +347,7 @@ subroutine sky_make_from_sam(sky,sam,base,galaxyid,groupid,group_nselected)
       sky%mstars           = sam%mstars_disk+sam%mstars_bulge
       sky%mvir_hosthalo    = sam%mvir_hosthalo
       sky%mvir_subhalo     = sam%mvir_subhalo
-      
+       
       ! make inclination and position angle [rad]
       call make_inclination_and_pa(pos,sam%J,inclination=sky%inclination,pa=sky%pa)
       
@@ -344,10 +359,25 @@ subroutine sky_make_from_sam(sky,sam,base,galaxyid,groupid,group_nselected)
       sky%vpecrad = sum(sam%velocity*elos)
       
       ! apparent radii (note division by comoving distance, because intrinsic radii given in comoving units)
-      sky%rstar_disk = sam%rstar_disk/sky%dc/degree*3600.0 ! [arcsec]
+      sky%rstar_disk  = sam%rstar_disk/sky%dc/degree*3600.0 ! [arcsec]
       sky%rstar_bulge = sam%rstar_bulge/sky%dc/degree*3600.0 ! [arcsec]
-      sky%rgas_disk = sam%rgas_disk/sky%dc/degree*3600.0 ! [arcsec]
-   
+      sky%rgas_disk   = sam%rgas_disk/sky%dc/degree*3600.0 ! [arcsec]
+      sky%mmol_disk   = sam%mmol_disk
+      sky%mmol_bulge  = sam%mmol_bulge
+ 
+      sky%sfr_disk    = sam%sfr_disk
+      sky%sfr_burst   = sam%sfr_burst
+      if(sam%mgas_disk > 0) then 
+         sky%zgas_disk   = sam%mgas_metals_disk / sam%mgas_disk
+      else 
+         sky%zgas_disk   = 0
+      end if 
+      if(sam%mgas_bulge > 0) then 
+         sky%zgas_bulge  = sam%mgas_metals_bulge/ sam%mgas_bulge
+      else 
+         sky%zgas_bulge  = 0
+      end if
+
    type is (type_sky_group)
    
       sky%id_halo_sam  = sam%id_halo
@@ -477,6 +507,10 @@ subroutine load_sam_snapshot(index,subindex,sam)
    call hdf5_read_data(g//'rstar_bulge',sam%rstar_bulge)
    call hdf5_read_data(g//'rgas_disk',sam%rgas_disk)
    call hdf5_read_data(g//'rgas_bulge',sam%rgas_bulge)
+   call hdf5_read_data(g//'sfr_disk',sam%sfr_disk)
+   call hdf5_read_data(g//'sfr_burst',sam%sfr_burst)
+   call hdf5_read_data(g//'mgas_metals_disk',sam%mgas_metals_disk)
+   call hdf5_read_data(g//'mgas_metals_bulge',sam%mgas_metals_bulge)
    call hdf5_read_data(g//'mvir_hosthalo',sam%mvir_hosthalo)
    call hdf5_read_data(g//'mvir_subhalo',sam%mvir_subhalo)
    call hdf5_read_data(g//'cnfw_subhalo',sam%cnfw_subhalo)
@@ -641,6 +675,13 @@ subroutine make_hdf5
    call hdf5_write_data(trim(name)//'/rstar_disk',sky_galaxy%rstar_disk,'[arcsec] half-mass radius of stellar disk')
    call hdf5_write_data(trim(name)//'/rstar_bulge',sky_galaxy%rstar_bulge,'[arcsec] half-mass radius of stellar bulge')
    call hdf5_write_data(trim(name)//'/rgas_disk',sky_galaxy%rgas_disk,'[arcsec] half-mass radius of gas disk')
+   call hdf5_write_data(trim(name)//'/sfr_disk',sky_galaxy%sfr_disk,'[Msun/Gyr/h] star formation rate in the disk')
+   call hdf5_write_data(trim(name)//'/sfr_burst',sky_galaxy%sfr_burst,'[Msun/Gyr/h] star formation rate in the bulge')
+   call hdf5_write_data(trim(name)//'/zgas_disk',sky_galaxy%zgas_disk,'metallicity of the gas in the disk')
+   call hdf5_write_data(trim(name)//'/zgas_bulge',sky_galaxy%zgas_bulge,'metallicity of the gas in the bulge')
+   call hdf5_write_data(trim(name)//'/mmol_disk',sky_galaxy%mmol_disk,'[Msun/h] molecular gas mass in the disk')
+   call hdf5_write_data(trim(name)//'/mmol_bulge',sky_galaxy%mmol_bulge,'[Msun/h] molecular gas mass in the bulge')
+
    test(1) = n
    test(3) = sum(sky_galaxy%tile)
    test(4) = sum(sky_galaxy%inclination)

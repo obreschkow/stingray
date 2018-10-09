@@ -45,7 +45,8 @@ contains
       logical,optional,intent(in)   :: write_access
       integer*4                     :: status
       logical                       :: wa
-      
+     
+      print*, 'Will read from file', filename 
       wa = .false.
       if (present(write_access)) then
          wa = write_access
