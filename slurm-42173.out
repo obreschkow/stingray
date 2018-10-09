@@ -1,0 +1,79 @@
+gfortran -g -O3 -fopenmp -I/opt/bldr/local/storage/hdf5/1.10.2/include -L/opt/bldr/local/storage/hdf5/1.10.2/lib -lhdf5_fortran -lhdf5 -c module_constants.f95
+gfortran -g -O3 -fopenmp -I/opt/bldr/local/storage/hdf5/1.10.2/include -L/opt/bldr/local/storage/hdf5/1.10.2/lib -lhdf5_fortran -lhdf5 -c module_system.f95
+gfortran -g -O3 -fopenmp -I/opt/bldr/local/storage/hdf5/1.10.2/include -L/opt/bldr/local/storage/hdf5/1.10.2/lib -lhdf5_fortran -lhdf5 -c module_types.f95
+gfortran -g -O3 -fopenmp -I/opt/bldr/local/storage/hdf5/1.10.2/include -L/opt/bldr/local/storage/hdf5/1.10.2/lib -lhdf5_fortran -lhdf5 -c module_io.f95
+gfortran -g -O3 -fopenmp -I/opt/bldr/local/storage/hdf5/1.10.2/include -L/opt/bldr/local/storage/hdf5/1.10.2/lib -lhdf5_fortran -lhdf5 -c module_linalg.f95
+gfortran -g -O3 -fopenmp -I/opt/bldr/local/storage/hdf5/1.10.2/include -L/opt/bldr/local/storage/hdf5/1.10.2/lib -lhdf5_fortran -lhdf5 -c module_cosmology.f95
+gfortran -g -O3 -fopenmp -I/opt/bldr/local/storage/hdf5/1.10.2/include -L/opt/bldr/local/storage/hdf5/1.10.2/lib -lhdf5_fortran -lhdf5 -c module_sort.f03
+gfortran -g -O3 -fopenmp -I/opt/bldr/local/storage/hdf5/1.10.2/include -L/opt/bldr/local/storage/hdf5/1.10.2/lib -lhdf5_fortran -lhdf5 -c module_conversion.f95
+gfortran -g -O3 -fopenmp -I/opt/bldr/local/storage/hdf5/1.10.2/include -L/opt/bldr/local/storage/hdf5/1.10.2/lib -lhdf5_fortran -lhdf5 -c module_hdf5.f95
+gfortran -g -O3 -fopenmp -I/opt/bldr/local/storage/hdf5/1.10.2/include -L/opt/bldr/local/storage/hdf5/1.10.2/lib -lhdf5_fortran -lhdf5 -c module_user_shark.f03
+gfortran -g -O3 -fopenmp -I/opt/bldr/local/storage/hdf5/1.10.2/include -L/opt/bldr/local/storage/hdf5/1.10.2/lib -lhdf5_fortran -lhdf5 -c module_parameters.f95
+gfortran -g -O3 -fopenmp -I/opt/bldr/local/storage/hdf5/1.10.2/include -L/opt/bldr/local/storage/hdf5/1.10.2/lib -lhdf5_fortran -lhdf5 -c module_tiling.f95
+gfortran -g -O3 -fopenmp -I/opt/bldr/local/storage/hdf5/1.10.2/include -L/opt/bldr/local/storage/hdf5/1.10.2/lib -lhdf5_fortran -lhdf5 -c module_positioning.f95
+gfortran -g -O3 -fopenmp -I/opt/bldr/local/storage/hdf5/1.10.2/include -L/opt/bldr/local/storage/hdf5/1.10.2/lib -lhdf5_fortran -lhdf5 -c module_sky.f95
+gfortran -g -O3 -fopenmp -I/opt/bldr/local/storage/hdf5/1.10.2/include -L/opt/bldr/local/storage/hdf5/1.10.2/lib -lhdf5_fortran -lhdf5 -c stingray.f95
+gfortran -g -O3 -fopenmp -I/opt/bldr/local/storage/hdf5/1.10.2/include -L/opt/bldr/local/storage/hdf5/1.10.2/lib -lhdf5_fortran -lhdf5 -o stingray stingray.o module_constants.o module_system.o module_types.o module_io.o module_linalg.o module_sort.o module_cosmology.o module_conversion.o module_hdf5.o module_user_shark.o module_parameters.o module_tiling.o module_positioning.o module_sky.o
+HDF5-DIAG: Error detected in HDF5 (1.10.2) thread 0:
+  #000: H5F.c line 511 in H5Fopen(): unable to open file
+    major: File accessibilty
+    minor: Unable to open file
+  #001: H5Fint.c line 1613 in H5F_open(): unable to read root group
+    major: File accessibilty
+    minor: Unable to open file
+  #002: H5Groot.c line 239 in H5G_mkroot(): can't check if symbol table message exists
+    major: Symbol table
+    minor: Can't get value
+  #003: H5Omessage.c line 887 in H5O_msg_exists(): unable to protect object header
+    major: Object header
+    minor: Unable to protect metadata
+  #004: H5Oint.c line 889 in H5O_protect(): unable to load object header
+    major: Object header
+    minor: Unable to protect metadata
+  #005: H5AC.c line 1763 in H5AC_protect(): H5C_protect() failed
+    major: Object cache
+    minor: Unable to protect metadata
+  #006: H5C.c line 2565 in H5C_protect(): can't load entry
+    major: Object cache
+    minor: Unable to load metadata into cache
+  #007: H5C.c line 6876 in H5C_load_entry(): incorrect metadatda checksum after all read attempts
+    major: Object cache
+    minor: Read failed
+  #008: H5Ocache.c line 219 in H5O__cache_get_final_load_size(): can't deserialize object header prefix
+    major: Object header
+    minor: Unable to decode value
+  #009: H5Ocache.c line 1243 in H5O__prefix_deserialize(): bad object header version number
+    major: Object header
+    minor: Wrong version number
+HDF5-DIAG: Error detected in HDF5 (1.10.2) thread 0:
+  #000: H5D.c line 284 in H5Dopen2(): not a location
+    major: Invalid arguments to routine
+    minor: Inappropriate type
+  #001: H5Gloc.c line 251 in H5G_loc(): invalid object ID
+    major: Invalid arguments to routine
+    minor: Bad value
+HDF5-DIAG: Error detected in HDF5 (1.10.2) thread 0:
+  #000: H5D.c line 447 in H5Dget_type(): not a dataset
+    major: Invalid arguments to routine
+    minor: Inappropriate type
+HDF5-DIAG: Error detected in HDF5 (1.10.2) thread 0:
+  #000: H5T.c line 1856 in H5Tget_class(): not a datatype
+    major: Invalid arguments to routine
+    minor: Inappropriate type
+HDF5-DIAG: Error detected in HDF5 (1.10.2) thread 0:
+  #000: H5T.c line 2111 in H5Tget_size(): not a datatype
+    major: Invalid arguments to routine
+    minor: Inappropriate type
+HDF5-DIAG: Error detected in HDF5 (1.10.2) thread 0:
+  #000: H5Tfixed.c line 56 in H5Tget_sign(): not an integer datatype
+    major: Invalid arguments to routine
+    minor: Inappropriate type
+----------------------------------------------------------------------------------
+RUNNING stingray 0.5
+----------------------------------------------------------------------------------
+MAKE PARAMETERS
+File: parameters.txt
+ERROR: Unknown type
+rm -f *.o *.mod *.MOD
+rm -f *~ stingray
+rm -f fort.*

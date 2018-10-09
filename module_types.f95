@@ -19,7 +19,7 @@ module module_types
       !       [automatic parameter initialization in module_user_###]
       
       ! name of mock survey
-      character(len=255)   :: name
+      character(len=255)   :: survey
       
       ! paths
       character(len=255)   :: path_output
