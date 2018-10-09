@@ -105,7 +105,7 @@ subroutine make_inclination_and_pa(x,J,inclination,pa)
       eEast = cross_product(eNorth,eLOS)
    
       pa = atan2(sum(eMajor*eEast),sum(eMajor*eNorth))
-      if (pa<0) pa = 2*pi-pa
+      if (pa<0) pa = 2*pi+pa
       
    end if
    

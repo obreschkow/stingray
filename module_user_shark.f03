@@ -115,8 +115,8 @@ end type type_sky
 
 type,extends(type_sky) :: type_sky_galaxy ! must exist
 
-   integer*8   :: id_galaxy      ! unique ID in the mock sky
-   integer*8   :: id_group       ! unique group ID in the mock sky
+   integer*8   :: id_galaxy_sky  ! unique ID in the mock sky
+   integer*8   :: id_group_sky   ! unique group ID in the mock sky
    integer*8   :: id_galaxy_sam  ! galaxy ID in the SAM
    integer*8   :: id_halo_sam    ! galaxy parent halo ID in the SAM
    integer*4   :: typ            ! galaxy type (0=central, 1=satellite, 2=orphan)
@@ -199,9 +199,9 @@ logical function pos_selection(dc,ra,dec)
    
    call nil(dc,ra,dec) ! dummy to avoid compiler warnings for unused arguments
    
-   select case (trim(para%name))
+   select case (trim(para%survey))
    case ('test')
-      pos_selection = ((ra>=5.0).and.(ra<=10.0).and.(dec>=-1.0).and.(dec<=3.0))
+      pos_selection = ((ra>=0.0).and.(ra<=60.0).and.(dec>=-10.0).and.(dec<=10.0).and.(dc<200.0))
    case ('devils')
       pos_selection = ((ra>= 34.000).and.(ra<= 37.050).and.(dec>= -5.200).and.(dec<= -4.200)).or. &
                     & ((ra>= 52.263).and.(ra<= 53.963).and.(dec>=-28.500).and.(dec<=-27.500)).or. &
@@ -212,6 +212,10 @@ logical function pos_selection(dc,ra,dec)
                     & ((ra>=174.000).and.(ra<=186.000).and.(dec>= -3.000).and.(dec<= +2.000)).or. &
                     & ((ra>=211.500).and.(ra<=223.500).and.(dec>= -2.000).and.(dec<= +3.000)).or. &
                     & ((ra>=339.000).and.(ra<=351.000).and.(dec>=-35.000).and.(dec<=-30.000))
+   case ('alfalfa')
+      pos_selection = ((dec>= 0.000).and.(dec<= 36.000)).and. &
+                    & (((ra>= 112.500).and.(ra<= 247.500)).or.((ra>= 330.000).or.(ra<= 45.000))).and. &
+                    & (dc<260.0)
    case default
       pos_selection = .false.
    end select
@@ -229,13 +233,15 @@ logical function sam_is_selected(sam) result(selected)
    
    call nil(sam)  ! dummy to avoid compiler warnings for unused arguments
    
-   select case (trim(para%name))
+   select case (trim(para%survey))
    case ('test')
-      selected = (sam%mstars_disk>1e8)
+      selected = (sam%mstars_disk>1e7)
    case ('devils')
-      selected = (sam%mstars_disk>1e8).or.((sam%mvir_hosthalo>1e11).and.(sam%typ==0))
+      selected = (sam%mstars_disk>1e8)
    case ('gama')
-      selected = (sam%mstars_disk>1e8).or.((sam%mvir_hosthalo>1e11).and.(sam%typ==0))
+      selected = (sam%mstars_disk>1e8)
+    case ('alfalfa')
+      selected = (sam%mgas_disk>1e6).or.((sam%matom_disk>1e6))
    case default
       selected = .true.
    end select
@@ -252,11 +258,15 @@ logical function sky_is_selected(sky,sam) result(selected)
    
    call nil(sky,sam) ! dummy to avoid compiler warnings for unused arguments
    
-   select case (trim(para%name))
+   select case (trim(para%survey))
+   case ('test')
+      selected = .true.
    case ('devils')
       selected = sky%mag<=21.2+dmag
    case ('gama')
       selected = ((sky%mag<=19.8+dmag).and.(sky%ra<330.0*degree)).or.(sky%mag<=19.2+dmag)
+   case ('alfalfa')
+      selected = sam%matom_disk>10000.0*sky%dc**2
    case default
       selected = .true.
    end select
@@ -323,9 +333,9 @@ subroutine sky_make_from_sam(sky,sam,base,galaxyid,groupid,group_nselected)
    
       ! make IDs
       sky%id_galaxy_sam    = sam%id_galaxy   ! copy other properties
-      sky%id_galaxy        = galaxyid        ! unique galaxy id
+      sky%id_galaxy_sky    = galaxyid        ! unique galaxy id
       sky%id_halo_sam      = sam%id_halo     ! ...
-      sky%id_group         = groupid         ! unique group id
+      sky%id_group_sky     = groupid         ! unique group id
       
       ! copy properties
       sky%typ              = sam%typ
@@ -394,6 +404,7 @@ subroutine make_automatic_parameters
    para%snapshot_max = isnapshot-1
    
    write(filename,'(A,I0,A)') trim(para%path_input),para%snapshot_min,'/0/galaxies.hdf5'
+   call out('File of automatic parameters: '//trim(filename))
    call hdf5_open(filename)
    call hdf5_read_data('/run_info/tot_n_subvolumes',nsub)
    para%subvolume_min = 0
@@ -572,6 +583,7 @@ subroutine make_hdf5
    
    ! Group "Parameters"
    call hdf5_add_group('parameters')
+   call hdf5_write_data('parameters/survey',para%survey)
    call hdf5_write_data('parameters/path_output',para%path_output)
    call hdf5_write_data('parameters/path_input',para%path_input)
    call hdf5_write_data('parameters/box_length',para%L)
@@ -623,8 +635,8 @@ subroutine make_hdf5
    call hdf5_write_data(trim(name)//'/dc',sky_galaxy%dc,'[Mpc/h] comoving distance')
    call hdf5_write_data(trim(name)//'/ra',sky_galaxy%ra/degree,'[deg] right ascension')
    call hdf5_write_data(trim(name)//'/dec',sky_galaxy%dec/degree,'[deg] declination')
-   call hdf5_write_data(trim(name)//'/id_galaxy',sky_galaxy%id_galaxy,'unique galaxy ID in mock sky')
-   call hdf5_write_data(trim(name)//'/id_group',sky_galaxy%id_group,'unique group id if galaxy is in a group, -1 otherwise')
+   call hdf5_write_data(trim(name)//'/id_galaxy_sky',sky_galaxy%id_galaxy_sky,'unique galaxy ID in mock sky')
+   call hdf5_write_data(trim(name)//'/id_group_sky',sky_galaxy%id_group_sky,'unique group id if galaxy is in a group, -1 otherwise')
    call hdf5_write_data(trim(name)//'/id_galaxy_sam',sky_galaxy%id_galaxy_sam,'galaxy ID in SAM')
    call hdf5_write_data(trim(name)//'/id_halo_sam',sky_galaxy%id_halo_sam,'host halo ID in SAM')
    call hdf5_write_data(trim(name)//'/type',sky_galaxy%typ,'galaxy type (0=central, 1=satellite in halo, 2=orphan)')
@@ -636,8 +648,8 @@ subroutine make_hdf5
    call hdf5_write_data(trim(name)//'/s_hi',sky_galaxy%SHI,'[W/m^2] integrated HI line flux')
    call hdf5_write_data(trim(name)//'/vpecrad',sky_galaxy%vpecrad,'[proper km/s] radial peculiar velocity')
    call hdf5_write_data(trim(name)//'/mstars',sky_galaxy%mstars,'[Msun/h] stellar mass')
-   call hdf5_write_data(trim(name)//'/mvir_hosthalo',sky_galaxy%mstars,'[Msun/h] host halo mass')
-   call hdf5_write_data(trim(name)//'/mvir_subhalo',sky_galaxy%mstars,'[Msun/h] subhalo mass')
+   call hdf5_write_data(trim(name)//'/mvir_hosthalo',sky_galaxy%mvir_hosthalo,'[Msun/h] host halo mass')
+   call hdf5_write_data(trim(name)//'/mvir_subhalo',sky_galaxy%mvir_subhalo,'[Msun/h] subhalo mass')
    call hdf5_write_data(trim(name)//'/rstar_disk',sky_galaxy%rstar_disk,'[arcsec] half-mass radius of stellar disk')
    call hdf5_write_data(trim(name)//'/rstar_bulge',sky_galaxy%rstar_bulge,'[arcsec] half-mass radius of stellar bulge')
    call hdf5_write_data(trim(name)//'/rgas_disk',sky_galaxy%rgas_disk,'[arcsec] half-mass radius of gas disk')
@@ -698,7 +710,7 @@ subroutine make_hdf5
    
    ! Group "runInfo"
    call hdf5_add_group('run_info')
-   call hdf5_write_data('run_info/survey_name',para%name)
+   call hdf5_write_data('run_info/survey_name',para%survey)
    call hdf5_write_data('run_info/stingray_version',version,'Version of Stingray used to produce this mock survey')
    call hdf5_write_data('run_info/shark_version',trim(shark_version),'Version of Shark used to produce this mock survey')
    call hdf5_write_data('run_info/shark_git_revision',trim(shark_git_revision),'Git revision of shark used to produce this data')

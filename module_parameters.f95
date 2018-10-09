@@ -47,7 +47,7 @@ subroutine reset_parameters
    ! resets all parameters other than path_output and path_input
 
    implicit none
-   para%name = ''
+   para%survey = ''
    para%L = huge(para%L)
    para%length_unit = huge(para%length_unit)
    para%snapshot_min = huge(para%snapshot_min)
@@ -84,7 +84,7 @@ subroutine check_parameters
    implicit none
    
    ! check if all parameters have been initialized
-   if (trim(para%name)=='') call wrong('name')
+   if (trim(para%survey)=='') call wrong('survey')
    if (trim(para%path_output)=='') call wrong('path_output')
    if (trim(para%path_input)=='') call wrong('path_input')
    if (para%L == huge(para%L)) call wrong('L')
@@ -211,8 +211,8 @@ subroutine load_user_parameters(parameter_filename)
          read(var_value,*) var_value_first
          manual = (trim(var_value_first).ne.'auto')
          select case (trim(var_name))
-            case ('name')
-               if (manual) read(var_value,*) para%name
+            case ('survey')
+               if (manual) read(var_value,*) para%survey
             case ('L')
                if (manual) read(var_value,*) para%L
             case ('length_unit')

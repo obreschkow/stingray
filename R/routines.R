@@ -3,9 +3,16 @@ library(rhdf5)
 library(rgl)
 library(sphereplot)
 library(bit64)
+library(magicaxis)
 
 # constants
 degree = 180/pi
+pc = 3.0857e16
+kpc = 1e3*pc
+Mpc = 1e6*pc
+kms = 1e3
+Msun = 1.98855e30
+G = 6.67408e-11
 
 # routines
 rgl.new = function(windowSize = 700, bg = 'white') {
