@@ -210,7 +210,7 @@ logical function pos_selection(dc,ra,dec)
    
    select case (trim(para%survey))
    case ('test')
-      pos_selection = ((ra>=0.0).and.(ra<=60.0).and.(dec>=-10.0).and.(dec<=10.0).and.(dc<200.0))
+      pos_selection = ((ra>=0.0).and.(ra<=60.0).and.(dec>=0).and.(dec<=10.0).and.(dc<200.0))
    case ('devils')
       pos_selection = ((ra>= 34.000).and.(ra<= 37.050).and.(dec>= -5.200).and.(dec<= -4.200)).or. &
                     & ((ra>= 52.263).and.(ra<= 53.963).and.(dec>=-28.500).and.(dec<=-27.500)).or. &
@@ -595,7 +595,7 @@ subroutine make_hdf5
    call load_snapshot_list
    
    ! load auxilary data from shark output
-   write(filename,'(A,I0,A)') trim(para%path_input),para%snapshot_min,'/0/galaxies.hdf5'
+   write(filename,'(A,I0,A)') trim(para%path_input),para%snapshot_max,'/0/galaxies.hdf5'
    call hdf5_open(filename)
    call hdf5_read_data('/run_info/shark_version',shark_version)
    call hdf5_read_data('/run_info/shark_git_revision',shark_git_revision)
