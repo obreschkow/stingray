@@ -8,7 +8,7 @@ FC = gfortran
 #FCFLAGS = -O3 -fopenmp -I/usr/local/lib/hdf5/include -L/usr/local/lib/hdf5/lib -lhdf5_fortran -lhdf5
 
 # Compiler flags on hyades
-FCFLAGS = -g -O3 -fopenmp -I/opt/bldr/local/storage/hdf5/1.10.2/include -L/opt/bldr/local/storage/hdf5/1.10.2/lib -lhdf5_fortran -lhdf5
+FCFLAGS = -g -O3 -fopenmp -I/opt/bldr/local/storage/hdf5/1.10.2/include -L/opt/bldr/local/storage/hdf5/1.10.2/lib -lhdf5_fortran -lhdf5 -ffree-line-length-none
 
 # List of executables to be built within the package
 PROGRAMS = stingray

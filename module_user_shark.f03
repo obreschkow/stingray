@@ -221,8 +221,12 @@ logical function pos_selection(dc,ra,dec)
                     & ((ra>=174.000).and.(ra<=186.000).and.(dec>= -3.000).and.(dec<= +2.000)).or. &
                     & ((ra>=211.500).and.(ra<=223.500).and.(dec>= -2.000).and.(dec<= +3.000)).or. &
                     & ((ra>=339.000).and.(ra<=351.000).and.(dec>=-35.000).and.(dec<=-30.000))
+   case ('gama-g15')
+      pos_selection = ((ra>=211.500).and.(ra<=223.500).and.(dec>= -2.000).and.(dec<= +3.000))
+
    case ('deep-optical')
       pos_selection = ((ra>=174.000).and.(ra<=186.000).and.(dec>= -4.3000).and.(dec<= +4.3000))
+
    case ('alfalfa')
       pos_selection = ((dec>= 0.000).and.(dec<= 36.000)).and. &
                     & (((ra>= 112.500).and.(ra<= 247.500)).or.((ra>= 330.000).or.(ra<= 45.000))).and. &
@@ -246,13 +250,15 @@ logical function sam_is_selected(sam) result(selected)
    
    select case (trim(para%survey))
    case ('test')
-      selected = (sam%mstars_disk>1e7)
+      selected = (sam%mstars_disk+sam%mstars_bulge>1e7)
    case ('devils')
-      selected = (sam%mstars_disk>1e8)
+      selected = (sam%mstars_disk+sam%mstars_bulge>1e7)
    case ('gama')
-      selected = (sam%mstars_disk>1e8).or.((sam%mvir_hosthalo>1e11).and.(sam%typ==0))
+      selected = (sam%mstars_disk+sam%mstars_bulge>1e7)
+   case ('gama-g15')
+      selected = (sam%mstars_disk+sam%mstars_bulge>1e7)
    case ('deep-optical')
-      selected = (sam%mstars_disk>1e8)
+      selected = (sam%mstars_disk+sam%mstars_bulge>1e7)
     case ('alfalfa')
       selected = (sam%mgas_disk>1e6).or.((sam%matom_disk>1e6))
    case default
@@ -267,7 +273,7 @@ logical function sky_is_selected(sky,sam) result(selected)
 
    class(type_sky_galaxy)     :: sky ! self
    type(type_sam),intent(in)  :: sam
-   real*4,parameter           :: dmag = 2.0
+   real*4,parameter           :: dmag = 4.0
    
    call nil(sky,sam) ! dummy to avoid compiler warnings for unused arguments
    
