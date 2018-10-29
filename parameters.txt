@@ -3,13 +3,13 @@
 # the parameter file takes priority.
 
 # Name of mock survey
-survey                  gama
+survey                  test
 
 # Paths
-#path_output             /Users/do/Data/SURFS/stingray/shark/output/
-path_output             /mnt/su3ctm/dobreschkow/Stingray/output/
-#path_input              /Users/do/Data/SURFS/stingray/shark/input/
-path_input              /mnt/su3ctm/clagos/SHARK_Out/medi-SURFS/Shark-Lagos18-final/
+path_output             /Users/do/Data/SURFS/stingray/shark/output/
+#path_output             /mnt/su3ctm/dobreschkow/Stingray/output/
+path_input              /Users/do/Data/SURFS/stingray/shark/input/
+#path_input              /mnt/su3ctm/clagos/SHARK_Out/medi-SURFS/Shark-Lagos18-final/
 
 # Snapshot parameters
 L                       auto           [length_unit] side-length of simulation box
@@ -28,7 +28,7 @@ omega_b                 auto           Space density of baryonic matter relative
 # Considered distance range and field-of-view. Additional and/or more complex positional selection criteria can
 # be coded in the user module function "pos_selection".
 dc_min                  0              [simulation units] minimal comoving distance
-dc_max                  2000           [simulation units] maximal comoving distance
+dc_max                  200            [simulation units] maximal comoving distance
 ra_min                  0              [deg] min right ascension
 ra_max                  360            [deg] max right ascension
 dec_min                 -90            [deg] min declination

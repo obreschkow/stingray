@@ -14,18 +14,14 @@ module module_conversion
 
 contains
 
-function rotate(x,pseudovector) result(y)
+function rotate(rotationmatrix,x) result(y)
 
    implicit none
    real*4,intent(in)    :: x(3)
-   logical,intent(in)   :: pseudovector
+   real*4,intent(in)    :: rotationmatrix(3,3)
    real*4               :: y(3)
    
-   if (pseudovector) then
-      y = matmul(Rpseudo,x)
-   else
-      y = matmul(Rvector,x)
-   end if
+   y = matmul(rotationmatrix,x)
    
 end function rotate
 

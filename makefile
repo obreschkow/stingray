@@ -28,10 +28,10 @@ stingray.o:    module_constants.o \
                module_sort.o \
                module_conversion.o \
                module_hdf5.o \
-               module_user_$(Model).o \
+               module_user_routines_$(Model).o \
+               module_user_selections_$(Model).o \
                module_parameters.o \
                module_tiling.o \
-               module_positioning.o \
                module_sky.o
                
 stingray: 	   module_constants.o \
@@ -43,10 +43,10 @@ stingray: 	   module_constants.o \
                module_cosmology.o \
                module_conversion.o \
                module_hdf5.o \
-               module_user_$(Model).o \
+               module_user_routines_$(Model).o \
+               module_user_selections_$(Model).o \
                module_parameters.o \
                module_tiling.o \
-               module_positioning.o \
                module_sky.o
 
 # ======================================================================
