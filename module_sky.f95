@@ -335,7 +335,7 @@ subroutine write_subvolume_into_tile(itile,isnapshot,isubvolume,sam,sam_sel,sam_
                      base%ra = ra(j)
                      base%dec = dec(j)
                      base%dc = dc(j)
-                     call sky_galaxy(j)%make_from_sam(sam(j),base,galaxyid=galaxyid,groupid=groupid)
+                     call sky_galaxy(j)%make_from_sam(sam(j),base,groupid,galaxyid)
                      ok(j) = sky_selection(sky_galaxy(j),sam(j))
                      if (ok(j)) then
                         n_galaxies = n_galaxies+1
@@ -385,7 +385,7 @@ subroutine write_subvolume_into_tile(itile,isnapshot,isubvolume,sam,sam_sel,sam_
                   base%dc = dc(jmin)
                   base%ra = ra(jmin)
                   base%dec = dec(jmin)
-                  call sky_group%make_from_sam(sam(jmin),base,groupid=groupid,group_nselected=group_nselected)
+                  call sky_group%make_from_sam(sam(jmin:i),sky_galaxy(jmin:i),ok(jmin:i),base,groupid,group_nselected)
                   
                end if
                
