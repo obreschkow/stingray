@@ -81,7 +81,9 @@ type type_sam
    real*4      :: vvir_hosthalo  ! [km/s]	virial velocity of hosthalo
    real*4      :: vvir_subhalo   ! [km/s]	virial velocity of subhalo
    real*4      :: vmax_subhalo   ! [km/s]	maximum circular velocity of subhalo
-   
+   real*4      :: zgas_disk      ! metallicity of the gas in the disk
+   real*4      :: zgas_bulge     ! metallicity of the gas in the bulge
+
 contains
 
    procedure   :: get_position      => sam_get_position     ! required function
@@ -320,14 +322,14 @@ subroutine make_sky_galaxy(sky_galaxy,sam,base,groupid,galaxyid)
    sky_galaxy%rgas_bulge_intrinsic = sam%rgas_bulge ! [cMpc/h]
  
    if(sam%mgas_disk > 0) then 
-      sky%zgas_disk   = sam%mgas_metals_disk / sam%mgas_disk
+      sky_galaxy%zgas_disk   = sam%mgas_metals_disk / sam%mgas_disk
    else 
-      sky%zgas_disk   = 0
+      sky_galaxy%zgas_disk   = 0
    end if 
    if(sam%mgas_bulge > 0) then 
-      sky%zgas_bulge  = sam%mgas_metals_bulge/ sam%mgas_bulge
+      sky_galaxy%zgas_bulge  = sam%mgas_metals_bulge/ sam%mgas_bulge
    else 
-      sky%zgas_bulge  = 0
+      sky_galaxy%zgas_bulge  = 0
    end if
      
    ! APPARENT PROPERTIES
