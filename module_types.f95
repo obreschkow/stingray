@@ -77,12 +77,10 @@ module module_types
    
    type type_base
 
-      real*4      :: dc,ra,dec      ! [simulation length unit,rad,rad] position in spherical Sky-coords
+      real*4      :: dc,ra,dec      ! [box lengths,rad,rad] position in spherical Sky-coords
       integer*4   :: tile           ! unique identifier of box in mock sky
       integer*4   :: group_ntot     ! total number of members in group
       integer*4   :: group_flag     ! group flag (0 if group unclipped, >0 if clipped by survey edge (+1), snapshot limit (+2), box limit (+4))
-      logical     :: sam_selected   ! logical flag specifying if this galaxy is selected according to its position and SAM properties
-                                    ! normally this always true, except for central group members that have been rejected, but are kept to make groups
       
    end type type_base
 
@@ -110,23 +108,5 @@ module module_types
    type(type_para)                     :: para
    type(type_tile),allocatable         :: tile(:)
    type(type_snapshot),allocatable     :: snapshot(:)
-   
-contains
-
-   subroutine nil(x1,x2,x3,x4,x5,x6,x7,x8,x9,x10,x11,x12,x13,x14,x15,x16,x17,x18,x19,x20)
-      class(*),optional :: x1,x2,x3,x4,x5,x6,x7,x8,x9,x10,x11,x12,x13,x14,x15,x16,x17,x18,x19,x20
-      if (.false.) then
-         select type(x1);  end select;    select type(x2);  end select
-         select type(x3);  end select;    select type(x4);  end select
-         select type(x5);  end select;    select type(x6);  end select
-         select type(x7);  end select;    select type(x8);  end select
-         select type(x9);  end select;    select type(x10); end select
-         select type(x11); end select;    select type(x12); end select
-         select type(x13); end select;    select type(x14); end select
-         select type(x15); end select;    select type(x16); end select
-         select type(x17); end select;    select type(x18); end select
-         select type(x19); end select;    select type(x20); end select
-      end if
-   end subroutine nil
 
 end module module_types

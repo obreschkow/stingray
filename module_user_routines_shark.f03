@@ -1,4 +1,4 @@
-module module_user
+module module_user_routines
 
 ! ==============================================================================================================
 ! IMPORT MODULES
@@ -18,10 +18,9 @@ use module_hdf5
 
 private
 
-public :: type_sam   ! SAM class, requires procedures get_position, get_groupid, is_selected, rotate_vectors
+public :: type_sam   ! SAM class, requires procedures get_position, get_groupid, is_selected
 public :: type_sky_galaxy
 public :: type_sky_group
-public :: pos_selection
 public :: get_parameter_filename_default
 public :: make_automatic_parameters
 public :: make_redshifts
@@ -48,9 +47,7 @@ character(len=255),parameter  :: parameter_filename_default = &
 ! The class requires four class functions:
 ! get_position: returns xyz-position of the galaxy
 ! get_groupid: returns the group id of the galaxy
-! is_selected: logical function specifying if the galaxy is selected
 ! is_group_center: logical function specifying if the galaxy is the group_center
-! rotate_vectors: specification of how objects are rotated
 
 type type_sam
 
@@ -80,15 +77,16 @@ type type_sam
    real*4      :: mgas_metals_bulge ! [Msun/h] mass of metals locked up in the bulge
    real*4      :: mvir_hosthalo  ! [Msun/h]
    real*4      :: mvir_subhalo   ! [Msun/h]
-   real*4      :: cnfw_subhalo   ! concentration of NFW fit to subhalo
+   real*4      :: cnfw_subhalo   ! [-] concentration of NFW fit to subhalo
+   real*4      :: vvir_hosthalo  ! [km/s]	virial velocity of hosthalo
+   real*4      :: vvir_subhalo   ! [km/s]	virial velocity of subhalo
+   real*4      :: vmax_subhalo   ! [km/s]	maximum circular velocity of subhalo
    
 contains
 
    procedure   :: get_position      => sam_get_position     ! required function
    procedure   :: get_groupid       => sam_get_groupid      ! required function               
-   procedure   :: is_selected       => sam_is_selected      ! required function
    procedure   :: is_group_center   => sam_is_group_center  ! required function
-   procedure   :: rotate_vectors    => sam_rotate_vectors   ! required subroutine
 
 end type type_sam
 
@@ -98,7 +96,7 @@ end type type_sam
 ! write_to_file
 ! is_selected
    
-type type_sky
+type type_sky_object
 
    integer*4   :: snapshot       ! snapshot ID
    integer*4   :: subvolume      ! subvolume index
@@ -109,52 +107,84 @@ type type_sky
    real*4      :: dc             ! [simulation units = Mpc/h] comoving distance
    real*4      :: ra             ! [rad] right ascension
    real*4      :: dec            ! [rad] declination
+   real*4      :: vpec(3)        ! [proper km/s] 3D peculiar velocity
+   real*4      :: vpecrad        ! [proper km/s] radial peculiar velocity
+   integer*8   :: id_halo_sam    ! galaxy parent halo ID in the SAM
+   integer*8   :: id_group_sky   ! unique group ID in the mock sky
    
    contains
 
-   procedure   :: make_from_sam  => sky_make_from_sam    ! required subroutine
    procedure   :: write_to_file  => sky_write_to_file    ! required subroutine
    
-end type type_sky
+end type type_sky_object
 
-type,extends(type_sky) :: type_sky_galaxy ! must exist
+type,extends(type_sky_object) :: type_sky_galaxy ! must exist
 
-   integer*8   :: id_galaxy_sky  ! unique ID in the mock sky
-   integer*8   :: id_group_sky   ! unique group ID in the mock sky
-   integer*8   :: id_galaxy_sam  ! galaxy ID in the SAM
-   integer*8   :: id_halo_sam    ! galaxy parent halo ID in the SAM
-   integer*4   :: typ            ! galaxy type (0=central, 1=satellite, 2=orphan)
-   real*4      :: inclination    ! [rad] inclination
-   real*4      :: pa             ! [rad] position angle from North to East
-   real*4      :: mag            ! apparent magnitude (generic: M/L ratio of 1, no k-correction)
-   real*8      :: SHI            ! [W/m^2] integrated HI line flux
-   real*4      :: vpecrad        ! [proper km/s] radial peculiar velocity
-   real*4      :: mstars         ! [Msun/h] total stellar mass
-   real*4      :: mvir_hosthalo  ! [Msun/h] mass of 1st generation halo (i.e. direct host of type 0 galaxies)
-   real*4      :: mvir_subhalo   ! [Msun/h] mass of 1st generation halo (i.e. direct host of type 0 galaxies)
-   real*4      :: rstar_disk     ! [arcsec] apparent half-mass radius of stars in the disk
-   real*4      :: rstar_bulge    ! [arcsec] apparent half-mass radius of stars in the bulge
-   real*4      :: rgas_disk      ! [arcsec] apparent half-mass radius of stars in the disk
-   real*4      :: sfr_disk       ! [Msun/Gyr/h] star formation rate in the disk
-   real*4      :: sfr_burst      ! [Msun/Gyr/h] star formation rate in the bulge
-   real*4      :: mmol_disk      ! [Msun/h] molecular gas mass in the disk
-   real*4      :: mmol_bulge     ! [Msun/h] molecular gas mass in the bulge
+   integer*8   :: id_galaxy_sky           ! unique ID in the mock sky
+   integer*8   :: id_galaxy_sam           ! galaxy ID in the SAM
+   integer*4   :: typ                     ! galaxy type (0=central, 1=satellite, 2=orphan)
+   
+   real*4      :: inclination             ! [rad] inclination
+   real*4      :: pa                      ! [rad] position angle from North to East
+   real*4      :: mag                     ! apparent magnitude (generic: M/L ratio of 1, no k-correction)
+   real*8      :: SHI                     ! [W/m^2] integrated HI line flux
+   
+   real*4      :: mstars_disk             ! [Msun/h] stellar mass of the disk
+   real*4      :: mstars_bulge            ! [Msun/h] stellar mass of the bulge
+   real*4      :: mgas_disk               ! [Msun/h] gas mass of the disk
+   real*4      :: mgas_bulge              ! [Msun/h] gas mass of the bulge
+   real*4      :: matom_disk              ! [Msun/h] atomic gas mass of the disk
+   real*4      :: matom_bulge             ! [Msun/h] atomic gas mass of the bulge
+   real*4      :: mmol_disk               ! [Msun/h] molecular gas mass of the disk
+   real*4      :: mmol_bulge              ! [Msun/h] molecular gas mass of the bulge
+   
+   real*4      :: J(3)                    ! [Msun pMpc km/s] total angular momentum
+   
+   real*4      :: mvir_hosthalo           ! [Msun/h] mass of 1st generation halo (i.e. direct host of type 0 galaxies)
+   real*4      :: mvir_subhalo            ! [Msun/h] halo mass
+   
+   real*4      :: rstar_disk_apparent     ! [arcsec] apparent half-mass radius of stars in the disk
+   real*4      :: rstar_bulge_apparent    ! [arcsec] apparent half-mass radius of stars in the bulge
+   real*4      :: rgas_disk_apparent      ! [arcsec] apparent half-mass radius of gas in the disk
+   real*4      :: rgas_bulge_apparent     ! [arcsec] apparent half-mass radius of gas in the bulge
+   
+   real*4      :: rstar_disk_intrinsic    ! [cMpc/h] intrinsic half-mass radius of stars in the disk
+   real*4      :: rstar_bulge_intrinsic   ! [cMpc/h] intrinsic half-mass radius of stars in the bulge
+   real*4      :: rgas_disk_intrinsic     ! [cMpc/h] intrinsic half-mass radius of gas in the disk
+   real*4      :: rgas_bulge_intrinsic    ! [cMpc/h] intrinsic half-mass radius of gas in the bulge
+   
    real*4      :: zgas_disk      ! metallicity of the gas in the disk
    real*4      :: zgas_bulge     ! metallicity of the gas in the disk
+
+   !group_disp_part	?	real*4	km/s	i		?	ASGR: Intrinsic 3D dispersion of the group halo (VR output)
+   !group_disp_sat_los	-	real*4	km/s	a			ASGR: Measured line-of-site dispersion of the group satellites (close to what we would measure in real life)
+
+   real*4      :: vvir_hosthalo           ! [km/s]	virial velocity of hosthalo
+   real*4      :: vvir_subhalo            ! [km/s]	virial velocity of subhalo
+   real*4      :: vmax_subhalo            ! [km/s]	maximum circular velocity of subhalo
+   real*4      :: cnfw_subhalo            ! [-] concentration of NFW fit to subhalo
+   
    contains
    
-   procedure   :: is_selected    => sky_is_selected      ! required logical function
+   procedure   :: make_from_sam  => make_sky_galaxy   ! required subroutine
    
 end type type_sky_galaxy
 
-type,extends(type_sky) :: type_sky_group ! must exist
+type,extends(type_sky_object) :: type_sky_group ! must exist
    
-   integer*8   :: id_halo_sam    ! galaxy parent halo ID in the SAM
-   integer*8   :: id_group       ! unique group ID in the mock sky
-   real*4      :: mvir           ! [Msun/h] virial mass of group
-   integer*4   :: group_ntot     ! total number of galaxies in group
-   integer*4   :: group_nsel     ! number of selected galaxies in group
-   integer*4   :: group_flag     ! 0=group complete, >0 group truncated
+   real*4      :: mvir                 ! [Msun/h] virial mass of group
+   real*4      :: vvir                 ! [km/s]	virial velocity of group halo
+   real*4      :: vmax                 ! [km/s]	maximum circular velocity of group halo
+   real*4      :: cnfw                 ! [-] concentration of NFW fit to group halo
+   integer*4   :: group_ntot           ! total number of galaxies in group
+   integer*4   :: group_nsel           ! number of selected galaxies in group
+   integer*4   :: group_flag           ! 0=group complete, >0 group truncated
+   real*4      :: sigma_los_detected   ! [km/s] line-of-sight velocity dispersion of selected galaxies
+   real*4      :: sigma_3D_all         ! [km/s] 3D velocity dispersion of all galaxies in group
+   
+   contains
+   
+   procedure   :: make_from_sam  => make_sky_group   ! required subroutine
    
 end type type_sky_group
 
@@ -182,7 +212,7 @@ end function sam_is_group_center
 ! For instances of the user-defined sky-types to be saved, add all sky types in the following subroutine
 
 subroutine sky_write_to_file(self,fileID)
-   class(type_sky) :: self
+   class(type_sky_object) :: self
    integer*4,intent(in) :: fileID
    select type (self)
    type is (type_sky_galaxy); write(fileID) self
@@ -192,221 +222,206 @@ subroutine sky_write_to_file(self,fileID)
    end select
 end subroutine sky_write_to_file
 
-
-! ==============================================================================================================
-! SELECTION OF GALAXIES IN THE MOCK SKY
-! ==============================================================================================================
-
-! selection function acting on comoving position, applied when making the tiling and intrinsic sky
-
-logical function pos_selection(dc,ra,dec)
-   
-   implicit none
-   real*4,intent(in) :: dc    ! [simulation units] comoving distance
-   real*4,intent(in) :: ra    ! [deg] right ascension
-   real*4,intent(in) :: dec   ! [deg] right ascension
-   
-   call nil(dc,ra,dec) ! dummy to avoid compiler warnings for unused arguments
-   
-   select case (trim(para%survey))
-   case ('test')
-      pos_selection = ((ra>=0.0).and.(ra<=60.0).and.(dec>=0).and.(dec<=10.0).and.(dc<200.0))
-   case ('devils')
-      pos_selection = ((ra>= 34.000).and.(ra<= 37.050).and.(dec>= -5.200).and.(dec<= -4.200)).or. &
-                    & ((ra>= 52.263).and.(ra<= 53.963).and.(dec>=-28.500).and.(dec<=-27.500)).or. &
-                    & ((ra>=149.380).and.(ra<=150.700).and.(dec>= +1.650).and.(dec<= +2.790))
-   case ('gama')
-      pos_selection = ((ra>= 30.200).and.(ra<= 38.800).and.(dec>=-10.250).and.(dec<= -3.720)).or. &
-                    & ((ra> 129.000).and.(ra<=141.000).and.(dec>= -2.000).and.(dec<= +3.000)).or. &
-                    & ((ra>=174.000).and.(ra<=186.000).and.(dec>= -3.000).and.(dec<= +2.000)).or. &
-                    & ((ra>=211.500).and.(ra<=223.500).and.(dec>= -2.000).and.(dec<= +3.000)).or. &
-                    & ((ra>=339.000).and.(ra<=351.000).and.(dec>=-35.000).and.(dec<=-30.000))
-   case ('gama-g15')
-      pos_selection = ((ra>=211.500).and.(ra<=223.500).and.(dec>= -2.000).and.(dec<= +3.000))
-
-   case ('deep-optical')
-      pos_selection = ((ra>=174.000).and.(ra<=186.000).and.(dec>= -4.3000).and.(dec<= +4.3000))
-
-   case ('alfalfa')
-      pos_selection = ((dec>= 0.000).and.(dec<= 36.000)).and. &
-                    & (((ra>= 112.500).and.(ra<= 247.500)).or.((ra>= 330.000).or.(ra<= 45.000))).and. &
-                    & (dc<260.0)
-   case default
-      pos_selection = .false.
-   end select
-
-end function pos_selection
-
-! pre-selection function applied to the sam properties when placing the galaxies. More selections can be applied
-! later in the function 'selected'. The function 'sam_selection' is simply to avoid carrying too many galaxies
-! through the whole analysis
-
-logical function sam_is_selected(sam) result(selected)
-
-   implicit none
-   class(type_sam),intent(in) :: sam
-   
-   call nil(sam)  ! dummy to avoid compiler warnings for unused arguments
-   
-   select case (trim(para%survey))
-   case ('test')
-      selected = (sam%mstars_disk+sam%mstars_bulge>1e7)
-   case ('devils')
-      selected = (sam%mstars_disk+sam%mstars_bulge>1e7)
-   case ('gama')
-      selected = (sam%mstars_disk+sam%mstars_bulge>1e7)
-   case ('gama-g15')
-      selected = (sam%mstars_disk+sam%mstars_bulge>1e7)
-   case ('deep-optical')
-      selected = (sam%mstars_disk+sam%mstars_bulge>1e7)
-    case ('alfalfa')
-      selected = (sam%mgas_disk>1e6).or.((sam%matom_disk>1e6))
-   case default
-      selected = .true.
-   end select
-   
-end function sam_is_selected
-
-! selection applied to sky classes
-
-logical function sky_is_selected(sky,sam) result(selected)
-
-   class(type_sky_galaxy)     :: sky ! self
-   type(type_sam),intent(in)  :: sam
-   real*4,parameter           :: dmag = 4.0
-   
-   call nil(sky,sam) ! dummy to avoid compiler warnings for unused arguments
-   
-   select case (trim(para%survey))
-   case ('test')
-      selected = .true.
-   case ('devils')
-      selected = sky%mag<=21.2+dmag
-   case ('gama')
-      selected = ((sky%mag<=19.8+dmag).and.(sky%ra<330.0*degree)).or.(sky%mag<=19.2+dmag)
-   case ('deep-optical')
-      selected = (sky%mag<=30.0+dmag)
-   case ('alfalfa')
-      selected = sam%matom_disk>10000.0*sky%dc**2
-   case default
-      selected = .true.
-   end select
-   
-end function sky_is_selected
-
-
 ! ==============================================================================================================
 ! CONVERSION BETWEEN INTRINSIC AND APPARENT GALAXY PROPERTIES
 ! ==============================================================================================================
 
-subroutine sam_rotate_vectors(sam)
+subroutine make_sky_object(sky_object,sam,base,groupid)
 
-   ! This function rotates all the vector-properties of the galaxy, specified in type_sam, except for the
-   ! position, which has already been processed when producing the intrinsic sky. For each such vector-property
-   ! of the SAM, call
-   ! sam%vector = rotate(sam%vector,ps)
-   ! where ps is a logical argument that specifies whether the vector transforms like a normal vector,
-   ! or like a pseudo-vector (also known as axial vector)
+   class(type_sky_object),intent(out)     :: sky_object
+   type(type_sam),intent(in)              :: sam
+   type(type_base),intent(in)             :: base                 ! basic properties of the position of this galaxy in the sky
+   integer*8,intent(in)                   :: groupid              ! unique group in sky index
+   real*4                                 :: vector_rotation(3,3) ! rotation matrix for vectors
+   real*4                                 :: pos(3)               ! [simulation length units] position vector of galaxy
+   real*4                                 :: elos(3)              ! unit vector pointing from the observer to the object in comoving space
+   
+   call nil(sky_object,sam,base,groupid) ! dummy statement to avoid compiler warnings
 
-   implicit none
-   class(type_sam),intent(inout)    :: sam
-   
-   sam%velocity   = rotate(sam%velocity,.false.)
-   sam%J          = rotate(sam%J,.true.)
-   
-end subroutine sam_rotate_vectors
-
-subroutine sky_make_from_sam(sky,sam,base,galaxyid,groupid,group_nselected)
-
-   implicit none
-   class(type_sky),intent(out)   :: sky
-   type(type_sam),intent(in)     :: sam
-   type(type_base),intent(in)    :: base              ! basic properties of the position of this galaxy in the sky
-   integer*8,intent(in),optional :: galaxyid          ! (only for galaxy types) unique galaxy in sky index
-   integer*8,intent(in),optional :: groupid           ! unique group in sky index
-   integer*4,intent(in),optional :: group_nselected   ! (only for group types) number of galaxies selected in group
-   real*4                        :: pos(3)            ! [simulation length units] position vector of galaxy
-   real*4                        :: dl                ! [simulation length units] luminosity distance to observer
-   real*4                        :: elos(3)           ! unit vector pointing from the observer to the object in comoving space
-   real*4                        :: mHI
-   
-   call nil(sky,sam,base,galaxyid,groupid,group_nselected) ! dummy statement to avoid compiler warnings
-   
    ! sky coordinates
-   sky%dc  = base%dc*para%L   ! [Mpc/h]
-   sky%ra  = base%ra          ! [rad]
-   sky%dec = base%dec         ! [rad]
-   
-   ! position vector
-   call sph2car(sky%dc,sky%ra,sky%dec,pos)
-   elos = pos/norm(pos)
-   
-   ! make IDs
-   sky%tile          = base%tile
-   sky%snapshot      = sam%snapshot
-   sky%subvolume     = sam%subvolume
+   sky_object%dc  = base%dc*para%L  ! [Mpc/h]
+   sky_object%ra  = base%ra         ! [rad]
+   sky_object%dec = base%dec        ! [rad]
    
    ! make redshift, provided the galaxy position [simulation units] galaxy-velocity [km/s]
-   call make_redshift(pos*(para%length_unit/Mpc),sam%velocity,zobs=sky%zobs,zcmb=sky%zcmb,zcos=sky%zcos)
+   call sph2car(sky_object%dc,sky_object%ra,sky_object%dec,pos)
+   elos = pos/norm(pos) ! line-of-sight vector
+   call make_redshift(pos*(para%length_unit/Mpc),sam%velocity,&
+   &zobs=sky_object%zobs,zcmb=sky_object%zcmb,zcos=sky_object%zcos)
    
-   select type(sky)
-   type is (type_sky_galaxy)
+   ! make IDs
+   sky_object%tile          = base%tile
+   sky_object%snapshot      = sam%snapshot
+   sky_object%subvolume     = sam%subvolume
+   sky_object%id_halo_sam   = sam%id_halo
+   sky_object%id_group_sky  = groupid         ! unique group id
    
-      ! make IDs
-      sky%id_galaxy_sam    = sam%id_galaxy   ! copy other properties
-      sky%id_galaxy_sky    = galaxyid        ! unique galaxy id
-      sky%id_halo_sam      = sam%id_halo     ! ...
-      sky%id_group_sky     = groupid         ! unique group id
-      
-      ! copy properties
-      sky%typ              = sam%typ
-      sky%mstars           = sam%mstars_disk+sam%mstars_bulge
-      sky%mvir_hosthalo    = sam%mvir_hosthalo
-      sky%mvir_subhalo     = sam%mvir_subhalo
-       
-      ! make inclination and position angle [rad]
-      call make_inclination_and_pa(pos,sam%J,inclination=sky%inclination,pa=sky%pa)
-      
-      ! appaprent propoerties
-      dl = sky%dc*(1+sky%zobs) ! [Mpc/h]
-      sky%mag = convert_absmag2appmag(convert_stellarmass2absmag(sky%mstars/para%h,1.0),dl/para%h)
-      mHI = (sam%matom_disk+sam%matom_bulge)/1.35/para%h ! [Msun] HI mass
-      sky%SHI = convert_luminosity2flux(real(mHI,8)*real(L2MHI,8)*Lsun,dl/para%h)
-      sky%vpecrad = sum(sam%velocity*elos)
-      
-      ! apparent radii (note division by comoving distance, because intrinsic radii given in comoving units)
-      sky%rstar_disk  = sam%rstar_disk/sky%dc/degree*3600.0 ! [arcsec]
-      sky%rstar_bulge = sam%rstar_bulge/sky%dc/degree*3600.0 ! [arcsec]
-      sky%rgas_disk   = sam%rgas_disk/sky%dc/degree*3600.0 ! [arcsec]
-      sky%mmol_disk   = sam%mmol_disk
-      sky%mmol_bulge  = sam%mmol_bulge
- 
-      sky%sfr_disk    = sam%sfr_disk
-      sky%sfr_burst   = sam%sfr_burst
-      if(sam%mgas_disk > 0) then 
-         sky%zgas_disk   = sam%mgas_metals_disk / sam%mgas_disk
-      else 
-         sky%zgas_disk   = 0
-      end if 
-      if(sam%mgas_bulge > 0) then 
-         sky%zgas_bulge  = sam%mgas_metals_bulge/ sam%mgas_bulge
-      else 
-         sky%zgas_bulge  = 0
-      end if
+   ! peculiar velocity
+   vector_rotation      = tile(base%tile)%Rvector
+   sky_object%vpec      = rotate(vector_rotation,sam%velocity)
+   sky_object%vpecrad   = sum(sky_object%vpec*elos)
+   
+end subroutine make_sky_object
 
-   type is (type_sky_group)
+subroutine make_sky_galaxy(sky_galaxy,sam,base,groupid,galaxyid)
+
+   implicit none
+   class(type_sky_galaxy),intent(out)  :: sky_galaxy
+   type(type_sam),intent(in)           :: sam
+   type(type_base),intent(in)          :: base                 ! basic properties of the position of this galaxy in the sky
+   integer*8,intent(in)                :: groupid              ! unique group in sky index
+   integer*8,intent(in)                :: galaxyid             ! (only for galaxy types) unique galaxy in sky index
+   real*4                              :: pseudo_rotation(3,3) ! rotation matrix for pseudo-vectors (axial vectors)
+   real*4                              :: pos(3)               ! [simulation length units] position vector of galaxy
+   real*4                              :: dl                   ! [simulation length units] luminosity distance to observer
+   real*4                              :: elos(3)              ! unit vector pointing from the observer to the object in comoving space
+   real*4                              :: mHI,mstars
    
-      sky%id_halo_sam  = sam%id_halo
-      sky%id_group     = groupid          ! unique group id
-      sky%mvir         = sam%mvir_hosthalo
-      sky%group_ntot   = base%group_ntot
-      sky%group_nsel   = group_nselected
-      sky%group_flag   = base%group_flag
+   call nil(sky_galaxy,sam,base,groupid,galaxyid) ! dummy statement to avoid compiler warnings
    
-   class default
-   end select
+   ! basics
+   call make_sky_object(sky_galaxy,sam,base,groupid)
    
-end subroutine sky_make_from_sam
+   ! INTRINSIC PROPERTIES
+   
+   ! make IDs
+   sky_galaxy%id_galaxy_sam   = sam%id_galaxy   ! copy other properties
+   sky_galaxy%id_galaxy_sky   = galaxyid        ! unique galaxy id
+      
+   ! basic properties
+   sky_galaxy%typ             = sam%typ
+   
+   ! intrinsic halo properties
+   sky_galaxy%mvir_hosthalo   = sam%mvir_hosthalo
+   sky_galaxy%mvir_subhalo    = sam%mvir_subhalo
+   sky_galaxy%vvir_hosthalo   = sam%vvir_hosthalo
+   sky_galaxy%vvir_subhalo    = sam%vvir_subhalo
+   sky_galaxy%vmax_subhalo    = sam%vmax_subhalo
+   sky_galaxy%cnfw_subhalo    = sam%cnfw_subhalo
+   
+   ! intrinsic masses
+   sky_galaxy%mstars_disk     = sam%mstars_disk 
+   sky_galaxy%mstars_bulge    = sam%mstars_bulge
+   sky_galaxy%mgas_disk       = sam%mgas_disk   
+   sky_galaxy%mgas_bulge      = sam%mgas_bulge  
+   sky_galaxy%matom_disk      = sam%matom_disk  
+   sky_galaxy%matom_bulge     = sam%matom_bulge 
+   sky_galaxy%mmol_disk       = sam%mmol_disk   
+   sky_galaxy%mmol_bulge      = sam%mmol_bulge  
+   
+   ! intrinsic angular momentum
+   pseudo_rotation   = tile(base%tile)%Rpseudo
+   sky_galaxy%J      = rotate(pseudo_rotation,sam%J)
+      
+   ! intrinsic radii
+   sky_galaxy%rstar_disk_intrinsic = sam%rstar_disk ! [cMpc/h]
+   sky_galaxy%rstar_bulge_intrinsic = sam%rstar_bulge ! [cMpc/h]
+   sky_galaxy%rgas_disk_intrinsic = sam%rgas_disk ! [cMpc/h]
+   sky_galaxy%rgas_bulge_intrinsic = sam%rgas_bulge ! [cMpc/h]
+ 
+   if(sam%mgas_disk > 0) then 
+      sky%zgas_disk   = sam%mgas_metals_disk / sam%mgas_disk
+   else 
+      sky%zgas_disk   = 0
+   end if 
+   if(sam%mgas_bulge > 0) then 
+      sky%zgas_bulge  = sam%mgas_metals_bulge/ sam%mgas_bulge
+   else 
+      sky%zgas_bulge  = 0
+   end if
+     
+   ! APPARENT PROPERTIES
+   
+   ! inclination and position angle
+   call sph2car(sky_galaxy%dc,sky_galaxy%ra,sky_galaxy%dec,pos)
+   elos = pos/norm(pos) ! position vector
+   call make_inclination_and_pa(pos,sky_galaxy%J,inclination=sky_galaxy%inclination,pa=sky_galaxy%pa)
+   
+   ! rough generic optical magnitude
+   dl = sky_galaxy%dc*(1+sky_galaxy%zobs) ! [Mpc/h]
+   mstars = (sam%mstars_disk+sam%mstars_bulge)/para%h ! [Msun]
+   sky_galaxy%mag = convert_absmag2appmag(convert_stellarmass2absmag(mstars,1.0),dl/para%h)
+   
+   ! HI flux
+   mHI = (sam%matom_disk+sam%matom_bulge)/1.35/para%h ! [Msun] HI mass
+   sky_galaxy%SHI = convert_luminosity2flux(real(mHI,8)*real(L2MHI,8)*Lsun,dl/para%h)
+      
+   ! apparent radii (note division by comoving distance, because intrinsic radii given in comoving units)
+   sky_galaxy%rstar_disk_apparent = sam%rstar_disk/sky_galaxy%dc/degree*3600.0 ! [arcsec]
+   sky_galaxy%rstar_bulge_apparent = sam%rstar_bulge/sky_galaxy%dc/degree*3600.0 ! [arcsec]
+   sky_galaxy%rgas_disk_apparent = sam%rgas_disk/sky_galaxy%dc/degree*3600.0 ! [arcsec]
+   sky_galaxy%rgas_bulge_apparent = sam%rgas_bulge/sky_galaxy%dc/degree*3600.0 ! [arcsec]
+   
+end subroutine make_sky_galaxy
+
+subroutine make_sky_group(sky_group,sam,sky_galaxy,selected,base,groupid,group_nselected)
+
+   ! the first object in sam, sky_galaxy, selected is the central galaxy of the group;
+   ! sky_galaxy only exists for selected objects
+
+   implicit none
+   class(type_sky_group),intent(out)   :: sky_group
+   type(type_sam),intent(in)           :: sam(:)
+   type(type_sky_galaxy),intent(in)    :: sky_galaxy(:)
+   logical,intent(in)                  :: selected(:)
+   type(type_base),intent(in)          :: base                 ! basic properties of the position of this galaxy in the sky
+   integer*8,intent(in)                :: groupid              ! unique group in sky index
+   integer*4,intent(in)                :: group_nselected
+   
+   integer*4                           :: i,n,count
+   real*4                              :: dv,v0(3),vr
+   
+   call nil(sky_group,sam(1),sky_galaxy(1),selected(1),base,groupid,group_nselected) ! dummy statement to avoid compiler warnings
+   
+   ! base properties
+   call make_sky_object(sky_group,sam(1),base,groupid)
+   
+   ! basic halo properties
+   sky_group%mvir          = sam(1)%mvir_hosthalo
+   sky_group%vvir          = sam(1)%vvir_hosthalo
+   sky_group%vmax          = sam(1)%vmax_subhalo
+   sky_group%cnfw          = sam(1)%cnfw_subhalo
+   
+   ! group properties
+   sky_group%group_ntot    = base%group_ntot
+   sky_group%group_flag    = base%group_flag
+   sky_group%group_nsel    = group_nselected
+   
+   ! 3D velocity dispersion of all galaxies in group, whether selected or not
+   n = size(selected)
+   v0 = 0
+   do i = 1,n
+      v0 = v0+sam(i)%velocity
+   end do
+   v0 = v0/n
+   dv = 0
+   do i = 1,n
+      dv = dv+sum((sam(i)%velocity-v0)**2)
+   end do
+   sky_group%sigma_3d_all = sqrt(dv/(n-1)) ! [km/s] velocity dispersion (std)
+   
+   ! 1D velocity dispersion along the line-of-sight of selected objects only
+   count = 0
+   if (group_nselected>=2) then
+      vr = 0
+      do i = 1,n
+         if (selected(i)) vr = vr+sky_galaxy(i)%vpecrad
+      end do
+      vr = vr/group_nselected
+      dv = 0
+      do i = 1,n
+         if (selected(i)) then
+            dv = dv+(sky_galaxy(i)%vpecrad-vr)**2
+            count = count+1
+         end if
+      end do
+      if (count.ne.group_nselected) call error('count.ne.group_nselected')
+      sky_group%sigma_los_detected = sqrt(dv/(group_nselected-1)) ! standard deviation
+   else
+      sky_group%sigma_los_detected = 0
+   end if
+   
+end subroutine make_sky_group
 
 
 ! ==============================================================================================================
@@ -531,6 +546,9 @@ subroutine load_sam_snapshot(index,subindex,sam)
    call hdf5_read_data(g//'mvir_hosthalo',sam%mvir_hosthalo)
    call hdf5_read_data(g//'mvir_subhalo',sam%mvir_subhalo)
    call hdf5_read_data(g//'cnfw_subhalo',sam%cnfw_subhalo)
+   call hdf5_read_data(g//'vvir_subhalo',sam%vvir_subhalo)
+   call hdf5_read_data(g//'vmax_subhalo',sam%vmax_subhalo)
+   call hdf5_read_data(g//'vvir_hosthalo',sam%vvir_hosthalo)
    
    ! assign other properties
    sam%snapshot = index
@@ -583,12 +601,11 @@ subroutine make_hdf5
    character(len=255)                  :: filename_hdf5
    type(type_sky_galaxy),allocatable   :: sky_galaxy(:)
    type(type_sky_group),allocatable    :: sky_group(:)
-   integer*8                           :: n,i
+   integer*8                           :: n,i,n_galaxies,n_groups
    character(len=255)                  :: name,str
    character(len=255)                  :: filename
    character(len=255)                  :: shark_version,shark_git_revision,shark_timestamp
    real*8                              :: test(10),expected_sum
-   integer*8                           :: empty_int8
    real*4                              :: n_replica_mean
    integer*4                           :: n_replica_max
    
@@ -607,12 +624,6 @@ subroutine make_hdf5
    call hdf5_read_data('/run_info/shark_git_revision',shark_git_revision)
    call hdf5_read_data('/run_info/timestamp',shark_timestamp)
    call hdf5_close()
-   
-   ! load auxiliary data on replication
-   filename = trim(para%path_output)//'mocksky_intrinsic.bin'
-   open(1,file=trim(filename),action='read',form='unformatted',status='old',access='stream')
-   read(1) empty_int8,n_replica_mean,n_replica_max ! number of galaxies
-   close(1)
    
    ! create HDF5 file
    filename_hdf5 = trim(para%path_output)//'mocksky.hdf5'
@@ -661,7 +672,8 @@ subroutine make_hdf5
    name = 'galaxies'
    filename_bin = trim(para%path_output)//'mocksky_galaxies.bin'
    open(1,file=trim(filename_bin),action='read',form='unformatted',access='stream')
-   read(1) n
+   read(1) n,n_replica_mean,n_replica_max
+   n_galaxies = n
    allocate(sky_galaxy(n))
    read(1) sky_galaxy
    close(1)
@@ -686,20 +698,42 @@ subroutine make_hdf5
    call hdf5_write_data(trim(name)//'/mag',sky_galaxy%mag, &
    & 'apparent magnitude (generic: M/L ratio of 1, no k-correction)')
    call hdf5_write_data(trim(name)//'/s_hi',sky_galaxy%SHI,'[W/m^2] integrated HI line flux')
-   call hdf5_write_data(trim(name)//'/vpecrad',sky_galaxy%vpecrad,'[proper km/s] radial peculiar velocity')
-   call hdf5_write_data(trim(name)//'/mstars',sky_galaxy%mstars,'[Msun/h] stellar mass')
-   call hdf5_write_data(trim(name)//'/mvir_hosthalo',sky_galaxy%mvir_hosthalo,'[Msun/h] host halo mass')
-   call hdf5_write_data(trim(name)//'/mvir_subhalo',sky_galaxy%mvir_subhalo,'[Msun/h] subhalo mass')
-   call hdf5_write_data(trim(name)//'/rstar_disk',sky_galaxy%rstar_disk,'[arcsec] half-mass radius of stellar disk')
-   call hdf5_write_data(trim(name)//'/rstar_bulge',sky_galaxy%rstar_bulge,'[arcsec] half-mass radius of stellar bulge')
-   call hdf5_write_data(trim(name)//'/rgas_disk',sky_galaxy%rgas_disk,'[arcsec] half-mass radius of gas disk')
-   call hdf5_write_data(trim(name)//'/sfr_disk',sky_galaxy%sfr_disk,'[Msun/Gyr/h] star formation rate in the disk')
-   call hdf5_write_data(trim(name)//'/sfr_burst',sky_galaxy%sfr_burst,'[Msun/Gyr/h] star formation rate in the bulge')
-   call hdf5_write_data(trim(name)//'/zgas_disk',sky_galaxy%zgas_disk,'metallicity of the gas in the disk')
-   call hdf5_write_data(trim(name)//'/zgas_bulge',sky_galaxy%zgas_bulge,'metallicity of the gas in the bulge')
+   call hdf5_write_data(trim(name)//'/vpec_x',sky_galaxy%vpec(1),'[proper km/s] x-component of peculiar velocity')
+   call hdf5_write_data(trim(name)//'/vpec_y',sky_galaxy%vpec(2),'[proper km/s] y-component of peculiar velocity')
+   call hdf5_write_data(trim(name)//'/vpec_z',sky_galaxy%vpec(3),'[proper km/s] z-component of peculiar velocity')
+   call hdf5_write_data(trim(name)//'/vpec_r',sky_galaxy%vpecrad,'[proper km/s] line-of-sight peculiar velocity')
+   call hdf5_write_data(trim(name)//'/mstars_disk',sky_galaxy%mstars_disk,'[Msun/h] stellar mass in the disk')
+   call hdf5_write_data(trim(name)//'/mstars_bulge',sky_galaxy%mstars_bulge,'[Msun/h] stellar mass in the bulge')
+   call hdf5_write_data(trim(name)//'/mgas_disk',sky_galaxy%mgas_disk,'[Msun/h] gas mass in the disk')
+   call hdf5_write_data(trim(name)//'/msgas_bulge',sky_galaxy%mgas_bulge,'[Msun/h] gas mass in the bulge')
+   call hdf5_write_data(trim(name)//'/matom_disk',sky_galaxy%matom_disk,'[Msun/h] atomic gas mass in the disk')
+   call hdf5_write_data(trim(name)//'/matom_bulge',sky_galaxy%matom_bulge,'[Msun/h] atomic mass in the bulge')
    call hdf5_write_data(trim(name)//'/mmol_disk',sky_galaxy%mmol_disk,'[Msun/h] molecular gas mass in the disk')
    call hdf5_write_data(trim(name)//'/mmol_bulge',sky_galaxy%mmol_bulge,'[Msun/h] molecular gas mass in the bulge')
+   call hdf5_write_data(trim(name)//'/l_x',sky_galaxy%J(1),'[Msun pMpc km/s] x-component of total angular momentum')
+   call hdf5_write_data(trim(name)//'/l_y',sky_galaxy%J(2),'[Msun pMpc km/s] y-component of total angular momentum')
+   call hdf5_write_data(trim(name)//'/l_z',sky_galaxy%J(3),'[Msun pMpc km/s] z-component of total angular momentum')
+   call hdf5_write_data(trim(name)//'/mvir_hosthalo',sky_galaxy%mvir_hosthalo,'[Msun/h] host halo mass')
+   call hdf5_write_data(trim(name)//'/mvir_subhalo',sky_galaxy%mvir_subhalo,'[Msun/h] subhalo mass')
+   call hdf5_write_data(trim(name)//'/zgas_disk',sky_galaxy%zgas_disk,'metallicity of the gas in the disk')
+   call hdf5_write_data(trim(name)//'/zgas_bulge',sky_galaxy%zgas_bulge,'metallicity of the gas in the bulge')
 
+   call hdf5_write_data(trim(name)//'/rstar_disk_apparent',sky_galaxy%rstar_disk_apparent,&
+   &'[arcsec] apparent half-mass radius of stellar disk')
+   call hdf5_write_data(trim(name)//'/rstar_bulge_apparent',sky_galaxy%rstar_bulge_apparent,&
+   &'[arcsec] apparent half-mass radius of stellar bulge')
+   call hdf5_write_data(trim(name)//'/rgas_disk_apparent',sky_galaxy%rgas_disk_apparent,&
+   &'[arcsec] apparent half-mass radius of gas disk')
+   call hdf5_write_data(trim(name)//'/rgas_bulge_apparent',sky_galaxy%rgas_bulge_apparent,&
+   &'[arcsec] apparent half-mass radius of gas bulge')
+   call hdf5_write_data(trim(name)//'/rstar_disk_intrinsic',sky_galaxy%rstar_disk_intrinsic,&
+   &'[cMpc/h] intrinsic half-mass radius of stellar disk')
+   call hdf5_write_data(trim(name)//'/rstar_bulge_intrinsic',sky_galaxy%rstar_bulge_intrinsic,&
+   &'[cMpc/h] intrinsic half-mass radius of stellar bulge')
+   call hdf5_write_data(trim(name)//'/rgas_disk_intrinsic',sky_galaxy%rgas_disk_intrinsic,&
+   &'[cMpc/h] intrinsic half-mass radius of gas disk')
+   call hdf5_write_data(trim(name)//'/rgas_bulge_intrinsic',sky_galaxy%rgas_bulge_intrinsic,&
+   &'[cMpc/h] intrinsic half-mass radius of gas bulge')
    test(1) = n
    test(3) = sum(sky_galaxy%tile)
    test(4) = sum(sky_galaxy%inclination)
@@ -711,6 +745,7 @@ subroutine make_hdf5
    filename_bin = trim(para%path_output)//'mocksky_groups.bin'
    open(1,file=trim(filename_bin),action='read',form='unformatted',access='stream')
    read(1) n
+   n_groups = n
    allocate(sky_group(n))
    read(1) sky_group
    close(1)
@@ -724,13 +759,21 @@ subroutine make_hdf5
    call hdf5_write_data(trim(name)//'/dc',sky_group%dc,'[Mpc/h] comoving distance')
    call hdf5_write_data(trim(name)//'/ra',sky_group%ra/degree,'[deg] right ascension')
    call hdf5_write_data(trim(name)//'/dec',sky_group%dec/degree,'[deg] declination')
-   call hdf5_write_data(trim(name)//'/id_group',sky_group%id_group,'unique parent halo ID in mock sky')
+   call hdf5_write_data(trim(name)//'/vpec_x',sky_group%vpec(1),'[proper km/s] x-component of peculiar velocity')
+   call hdf5_write_data(trim(name)//'/vpec_y',sky_group%vpec(2),'[proper km/s] y-component of peculiar velocity')
+   call hdf5_write_data(trim(name)//'/vpec_z',sky_group%vpec(3),'[proper km/s] z-component of peculiar velocity')
+   call hdf5_write_data(trim(name)//'/vpec_r',sky_group%vpecrad,'[proper km/s] line-of-sight peculiar velocity')
+   call hdf5_write_data(trim(name)//'/sigma_3d_all',sky_group%sigma_3d_all,&
+   &'[proper km/s] 3D peculiar velocity dispersion of ALL group members, including non-detections')
+   call hdf5_write_data(trim(name)//'/sigma_los_detected',sky_group%sigma_los_detected,&
+   &'[proper km/s] line-of-sight peculiar velocity dispersion of detected group members')
+   call hdf5_write_data(trim(name)//'/id_group_sky',sky_group%id_group_sky,'unique parent halo ID in mock sky')
    call hdf5_write_data(trim(name)//'/id_halo_sam',sky_group%id_halo_sam,'parent halo ID in SAM')
    call hdf5_write_data(trim(name)//'/mvir',sky_group%mvir,'[Msun/h] virial mass')
    call hdf5_write_data(trim(name)//'/n_galaxies_total',sky_group%group_ntot, &
    & 'total number of galaxies that live in the same group (host halo)')
    call hdf5_write_data(trim(name)//'/n_galaxies_selected',sky_group%group_nsel, &
-   & 'number of galaxies that live in the same group (host halo) and are present in the mock survey')
+   & 'number of galaxies that live in the same group (host halo) and are present in the mock sky')
    call hdf5_write_data(trim(name)//'/flag',sky_group%group_flag, &
    & 'group flag (0 if group complete, >0 if truncated by survey edge (+1), snapshot limit (+2), tile edge (+4))')
    test(6) = sum(sky_group%tile)
@@ -758,14 +801,14 @@ subroutine make_hdf5
    ! Group "runInfo"
    call hdf5_add_group('run_info')
    call hdf5_write_data('run_info/survey_name',para%survey)
-   call hdf5_write_data('run_info/stingray_version',version,'Version of Stingray used to produce this mock survey')
-   call hdf5_write_data('run_info/shark_version',trim(shark_version),'Version of Shark used to produce this mock survey')
+   call hdf5_write_data('run_info/stingray_version',version,'Version of Stingray used to produce this mock sky')
+   call hdf5_write_data('run_info/shark_version',trim(shark_version),'Version of Shark used to produce this mock sky')
    call hdf5_write_data('run_info/shark_git_revision',trim(shark_git_revision),'Git revision of shark used to produce this data')
    call hdf5_write_data('run_info/shark_timestamp',trim(shark_timestamp),'Time at which this shark execution started')
-   call hdf5_write_data('run_info/n_replica_mean',n_replica_mean,'Mean number a galaxy was replicated in the intrinsic cone '&
-   &//'(before selection by apparent properties)')
-   call hdf5_write_data('run_info/n_replica_max',n_replica_max,'Maximum number a galaxy was replicated in the intrinsic cone '&
-   &//'(before selection by apparent properties)')
+   call hdf5_write_data('run_info/n_replica_mean',n_replica_mean,'Mean number a galaxy was replicated in the mock sky)')
+   call hdf5_write_data('run_info/n_replica_max',n_replica_max,'Maximum number a galaxy was replicated in the mock sky')
+   call hdf5_write_data('run_info/n_galaxies',n_galaxies,'Total number of galaxies in the mock sky')
+   call hdf5_write_data('run_info/n_groups',n_groups,'Total number of groups in the mock sky')
    
    ! Group "Snapshots"
    call hdf5_add_group('snapshots')
@@ -800,4 +843,4 @@ end subroutine make_hdf5
    
 end subroutine custom_routines
 
-end module module_user
+end module module_user_routines

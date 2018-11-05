@@ -3,10 +3,9 @@ program surfsuite
    use module_constants
    use module_system
    use module_types
-   use module_user
+   use module_user_routines
    use module_parameters
    use module_tiling
-   use module_positioning
    use module_sky
 
    implicit none
@@ -80,13 +79,10 @@ program surfsuite
    select case (trim(arg_task))
    case ('make_all')
       call make_tiling
-      call make_positioning
       call make_sky
       call custom_routines('my_additions_to_make_all','',success)
    case ('make_tiling')
       call make_tiling
-   case ('make_positioning')
-      call make_positioning
    case ('make_sky')
       call make_sky
       call custom_routines('my_additions_to_make_all','',success)

@@ -9,4 +9,8 @@
 #SBATCH --mem=50GB
 
 
-./stingray make_all -parameterfile parameters-gama.txt
+module load hdf5/1.10.2
+module load gfortran/6.3.0
+module load gcc/6.3.0
+
+./stingray make_all -parameterfile parameters-test.txt

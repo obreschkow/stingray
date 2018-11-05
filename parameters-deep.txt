@@ -3,7 +3,7 @@
 # the parameter file takes priority.
 
 # Name of mock survey
-name                    deep-optical
+survey                    deep-optical
 
 # Paths
 #path_output             /Users/do/Data/SURFS/stingray/shark/output/

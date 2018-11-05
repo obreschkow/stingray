@@ -5,7 +5,7 @@ module module_parameters
    use module_types
    use module_io
    use module_linalg
-   use module_user
+   use module_user_routines
    
    private
    public   :: make_parameters, load_paths
