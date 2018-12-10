@@ -80,7 +80,7 @@ subroutine make_sky
    n_groups_tot = 0
    n_distinct_galaxies = 0
    n_replica_max = 0
-   !$OMP PARALLEL PRIVATE(itile,sam,sam_sel,sam_replica)
+   !$OMP PARALLEL PRIVATE(itile,sam,sam_sel,sam_replica,n_galaxies,n_groups)
    !$OMP DO SCHEDULE(DYNAMIC)
    do i = 1,nsub
       if (snapshot(index(i,1))%n_replication>0) then
@@ -126,13 +126,8 @@ subroutine make_sky
    
    ! check number of galaxies
    if (n_galaxies_tot==0) then
-      !call error('No galaxy in sky. Consider widening the sky geometry or relaxing the selection criteria.')
+      call error('No galaxy in sky. Consider widening the sky geometry or relaxing the selection criteria.')
    end if
-   
-   ! add number of objects to beginning of file
-   !open(1,file=trim(filename_sky_intrinsic),action='write',form='unformatted',status='old',access='stream')
-   !write(1,pos=1) n_galaxies_tot,real(real(n_galaxies_tot,8)/n_distinct_galaxies,4),n_replica_max
-   !close(1) 
    
    ! add number of objects to beginning of file & close files
    n_replica_mean = real(real(n_galaxies_tot,8)/n_distinct_galaxies,4)

@@ -14,10 +14,10 @@ path_input              /Users/do/Data/SURFS/stingray/shark/input/
 # Snapshot parameters
 L                       auto           [length_unit] side-length of simulation box
 length_unit             auto           [m] SI-value of comoving length unit, here Mpc/h
-snapshot_min            auto
-snapshot_max            auto
+snapshot_min            120
+snapshot_max            199
 subvolume_min           auto
-subvolume_max           auto
+subvolume_max           0
 
 # Cosmology
 h                       auto           [-] Hubble parameter H0=h*100 km/s/Mpc

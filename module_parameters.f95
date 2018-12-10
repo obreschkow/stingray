@@ -297,7 +297,12 @@ subroutine load_paths(parameter_filename_custom)
    else
       parameter_filename = get_parameter_filename_default()
    end if
-   call check_exists(parameter_filename)
+   
+   if (.not.exists(parameter_filename,.true.)) then
+      write(*,*) 'ERROR: parameter file does not exist. Please update the variable parameter_filename_default'
+      write(*,*) '       in the user module or specify a correct filename using the option -parameterfile.'
+      stop
+   end if
    
    para%path_output = ''
    para%path_input = ''

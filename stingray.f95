@@ -1,4 +1,4 @@
-program surfsuite
+program stingray
 
    use module_constants
    use module_system
@@ -106,4 +106,4 @@ program surfsuite
       stop
    end subroutine task_version
     
-end program surfsuite
+end program stingray
