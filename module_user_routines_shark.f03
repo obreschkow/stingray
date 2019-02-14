@@ -35,7 +35,7 @@ public :: custom_routines
 ! "parameterfile"
 
 character(len=255),parameter  :: parameter_filename_default = &
-   & '/Users/do/Dropbox/Code/Fortran/stingray/parameters.txt'
+   & '/Users/do/Dropbox/Code/Fortran/stingray/stingray/parameters.txt'
 
 
 ! ==============================================================================================================

@@ -1,0 +1,80 @@
+OVERVIEW
+====================================================================================================================
+
+Stingray is a suite of Fortran routines to produce mock observing cones from semi-analytic models (SAMs).
+
+V0.1 13/03/2018: First release
+V0.6 09/10/2018: Various bug fixes
+V0.7 26/10/2018: Separated user-module into a two modules for routines and selection function;
+                 Added selection by "apparent mass" to reduce the amount of data in the positioning step
+                 Added a correction of group positions that were 'wrapped away' from all group members
+V0.8 10/12/2018: Fixed bug with galaxy counting in multi-threading mode
+
+Copyright Danail Obreschkow (danail.obreschkow@icrar.org)
+
+
+GETTING STARTED
+====================================================================================================================
+
+1) Make sure gfortran is installed (code tested for gfortran 4.4.7 and 5.0.0)
+
+2) In terminal, download Stingray
+   > git clone https://github.com/obreschkow/stingray
+   
+3) Got to Stingray directory
+   > cd stingray
+   
+3) Compile the code by typing
+   > make
+   In case of compiler issues modify the makefile.
+   
+4) Run test code by typing:
+   > ./stingray -test
+   The test should end with a summary of the computation speed. On a modern laptop, it should take less
+   than 10s.
+   
+5) Produce mock observing cone
+   > ./stingray make.all
+   
+6) In R, set the variable path.output to the same as path_output in the parameter-file.
+
+7) Display the cone in R
+   > ...
+   
+   
+PROCESS NEW GALAXY DATA
+====================================================================================================================
+
+1) Edit parameter.txt
+
+2) Edit module_user.f90
+
+3) Produce mock observing cone
+   > ./stingray make.all
+   
+4) e.g. display cone in R
+
+
+ARGUMENTS
+====================================================================================================================
+
+Generally, Stingray is called as
+> ./stingray routine [-option argument] [-option argument] ...
+
+The routines to choose from are
++ make.geometry
++ make.cone.intrinsic
++ make.cone.apparent
++ make.all = previous three together
++ make.fake.data
+
+Optional arguments:
+
+-parameterfile (default parameters.txt): path+filename of parameter-file
+
+-logfile (default none) allows the user to specify a path+filename for the screen-log, which is particularly usefull
+ if the code is executed using a queueing system
+ 
+-version: returns the version of SurfSuite
+
+-ngalaxies (default 100): used only by make.fake.data, number of galaxies per snapshot

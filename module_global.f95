@@ -1,7 +1,5 @@
 module module_global
 
-character(*),parameter  :: version = '0.1'
-
 type type_para
 
    ! file names
