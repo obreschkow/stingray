@@ -9,6 +9,7 @@ V0.7 26/10/2018: Separated user-module into a two modules for routines and selec
                  Added selection by "apparent mass" to reduce the amount of data in the positioning step
                  Added a correction of group positions that were 'wrapped away' from all group members
 V0.8 10/12/2018: Fixed bug with galaxy counting in multi-threading mode
+V0.9 26/02/2019: Updated HDF5 module for increased flexibility with data type conversions
 
 Copyright Danail Obreschkow (danail.obreschkow@icrar.org)
 
