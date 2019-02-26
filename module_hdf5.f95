@@ -1,7 +1,8 @@
 module module_hdf5
 
+   ! Fortran HDF5 Module by Danail Obreschkow 2019
+
    use hdf5
-   use module_system
    
    private 
    public   :: hdf5_create, hdf5_open, hdf5_close
@@ -10,11 +11,11 @@ module module_hdf5
    public   :: hdf5_read_data, hdf5_write_data
 
    interface hdf5_read_data
+      module procedure read_dataset_0d_string
       module procedure read_dataset_0d_int4
       module procedure read_dataset_0d_int8
       module procedure read_dataset_0d_real4
       module procedure read_dataset_0d_real8
-      module procedure read_dataset_0d_string
       module procedure read_dataset_1d_int4
       module procedure read_dataset_1d_int8
       module procedure read_dataset_1d_real4
@@ -36,7 +37,31 @@ module module_hdf5
    
    integer(hid_t) :: file_id
    
+   integer*4,allocatable   :: i4(:)
+   integer*8,allocatable   :: i8(:)
+   real*4,allocatable      :: r4(:)
+   real*8,allocatable      :: r8(:)
+   
 contains
+
+   function exists(filename,do_not_stop) result(res)
+      implicit none
+      character(len=*),intent(in)   :: filename
+      logical,intent(in),optional   :: do_not_stop
+      logical                       :: res
+      inquire(file=trim(filename), exist=res)
+      if ((.not.res).and.(.not.present(do_not_stop))) then
+         write(*,'(A)') 'HDF5 ERROR: File does not exist: '//trim(filename)
+         stop
+      end if
+   end function exists
+   
+   subroutine error(txt)
+      implicit none
+      character(*),intent(in) :: txt
+      write(*,'(A)') 'HDF5 ERROR: '//txt
+      stop
+   end subroutine error
 
    subroutine hdf5_open(filename,write_access) ! opens an existing HDF5 file for read and write
    
@@ -45,7 +70,7 @@ contains
       logical,optional,intent(in)   :: write_access
       integer*4                     :: status
       logical                       :: wa
-      
+              
       wa = .false.
       if (present(write_access)) then
          wa = write_access
@@ -95,23 +120,22 @@ contains
       call h5close_f(status) ! Close the Fortran interface
       
    end subroutine hdf5_close
-
+   
    integer*8 function hdf5_dataset_size(dataset)
    
       implicit none
-      character(*),intent(in)    :: dataset
-      integer*4                  :: err
-      integer(hid_t)             :: dataset_id
-      integer(hid_t)             :: type_id
-      integer(hsize_t)           :: size,bytespervar
+      character(*),intent(in)          :: dataset
+      integer*4                        :: err,rankr
+      integer(hid_t)                   :: dataset_id
+      integer(hid_t)                   :: dataspace
+      integer(hsize_t), dimension(2)   :: dimsr, maxdimsr
    
-      ! determine number of galaxies
       call h5dopen_f(file_id, dataset, dataset_id, err) ! Open dataset
-      call h5dget_storage_size_f(dataset_id, size, err)
-      call h5dget_type_f(dataset_id, type_id, err)
-      call h5tget_size_f(type_id, bytespervar, err)
-      call h5dclose_f(dataset_id, err) ! Terminate access to the dataset
-      hdf5_dataset_size = size/bytespervar
+      call h5dget_space_f(dataset_id, dataspace, err)
+      call h5sget_simple_extent_ndims_f(dataspace, rankr, err)
+      call h5sget_simple_extent_dims_f(dataspace, dimsr, maxdimsr, err)
+      call h5dclose_f(dataset_id, err)
+      hdf5_dataset_size = dimsr(1)
       
    end function hdf5_dataset_size
    
@@ -328,75 +352,18 @@ contains
    ! subroutines used by interface hdf5_read_dataset
    ! ===========================================================================================================
    
-   subroutine read_dataset_0d_int4(dataset, dat)
-   
-      implicit none
-      character(*),intent(in)    :: dataset
-      integer*4,intent(inout)    :: dat
-      integer*4                  :: err
-      integer(hsize_t)           :: size(2)
-      integer(hid_t)             :: dataset_id
-      
-      call h5dopen_f(file_id, dataset, dataset_id, err)
-      call h5dread_f(dataset_id, get_mem_type_id(dataset_id,'int*4'), dat, size, err)
-      call h5dclose_f(dataset_id, err)
-   
-   end subroutine read_dataset_0d_int4
-   
-   subroutine read_dataset_0d_int8(dataset, dat)
-   
-      implicit none
-      character(*),intent(in)    :: dataset
-      integer*8,intent(inout)    :: dat
-      integer*4                  :: err
-      integer(hsize_t)           :: size(2)
-      integer(hid_t)             :: dataset_id
-      
-      call h5dopen_f(file_id, dataset, dataset_id, err)
-      call h5dread_f(dataset_id, get_mem_type_id(dataset_id,'int*8'), dat, size, err)
-      call h5dclose_f(dataset_id, err)
-   
-   end subroutine read_dataset_0d_int8
-   
-   subroutine read_dataset_0d_real4(dataset, dat)
-   
-      implicit none
-      character(*),intent(in)    :: dataset
-      real*4,intent(inout)       :: dat
-      integer*4                  :: err
-      integer(hsize_t)           :: size(2)
-      integer(hid_t)             :: dataset_id
-      
-      call h5dopen_f(file_id, dataset, dataset_id, err)
-      call h5dread_f(dataset_id, get_mem_type_id(dataset_id,'real*4'), dat, size, err)
-      call h5dclose_f(dataset_id, err)
-   
-   end subroutine read_dataset_0d_real4
-   
-   subroutine read_dataset_0d_real8(dataset, dat)
-   
-      implicit none
-      character(*),intent(in)    :: dataset
-      real*8,intent(inout)       :: dat
-      integer*4                  :: err
-      integer(hsize_t)           :: size(2)
-      integer(hid_t)             :: dataset_id
-      
-      call h5dopen_f(file_id, dataset, dataset_id, err)
-      call h5dread_f(dataset_id, get_mem_type_id(dataset_id,'real*8'), dat, size, err)
-      call h5dclose_f(dataset_id, err)
-   
-   end subroutine read_dataset_0d_real8
-   
-   subroutine read_dataset_0d_string(dataset, dat)
+   subroutine read_dataset_0d_string(dataset, dat, convert)
    
       implicit none
       character(*),intent(in)       :: dataset
       character(255),intent(inout)  :: dat
+      logical,intent(in),optional   :: convert
       integer*4                     :: err,hdferr
       integer(hsize_t)              :: size(2)
       integer(hid_t)                :: dataset_id,filetype
       integer*8                     :: n(1)
+      
+      if (present(convert)) call error('String variables cannot be converted in HDF5.')
       
       n(1) = 255
       
@@ -408,73 +375,199 @@ contains
    
    end subroutine read_dataset_0d_string
    
-   subroutine read_dataset_1d_int4(dataset, dat)
+   subroutine read_dataset_0d_int4(dataset, dat, convert)
    
       implicit none
-      character(*),intent(in)    :: dataset
-      integer*4,intent(inout)    :: dat(:)
-      integer*4                  :: err
-      integer(hsize_t)           :: size(2)
-      integer(hid_t)             :: dataset_id
+      character(*),intent(in)          :: dataset
+      integer*4,intent(inout)          :: dat
+      logical,intent(in),optional      :: convert
+      character(2),parameter           :: expected_type = 'i4'
       
-      call h5dopen_f(file_id, dataset, dataset_id, err)
-      call h5dread_f(dataset_id, get_mem_type_id(dataset_id,'int*4'), dat, size, err)
-      call h5dclose_f(dataset_id, err)
+      call read_numeric(dataset, 1, expected_type, convert)
+      dat = i4(1)
+      deallocate(i4)
+      
+   end subroutine read_dataset_0d_int4
    
+   subroutine read_dataset_0d_int8(dataset, dat, convert)
+   
+      implicit none
+      character(*),intent(in)          :: dataset
+      integer*8,intent(inout)          :: dat
+      logical,intent(in),optional      :: convert
+      character(2),parameter           :: expected_type = 'i8'
+      
+      call read_numeric(dataset, 1, expected_type, convert)
+      dat = i8(1)
+      deallocate(i8)
+      
+   end subroutine read_dataset_0d_int8
+   
+   subroutine read_dataset_0d_real4(dataset, dat, convert)
+   
+      implicit none
+      character(*),intent(in)          :: dataset
+      real*4,intent(inout)             :: dat
+      logical,intent(in),optional      :: convert
+      character(2),parameter           :: expected_type = 'r4'
+      
+      call read_numeric(dataset, 1, expected_type, convert)
+      dat = r4(1)
+      deallocate(r4)
+      
+   end subroutine read_dataset_0d_real4
+   
+   subroutine read_dataset_0d_real8(dataset, dat, convert)
+   
+      implicit none
+      character(*),intent(in)          :: dataset
+      real*8,intent(inout)             :: dat
+      logical,intent(in),optional      :: convert
+      character(2),parameter           :: expected_type = 'r8'
+      
+      call read_numeric(dataset, 1, expected_type, convert)
+      dat = r8(1)
+      deallocate(r8)
+      
+   end subroutine read_dataset_0d_real8
+   
+   subroutine read_dataset_1d_int4(dataset, dat, convert)
+   
+      implicit none
+      character(*),intent(in)          :: dataset
+      integer*4,intent(inout)          :: dat(:)
+      logical,intent(in),optional      :: convert
+      character(2),parameter           :: expected_type = 'i4'
+      
+      call read_numeric(dataset, int(size(dat),4), expected_type, convert)
+      dat = i4
+      deallocate(i4)
+      
    end subroutine read_dataset_1d_int4
    
-   subroutine read_dataset_1d_int8(dataset, dat)
+   subroutine read_dataset_1d_int8(dataset, dat, convert)
    
       implicit none
-      character(*),intent(in)    :: dataset
-      integer*8,intent(inout)    :: dat(:)
-      integer*4                  :: err
-      integer(hsize_t)           :: size(2)
-      integer(hid_t)             :: dataset_id
+      character(*),intent(in)          :: dataset
+      integer*8,intent(inout)          :: dat(:)
+      logical,intent(in),optional      :: convert
+      character(2),parameter           :: expected_type = 'i8'
       
-      call h5dopen_f(file_id, dataset, dataset_id, err)
-      call h5dread_f(dataset_id, get_mem_type_id(dataset_id,'int*8'), dat, size, err)
-      call h5dclose_f(dataset_id, err)
-   
+      call read_numeric(dataset, int(size(dat),4), expected_type, convert)
+      dat = i8
+      deallocate(i8)
+      
    end subroutine read_dataset_1d_int8
    
-   subroutine read_dataset_1d_real4(dataset, dat)
+   subroutine read_dataset_1d_real4(dataset, dat, convert)
    
       implicit none
-      character(*),intent(in)    :: dataset
-      real*4,intent(inout)       :: dat(:)
-      integer*4                  :: err
-      integer(hsize_t)           :: size(2)
-      integer(hid_t)             :: dataset_id
+      character(*),intent(in)          :: dataset
+      real*4,intent(inout)             :: dat(:)
+      logical,intent(in),optional      :: convert
+      character(2),parameter           :: expected_type = 'r4'
       
-      call h5dopen_f(file_id, dataset, dataset_id, err)
-      call h5dread_f(dataset_id, get_mem_type_id(dataset_id,'real*4'), dat, size, err)
-      call h5dclose_f(dataset_id, err)
-   
+      call read_numeric(dataset, int(size(dat),4), expected_type, convert)
+      dat = r4
+      deallocate(r4)
+      
    end subroutine read_dataset_1d_real4
    
-   subroutine read_dataset_1d_real8(dataset, dat)
+   subroutine read_dataset_1d_real8(dataset, dat, convert)
    
       implicit none
-      character(*),intent(in)    :: dataset
-      real*8,intent(inout)       :: dat(:)
-      integer*4                  :: err
-      integer(hsize_t)           :: size(2)
-      integer(hid_t)             :: dataset_id
+      character(*),intent(in)          :: dataset
+      real*8,intent(inout)             :: dat(:)
+      logical,intent(in),optional      :: convert
+      character(2),parameter           :: expected_type = 'r8'
       
-      call h5dopen_f(file_id, dataset, dataset_id, err)
-      call h5dread_f(dataset_id, get_mem_type_id(dataset_id,'real*8'), dat, size, err)
-      call h5dclose_f(dataset_id, err)
-   
+      call read_numeric(dataset, int(size(dat),4), expected_type, convert)
+      dat = r8
+      deallocate(r8)
+      
    end subroutine read_dataset_1d_real8
    
-   integer(hid_t) function get_mem_type_id(dataset_id, expected_fortran_type)
+   subroutine read_numeric(dataset, n, expected_type, convert)
+   
+      character(*),intent(in)             :: dataset
+      integer*4,intent(in)                :: n
+      character(2),intent(in)             :: expected_type
+      logical,intent(in),optional         :: convert
+      character(2)                        :: detected_type
+      integer*4                           :: err
+      integer(hsize_t)                    :: size(2)
+      integer(hid_t)                      :: dataset_id
+      integer(hid_t)                      :: hdf_type
+      character(255)                      :: msg
+         
+      call h5dopen_f(file_id, dataset, dataset_id, err)
+      call get_mem_type_id(dataset_id, hdf_type, detected_type)
+      
+      if (detected_type.ne.expected_type) then
+         write(msg,'(6A)') 'Expected type ',expected_type,' but detected type ', &
+         & detected_type,' in dataset ',dataset
+         if (present(convert)) then
+            if (.not.convert) then
+               call error(trim(msg))
+            end if
+         else 
+            call error(trim(msg))
+         end if
+      end if
+      
+      select case(detected_type)
+      case('i4')
+         allocate(i4(n))
+         call h5dread_f(dataset_id, hdf_type, i4, size, err)
+         if (expected_type.ne.detected_type) then
+            if (expected_type=='i8') i8 = int(i4,8)
+            if (expected_type=='r4') r4 = real(i4,4)
+            if (expected_type=='r8') r8 = real(i4,8)
+            deallocate(i4)
+         end if
+      case('i8')
+         allocate(i8(n))
+         call h5dread_f(dataset_id, hdf_type, i8, size, err)
+         if (expected_type.ne.detected_type) then
+            if (expected_type=='i4') i4 = int(i8,4)
+            if (expected_type=='r4') r4 = real(i8,4)
+            if (expected_type=='r8') r8 = real(i8,8)
+            deallocate(i8)
+         end if
+      case('r4')
+         allocate(r4(n))
+         call h5dread_f(dataset_id, hdf_type, r4, size, err)
+         if (expected_type.ne.detected_type) then
+            if (expected_type=='i4') i4 = int(r4,4)
+            if (expected_type=='i8') i8 = int(r4,8)
+            if (expected_type=='r8') r8 = real(r4,8)
+            deallocate(r4)
+         end if
+      case('r8')
+         allocate(r8(n))
+         call h5dread_f(dataset_id, hdf_type, r8, size, err)
+         if (expected_type.ne.detected_type) then
+            if (expected_type=='i4') i4 = int(r8,4)
+            if (expected_type=='i8') i8 = int(r8,8)
+            if (expected_type=='r4') r4 = real(r8,4)
+            deallocate(r8)
+         end if
+      case default
+         write(msg,'(4A)') 'Unknown type ',detected_type,' in dataset ',dataset
+         call error(trim(msg))
+      end select
+      
+      call h5dclose_f(dataset_id, err)
+      
+   end subroutine read_numeric
+   
+   subroutine get_mem_type_id(dataset_id, hdf_type, fortran_type)
 
       implicit none
    
       integer(hid_t),intent(in)        :: dataset_id
-      character(*),intent(in),optional :: expected_fortran_type ! Must be 'int*4','int*8','real*4','real*8'
-      character(6)                     :: fortran_type
+      integer(hid_t),intent(out)       :: hdf_type
+      character(2),intent(out)         :: fortran_type
       integer*4                        :: err, class, sign
       integer(size_t)                  :: size
       integer(hid_t)                   :: datatype_id
@@ -487,17 +580,17 @@ contains
       if (class == 0) then ! integer
          if (size == 4) then
             if (sign == 0) then
-               get_mem_type_id = H5T_STD_U32LE
+               hdf_type = H5T_STD_U32LE
             else if (sign == 1) then
-               get_mem_type_id = H5T_STD_I32LE
+               hdf_type = H5T_STD_I32LE
             else
                call error('Unknown type')
             end if
          else if (size == 8) then
             if (sign == 0) then
-               get_mem_type_id = H5T_STD_U64LE
+               hdf_type = H5T_STD_U64LE
             else if (sign == 1) then
-               get_mem_type_id = H5T_STD_I64LE
+               hdf_type = H5T_STD_I64LE
             else
                call error('Unknown type')
             end if
@@ -506,9 +599,9 @@ contains
          end if
       else if (class == 1) then ! floating point
          if (size == 4) then
-            get_mem_type_id = H5T_IEEE_F32LE
+            hdf_type = H5T_IEEE_F32LE
          else if (size == 8) then
-            get_mem_type_id = H5T_IEEE_F64LE
+            hdf_type = H5T_IEEE_F64LE
          else
             call error('Unknown type')
          end if
@@ -516,18 +609,12 @@ contains
          call error('Unknown type')
       end if
       
-      if (present(expected_fortran_type)) then
-         if (class == 0) then
-            write(fortran_type,'(A,I0)') 'int*',size
-         else
-            write(fortran_type,'(A,I0)') 'real*',size
-         end if
-         if (trim(fortran_type).ne.expected_fortran_type) then
-            write(*,*) 'HDF5: Data type does not match expectation.'
-            stop
-         end if
+      if (class == 0) then
+         write(fortran_type,'(A,I0)') 'i',size
+      else
+         write(fortran_type,'(A,I0)') 'r',size
       end if
 
-   end function get_mem_type_id
+   end subroutine get_mem_type_id
    
 end module module_hdf5

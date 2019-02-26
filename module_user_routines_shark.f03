@@ -276,6 +276,7 @@ subroutine make_sky_galaxy(sky_galaxy,sam,base,groupid,galaxyid)
    ! basics
    call make_sky_object(sky_galaxy,sam,base,groupid)
    
+   
    ! INTRINSIC PROPERTIES
    
    ! make IDs
@@ -312,6 +313,7 @@ subroutine make_sky_galaxy(sky_galaxy,sam,base,groupid,galaxyid)
    sky_galaxy%rstar_bulge_intrinsic = sam%rstar_bulge ! [cMpc/h]
    sky_galaxy%rgas_disk_intrinsic = sam%rgas_disk ! [cMpc/h]
    sky_galaxy%rgas_bulge_intrinsic = sam%rgas_bulge ! [cMpc/h]
+   
       
    ! APPARENT PROPERTIES
    
