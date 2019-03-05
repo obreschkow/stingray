@@ -292,6 +292,7 @@ subroutine make_sky_galaxy(sky_galaxy,sam,base,groupid,galaxyid)
    ! basics
    call make_sky_object(sky_galaxy,sam,base,groupid)
    
+   
    ! INTRINSIC PROPERTIES
    
    ! make IDs
