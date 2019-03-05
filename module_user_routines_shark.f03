@@ -83,6 +83,9 @@ type type_sam
    real*4      :: vmax_subhalo   ! [km/s]	maximum circular velocity of subhalo
    real*4      :: zgas_disk      ! metallicity of the gas in the disk
    real*4      :: zgas_bulge     ! metallicity of the gas in the bulge
+   real*4      :: mbh            ! [Msun/h] black hole mass
+   real*4      :: mbh_acc_hh     ! [Msun/Gyr/h] accretion rate in hot-halo mode
+   real*4      :: mbh_acc_sb     ! [Msun/Gyr/h] accretion rate in starburst mode
 
 contains
 
@@ -157,6 +160,11 @@ type,extends(type_sky_object) :: type_sky_galaxy ! must exist
    
    real*4      :: zgas_disk      ! metallicity of the gas in the disk
    real*4      :: zgas_bulge     ! metallicity of the gas in the disk
+   real*4      :: sfr            ! [Msun/Gyr/h] star formation rate
+
+   real*4      :: mbh            ! [Msun/h] black hole mass
+   real*4      :: mbh_acc_hh     ! [Msun/Gyr/h] accretion rate in hot-halo mode
+   real*4      :: mbh_acc_sb     ! [Msun/Gyr/h] accretion rate in starburst mode
 
    !group_disp_part	?	real*4	km/s	i		?	ASGR: Intrinsic 3D dispersion of the group halo (VR output)
    !group_disp_sat_los	-	real*4	km/s	a			ASGR: Measured line-of-site dispersion of the group satellites (close to what we would measure in real life)
@@ -310,7 +318,7 @@ subroutine make_sky_galaxy(sky_galaxy,sam,base,groupid,galaxyid)
    sky_galaxy%matom_bulge     = sam%matom_bulge 
    sky_galaxy%mmol_disk       = sam%mmol_disk   
    sky_galaxy%mmol_bulge      = sam%mmol_bulge  
-   
+   sky_galaxy%sfr             = sam%sfr_disk + sam%sfr_burst 
    ! intrinsic angular momentum
    pseudo_rotation   = tile(base%tile)%Rpseudo
    sky_galaxy%J      = rotate(pseudo_rotation,sam%J)
@@ -331,7 +339,12 @@ subroutine make_sky_galaxy(sky_galaxy,sam,base,groupid,galaxyid)
    else 
       sky_galaxy%zgas_bulge  = 0
    end if
-     
+   
+
+   sky_galaxy%mbh = sam%mbh
+   sky_galaxy%mbh_acc_sb = sam%mbh_acc_sb
+   sky_galaxy%mbh_acc_hh = sam%mbh_acc_hh
+
    ! APPARENT PROPERTIES
    
    ! inclination and position angle
@@ -543,6 +556,9 @@ subroutine load_sam_snapshot(index,subindex,sam)
    call hdf5_read_data(g//'rgas_bulge',sam%rgas_bulge)
    call hdf5_read_data(g//'sfr_disk',sam%sfr_disk)
    call hdf5_read_data(g//'sfr_burst',sam%sfr_burst)
+   call hdf5_read_data(g//'m_bh',sam%mbh)
+   call hdf5_read_data(g//'bh_accretion_rate_hh',sam%mbh_acc_hh)
+   call hdf5_read_data(g//'bh_accretion_rate_sb',sam%mbh_acc_sb)
    call hdf5_read_data(g//'mgas_metals_disk',sam%mgas_metals_disk)
    call hdf5_read_data(g//'mgas_metals_bulge',sam%mgas_metals_bulge)
    call hdf5_read_data(g//'mvir_hosthalo',sam%mvir_hosthalo)
@@ -719,6 +735,10 @@ subroutine make_hdf5
    call hdf5_write_data(trim(name)//'/mvir_subhalo',sky_galaxy%mvir_subhalo,'[Msun/h] subhalo mass')
    call hdf5_write_data(trim(name)//'/zgas_disk',sky_galaxy%zgas_disk,'metallicity of the gas in the disk')
    call hdf5_write_data(trim(name)//'/zgas_bulge',sky_galaxy%zgas_bulge,'metallicity of the gas in the bulge')
+   call hdf5_write_data(trim(name)//'/mbh',sky_galaxy%,mbh,'[Msun/h] black hole mass')
+   call hdf5_write_data(trim(name)//'/mbh_acc_hh',sky_galaxy%,mbh_acc_hh,'[Msun/Gyr/h] black hole accretion rate in the hot halo mode')
+   call hdf5_write_data(trim(name)//'/mbh_acc_sb',sky_galaxy%,mbh_acc_sb,'[Msun/Gyr/h] black hole accretion rate in the starburst mode')
+
 
    call hdf5_write_data(trim(name)//'/rstar_disk_apparent',sky_galaxy%rstar_disk_apparent,&
    &'[arcsec] apparent half-mass radius of stellar disk')
