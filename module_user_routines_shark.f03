@@ -51,7 +51,7 @@ character(len=255),parameter  :: parameter_filename_default = &
 
 type type_sam
 
-   integer*8   :: id_galaxy      ! unique galaxy ID
+   integer*4   :: id_galaxy      ! unique galaxy ID
    integer*8   :: id_halo        ! unique ID of parent halo
    integer*4   :: snapshot       ! snapshot ID
    integer*4   :: subvolume      ! subvolume index
@@ -71,6 +71,8 @@ type type_sam
    real*4      :: rstar_bulge    ! [cMpc/h] half-mass radius of stars in the bulge
    real*4      :: rgas_disk      ! [cMpc/h] half-mass radius of gas in the disk
    real*4      :: rgas_bulge     ! [cMpc/h] half-mass radius of gas in the bulge
+   real*4      :: jbulge         ! [km/s * cMpc/h] specific angular momentum of the bulge.
+   real*4      :: jdisk          ! [km/s * cMpc/h] specific angular momentum of the disk.
    real*4      :: sfr_disk       ! [Msun/Gyr/h] star formation rate in the disk
    real*4      :: sfr_burst      ! [Msun/Gyr/h] star formation rate in the bulge
    real*4      :: mgas_metals_disk  ! [Msun/h] mass of metals locked up in the disk
@@ -126,7 +128,7 @@ end type type_sky_object
 type,extends(type_sky_object) :: type_sky_galaxy ! must exist
 
    integer*8   :: id_galaxy_sky           ! unique ID in the mock sky
-   integer*8   :: id_galaxy_sam           ! galaxy ID in the SAM
+   integer*4   :: id_galaxy_sam           ! galaxy ID in the SAM
    integer*4   :: typ                     ! galaxy type (0=central, 1=satellite, 2=orphan)
    
    real*4      :: inclination             ! [rad] inclination
@@ -142,7 +144,9 @@ type,extends(type_sky_object) :: type_sky_galaxy ! must exist
    real*4      :: matom_bulge             ! [Msun/h] atomic gas mass of the bulge
    real*4      :: mmol_disk               ! [Msun/h] molecular gas mass of the disk
    real*4      :: mmol_bulge              ! [Msun/h] molecular gas mass of the bulge
-   
+   real*4      :: jbulge                  ! [km/s * cMpc/h] specific angular momentum of the bulge.
+   real*4      :: jdisk                   ! [km/s * cMpc/h] specific angular momentum of the disk. 
+ 
    real*4      :: J(3)                    ! [Msun pMpc km/s] total angular momentum
    
    real*4      :: mvir_hosthalo           ! [Msun/h] mass of 1st generation halo (i.e. direct host of type 0 galaxies)
@@ -319,11 +323,15 @@ subroutine make_sky_galaxy(sky_galaxy,sam,base,groupid,galaxyid)
    sky_galaxy%matom_bulge     = sam%matom_bulge 
    sky_galaxy%mmol_disk       = sam%mmol_disk   
    sky_galaxy%mmol_bulge      = sam%mmol_bulge  
-   sky_galaxy%sfr             = sam%sfr_disk + sam%sfr_burst 
+   sky_galaxy%sfr             = sam%sfr_disk + sam%sfr_burst
+ 
    ! intrinsic angular momentum
    pseudo_rotation   = tile(base%tile)%Rpseudo
    sky_galaxy%J      = rotate(pseudo_rotation,sam%J)
-      
+   sky_galaxy%jbulge = sam%jbulge
+   sky_galaxy%jdisk  = sam%jdisk
+
+       
    ! intrinsic radii
    sky_galaxy%rstar_disk_intrinsic = sam%rstar_disk ! [cMpc/h]
    sky_galaxy%rstar_bulge_intrinsic = sam%rstar_bulge ! [cMpc/h]
@@ -543,6 +551,8 @@ subroutine load_sam_snapshot(index,subindex,sam)
    call hdf5_read_data(g//'l_x',sam%J(1))
    call hdf5_read_data(g//'l_y',sam%J(2))
    call hdf5_read_data(g//'l_z',sam%J(3))
+   call hdf5_read_data(g//'specific_angular_momentum_disk_star',sam%jdisk)
+   call hdf5_read_data(g//'specific_angular_momentum_bulge_star',sam%jbulge)
    call hdf5_read_data(g//'mstars_disk',sam%mstars_disk)
    call hdf5_read_data(g//'mstars_bulge',sam%mstars_bulge)
    call hdf5_read_data(g//'mgas_disk',sam%mgas_disk)
@@ -732,6 +742,8 @@ subroutine make_hdf5
    call hdf5_write_data(trim(name)//'/l_x',sky_galaxy%J(1),'[Msun pMpc km/s] x-component of total angular momentum')
    call hdf5_write_data(trim(name)//'/l_y',sky_galaxy%J(2),'[Msun pMpc km/s] y-component of total angular momentum')
    call hdf5_write_data(trim(name)//'/l_z',sky_galaxy%J(3),'[Msun pMpc km/s] z-component of total angular momentum')
+   call hdf5_write_data(trim(name)//'/jdisk',sky_galaxy%jdisk, '[km/s * cMpc/h] specific angular momentum of the disk')
+   call hdf5_write_data(trim(name)//'/jbulge',sky_galaxy%jbulge, '[km/s * cMpc/h] specific angular momentum of the bulge')
    call hdf5_write_data(trim(name)//'/mvir_hosthalo',sky_galaxy%mvir_hosthalo,'[Msun/h] host halo mass')
    call hdf5_write_data(trim(name)//'/mvir_subhalo',sky_galaxy%mvir_subhalo,'[Msun/h] subhalo mass')
    call hdf5_write_data(trim(name)//'/zgas_disk',sky_galaxy%zgas_disk,'metallicity of the gas in the disk')
@@ -739,7 +751,6 @@ subroutine make_hdf5
    call hdf5_write_data(trim(name)//'/mbh',sky_galaxy%mbh,'[Msun/h] black hole mass')
    call hdf5_write_data(trim(name)//'/mbh_acc_hh',sky_galaxy%mbh_acc_hh,'[Msun/Gyr/h] black hole accretion rate in the hot halo mode')
    call hdf5_write_data(trim(name)//'/mbh_acc_sb',sky_galaxy%mbh_acc_sb,'[Msun/Gyr/h] black hole accretion rate in the starburst mode')
-
 
    call hdf5_write_data(trim(name)//'/rstar_disk_apparent',sky_galaxy%rstar_disk_apparent,&
    &'[arcsec] apparent half-mass radius of stellar disk')
