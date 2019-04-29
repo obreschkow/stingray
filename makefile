@@ -121,3 +121,4 @@ clean:
 	rm -f *.o *.mod *.MOD
 	rm -f *~ $(PROGRAMS)
 	rm -f fort.*
+	rm -rf *.dSYM
