@@ -35,7 +35,7 @@ ifeq ($(system),ism49) # private backup laptop of developer Obreschkow
    hdfflags = -I/usr/local/lib/hdf5/include -L/usr/local/lib/hdf5/lib -lhdf5_fortran -lhdf5
 endif
 ifeq ($(system),hyades) # in-house cluster at ICRAR/UWA
-   FILE_COUNT = $(shell ls | wc -l )
+   FILE_COUNT = $(shell module load gfortran/6.3.0 hdf5/1.10.2)
    $(info + Count = '${FILE_COUNT}'.)
    hdfflags = -I/opt/bldr/local/storage/hdf5/1.10.2/include -L/opt/bldr/local/storage/hdf5/1.10.2/lib -lhdf5_fortran -lhdf5
 endif
