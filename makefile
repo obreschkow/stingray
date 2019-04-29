@@ -1,19 +1,60 @@
-# Input model; each model requires a custom module "module_user_[SAM].f03"
-Model = shark
+# Call as make [model=shark,...] [system=hyades,...] [mode=standard,dev]
+
+
+# model = galaxy formation model; each model requires custom modules "module_user_routines_[SAM].f03" and "module_user_selection_[SAM].f95"
+# system = computing system on which stingray is complied and executed
+# mode = compilation mode; allowed modes are 'standard' and 'dev'
+
+ifndef model
+   model = shark
+endif
+
+ifndef system
+   system = ems
+endif
+
+ifdef mode
+   ifneq ($(mode),standard)
+      ifneq ($(mode),dev)
+         $(info WARNING unknown mode: '${mode}')
+      endif
+   endif
+else
+   mode = standard
+endif
+
+# user info
+$(info Compilation options:)
+$(info + Computing system = '${system}'.)
+$(info + Compiling mode = '${mode}'.)
+$(info + Galaxy formation model = '${model}'.)
+
+ifeq ($(system),ems)
+   ifeq ($(mode),standard)
+      FCFLAGS = -O3 -fopenmp -I/usr/local/include -L/usr/local/lib -lhdf5_fortran -lhdf5
+   else
+      FCFLAGS = -g -O0 -I/usr/local/include -L/usr/local/lib -lhdf5_fortran -lhdf5 -fbounds-check -fwhole-file -ffpe-trap=invalid,zero,overflow -Wall -Wunused -Wuninitialized -Wsurprising -Wconversion
+   endif
+endif
+
+ifeq ($(system),ism49)
+   ifeq ($(mode),standard)
+      FCFLAGS = -O3 -fopenmp -I/usr/local/lib/hdf5/include -L/usr/local/lib/hdf5/lib -lhdf5_fortran -lhdf5
+   else
+      FCFLAGS = -g -O0 -I/usr/local/lib/hdf5/include -L/usr/local/lib/hdf5/lib -lhdf5_fortran -lhdf5 -fbounds-check -fwhole-file -ffpe-trap=invalid,zero,overflow -Wall -Wunused -Wuninitialized -Wsurprising -Wconversion
+   endif
+endif
+
+ifeq ($(system),hyades)
+   ifeq ($(mode),standard)
+      FCFLAGS = -g -O3 -fopenmp -I/opt/bldr/local/storage/hdf5/1.10.2/include -L/opt/bldr/local/storage/hdf5/1.10.2/lib -lhdf5_fortran -lhdf5
+   else
+      FCFLAGS = -g -O0 -I/opt/bldr/local/storage/hdf5/1.10.2/include -L/opt/bldr/local/storage/hdf5/1.10.2/lib -lhdf5_fortran -lhdf5 -fbounds-check -fwhole-file -ffpe-trap=invalid,zero,overflow -Wall -Wunused -Wuninitialized -Wsurprising -Wconversion
+   endif
+endif
 
 # Compiler
 FC = gfortran
-
-# Compiler flags for testing and debugging
-#FCFLAGS = -g -O0 -I/usr/local/lib/hdf5/include -L/usr/local/lib/hdf5/lib -lhdf5_fortran -lhdf5 -fbounds-check -fwhole-file -ffpe-trap=invalid,zero,overflow -Wall -Wunused -Wuninitialized -Wsurprising -Wconversion
-#FCFLAGS = -g -O0 -I/usr/local/include -L/usr/local/lib -lhdf5_fortran -lhdf5 -fbounds-check -fwhole-file -ffpe-trap=invalid,zero,overflow -Wall -Wunused -Wuninitialized -Wsurprising -Wconversion
-
-# Compiler flags for optimized execution
-# FCFLAGS = -O3 -fopenmp -I/usr/local/lib/hdf5/include -L/usr/local/lib/hdf5/lib -lhdf5_fortran -lhdf5
-# FCFLAGS = -O3 -fopenmp -I/usr/local/include -L/usr/local/lib -lhdf5_fortran -lhdf5
-
-# Compiler flags on hyades
-FCFLAGS = -g -O3 -fopenmp -I/opt/bldr/local/storage/hdf5/1.10.2/include -L/opt/bldr/local/storage/hdf5/1.10.2/lib -lhdf5_fortran -lhdf5
 
 # List of executables to be built within the package
 PROGRAMS = stingray
@@ -30,8 +71,8 @@ stingray.o:    module_constants.o \
                module_sort.o \
                module_conversion.o \
                module_hdf5.o \
-               module_user_routines_$(Model).o \
-               module_user_selections_$(Model).o \
+               module_user_routines_$(model).o \
+               module_user_selections_$(model).o \
                module_parameters.o \
                module_tiling.o \
                module_sky.o
@@ -45,8 +86,8 @@ stingray: 	   module_constants.o \
                module_cosmology.o \
                module_conversion.o \
                module_hdf5.o \
-               module_user_routines_$(Model).o \
-               module_user_selections_$(Model).o \
+               module_user_routines_$(model).o \
+               module_user_selections_$(model).o \
                module_parameters.o \
                module_tiling.o \
                module_sky.o
