@@ -27,13 +27,16 @@ endif
 # custom flags to load the HDF5 library
 hdfflags = empty
 ifeq ($(system),ems) # private laptop of developer Obreschkow
+   FILE_COUNT = $(shell ls | wc -l )
+   $(info + Count = '${FILE_COUNT}'.)
    hdfflags = -I/usr/local/include -L/usr/local/lib -lhdf5_fortran -lhdf5
 endif
 ifeq ($(system),ism49) # private backup laptop of developer Obreschkow
    hdfflags = -I/usr/local/lib/hdf5/include -L/usr/local/lib/hdf5/lib -lhdf5_fortran -lhdf5
 endif
 ifeq ($(system),hyades) # in-house cluster at ICRAR/UWA
-   module load gfortran/6.3.0 hdf5/1.10.2
+   FILE_COUNT = $(shell ls | wc -l )
+   $(info + Count = '${FILE_COUNT}'.)
    hdfflags = -I/opt/bldr/local/storage/hdf5/1.10.2/include -L/opt/bldr/local/storage/hdf5/1.10.2/lib -lhdf5_fortran -lhdf5
 endif
 ifeq ($(hdfflags),empty)
