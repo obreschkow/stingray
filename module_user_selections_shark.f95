@@ -4,8 +4,7 @@ module module_user_selection
 ! This module defines four types of selections functions, which are called sequentially:
 ! 1) pos_selection: select purely on the comoving position in the sky
 ! 2) sam_selection: select purely on sam properties
-! 3) apparent_mass_selection: select both on distance and SAM properties, typically on M/DL^2
-! 4) sky_selection: final selection using all information
+! 3) sky_selection: final selection using all information, including apparent properties
 ! Each consecutive selection function should be as restrictive as possible
 ! ==============================================================================================================
 
@@ -31,7 +30,7 @@ logical function pos_selection(dc,ra,dec) result(selected)
    
    select case (trim(para%survey))
    case ('test')
-      selected = ((ra>=0.0).and.(ra<=60.0).and.(dec>=-10.0).and.(dec<=10.0).and.(dc<200.0))
+      selected = ((ra>=0.0).and.(ra<=60.0).and.(dec>=-5.0).and.(dec<=12.0).and.(dc<1000.0))
    case ('devils')
       selected = ((ra>= 34.000).and.(ra<= 37.050).and.(dec>= -5.200).and.(dec<= -4.200)).or. &
                & ((ra>= 52.263).and.(ra<= 53.963).and.(dec>=-28.500).and.(dec<=-27.500)).or. &
@@ -63,7 +62,7 @@ logical function sam_selection(sam) result(selected)
    
    select case (trim(para%survey))
    case ('test')
-      selected = (sam%mstars_disk>1e9)
+      selected = (sam%mstars_disk>1e10)
    case ('devils')
       selected = (sam%mstars_disk>1e8)
    case ('gama')

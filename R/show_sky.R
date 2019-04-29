@@ -1,7 +1,9 @@
 # user
-path = '/Users/do/Data/SURFS/stingray/shark/output/'
+path = '/Users/do/Data/SURFS/L210_N1536/stingray/'
 file = paste0(path,'mocksky.hdf5')
 color = rainbow(100,end=2/3)
+set.seed(1)
+color = color[sample(seq(100),100)]
 
 # load data
 gal = h5read(file,'galaxies',bit64conversion='bit64')
@@ -25,7 +27,7 @@ transparency_property = gal$mag
 # plot
 rgl.closeall()
 rgl.tiling(tile,rotationmatrix,para$box_length)
-alpha = 1-(transparency_property-min(transparency_property))/(max(transparency_property)-min(transparency_property))
+alpha = 0.5-0.5*(transparency_property-min(transparency_property))/(max(transparency_property)-min(transparency_property))
 col = color[(1-(color_property-min(color_property))/(max(color_property)-min(color_property)))*99+1]
 points3d(gal$x, col = col, alpha = alpha)
-points3d(group$x, col = 'black', alpha = 0.5)
+points3d(group$x[group$flag==1,], col = 'black')

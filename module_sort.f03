@@ -1,5 +1,7 @@
 module module_sort
 
+   public
+
 contains
 
    recursive subroutine merge_sort_list(list,level)

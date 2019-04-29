@@ -1,21 +1,22 @@
-# Parameters given a value 'auto' must be set programmatically in the user module.
-# If parameters are set in the user model *and* given a numerical value in this parameter file,
-# the parameter file takes priority.
+# Parameters given a value 'auto' are meant to be imported from the SAM output files.
+# The rules for importing these parameters must be set programmatically in the user module.
+# If parameters are set in the user model *and* given a numerical value in this parameter
+# file, the parameter file takes priority.
 
 # Name of mock survey
 survey                  test
 
 # Paths
-path_output             /Users/do/Data/SURFS/stingray/shark/output/
-#path_output             /mnt/su3ctm/dobreschkow/Stingray/output/
-path_input              /Users/do/Data/SURFS/stingray/shark/input/
-#path_input              /mnt/su3ctm/clagos/SHARK_Out/medi-SURFS/Shark-Lagos18-final/
+#path_output             /Users/do/Data/SURFS/L210_N1536/stingray/
+path_output             /mnt/su3ctm/dobreschkow/Stingray/output/
+#path_input              /Users/do/Data/SURFS/L210_N1536/Shark-v1p2/
+path_input              /mnt/su3ctm/clagos/SHARK_Out/medi-SURFS/Shark-v1p2
 
 # Snapshot parameters
 L                       auto           [length_unit] side-length of simulation box
 length_unit             auto           [m] SI-value of comoving length unit, here Mpc/h
-snapshot_min            120
-snapshot_max            199
+snapshot_min            auto
+snapshot_max            auto
 subvolume_min           auto
 subvolume_max           0
 
@@ -25,19 +26,19 @@ omega_l                 auto           Space density of dark energy relative to 
 omega_m                 auto           Space density of all matter relative to closure density
 omega_b                 auto           Space density of baryonic matter relative to closure density
 
-# Considered distance range and field-of-view. Additional and/or more complex positional selection criteria can
+# Considered distance range and field-of-view. Additional, more complex positional selection criteria can
 # be coded in the user module function "pos_selection".
-dc_min                  0              [simulation units] minimal comoving distance
-dc_max                  200            [simulation units] maximal comoving distance
-ra_min                  0              [deg] min right ascension
-ra_max                  360            [deg] max right ascension
-dec_min                 -90            [deg] min declination
-dec_max                 90             [deg] max declination
+dc_min                  0              [length_unit] minimal comoving distance (>=0)
+dc_max                  1000           [length_unit] maximal comoving distance (>=0)
+ra_min                  0              [deg] min right ascension (from 0 to 360)
+ra_max                  360            [deg] max right ascension (from 0 to 360)
+dec_min                 -90            [deg] min declination (from -90 to 90)
+dec_max                 90             [deg] max declination (from -90 to 90)
 
 # Mapping of SAM-coordinates on to survey-coordinates
-zaxis_ra                7.5              [deg] direction of the SAM z-axis in spherical survey coordinates
-zaxis_dec               1              [deg] direction of the SAM z-axis in spherical survey coordinates
-xy_angle                45              [deg]
+zaxis_ra                0              [deg] direction of the SAM z-axis in spherical survey coordinates
+zaxis_dec               0              [deg] direction of the SAM z-axis in spherical survey coordinates
+xy_angle                0              [deg]
 
 # Symmetry operations applied to boxes
 # 1 = random symmetry is applied, 0 = symmetry is not applied

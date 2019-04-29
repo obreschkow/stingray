@@ -42,14 +42,14 @@ subroutine make_sky
    
    ! load previous steps
    call load_parameters
-   call load_box_list
+   call load_tile_list
    
    ! make snapshot properties
    if (allocated(snapshot)) deallocate(snapshot)
    allocate(snapshot(para%snapshot_min:para%snapshot_max))
    call make_redshifts
    call make_distance_ranges
-   call count_replica_per_snapshot
+   call count_tiles_of_snapshot
    call save_snapshot_list
    
    ! initialize apparent sky (galaxies)
@@ -80,21 +80,26 @@ subroutine make_sky
    n_groups_tot = 0
    n_distinct_galaxies = 0
    n_replica_max = 0
+   
    !$OMP PARALLEL PRIVATE(itile,sam,sam_sel,sam_replica,n_galaxies,n_groups)
    !$OMP DO SCHEDULE(DYNAMIC)
    do i = 1,nsub
-      if (snapshot(index(i,1))%n_replication>0) then
+      if (snapshot(index(i,1))%n_tiles>0) then
+      
          ! Only do the following by one thread at a time
          !$OMP CRITICAL
          call load_sam_snapshot(index(i,1),index(i,2),sam)
          !$OMP END CRITICAL
+         
          call preprocess_snapshot(sam,sam_sel)
          if (size(sam)>0) then
             allocate(sam_replica(size(sam)))
             sam_replica = 0
             do itile = 1,size(tile)
                if ((snapshot(index(i,1))%dmax>=tile(itile)%dmin).and.(snapshot(index(i,1))%dmin<=tile(itile)%dmax)) then
+               
                   call write_subvolume_into_tile(itile,index(i,1),index(i,2),sam,sam_sel,sam_replica,n_galaxies,n_groups)
+                  
                   ! Only do the following by one thread at a time
                   !$OMP CRITICAL
                   n_galaxies_tot = n_galaxies_tot+n_galaxies
@@ -107,6 +112,7 @@ subroutine make_sky
                   if ((n_galaxies_tot>=1e8_8).and.(n_galaxies_tot-n_galaxies<1e8_8)) call error(&
                   &'The cone has reached 1e8 galaxies. Consider using a more restrictive selection function.')
                   !$OMP END CRITICAL
+                  
                end if
             end do
             n_distinct_galaxies = n_distinct_galaxies+count(sam_replica>0)
@@ -442,20 +448,20 @@ subroutine make_distance_ranges
 
 end subroutine make_distance_ranges
 
-subroutine count_replica_per_snapshot
+subroutine count_tiles_of_snapshot
 
    implicit none
    integer*4   :: isnapshot,itile
 
-   snapshot%n_replication = 0
+   snapshot%n_tiles = 0
    do isnapshot = para%snapshot_min,para%snapshot_max
       do itile = 1,size(tile)
          if ((snapshot(isnapshot)%dmax>=tile(itile)%dmin).and.(snapshot(isnapshot)%dmin<=tile(itile)%dmax)) then
-            snapshot(isnapshot)%n_replication = snapshot(isnapshot)%n_replication+1
+            snapshot(isnapshot)%n_tiles = snapshot(isnapshot)%n_tiles+1
          end if
       end do
    end do
    
-end subroutine count_replica_per_snapshot
+end subroutine count_tiles_of_snapshot
    
 end module module_sky

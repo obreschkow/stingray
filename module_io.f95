@@ -13,57 +13,29 @@ module module_io
    
 contains
 
-   subroutine save_parameters
+   subroutine save_parameters(parameter_filename)
 
       implicit none
+      
+      character(255),intent(in)  :: parameter_filename ! input parameter file
+      character(255)             :: line
+      integer                    :: io
    
-      character(len=255)   :: filename
-   
-      ! Binary file
-      filename = trim(para%path_output)//'parameters.bin'
-      open(1,file=trim(filename),action='write',form="unformatted",status='replace')
+      ! Write binary parameter file
+      open(1,file=trim(para%path_output)//'parameters.bin',action='write',form="unformatted",status='replace')
       write(1) para
       close(1)
    
-      ! ASCII file
-      ! open ascii file (only for non-derived parameters)
-      filename = trim(para%path_output)//'parameters.txt'
-      open(1,file=trim(filename),action='write',form="formatted",status='replace')
-      
-      ! write data
-      call line('path_output',para%path_output)
-      call line('path_input',para%path_input)
-      call line('L',para%L)
-      call line('length_unit',para%length_unit)
-      call line('snapshot_min',para%snapshot_min)
-      call line('snapshot_max',para%snapshot_max)
-      call line('subvolume_min',para%subvolume_min)
-      call line('subvolume_max',para%subvolume_max)
-      call line('h',para%h)
-      call line('omega_l',para%omega_l)
-      call line('omega_m',para%omega_m)
-      call line('omega_b',para%omega_b)
-      call line('dc_min',para%dc_min)
-      call line('dc_max',para%dc_max)
-      call line('ra_min',para%ra_min/degree)
-      call line('ra_max',para%ra_max/degree)
-      call line('dec_min',para%dec_min/degree)
-      call line('dec_max',para%dec_max/degree)
-      call line('zaxis_ra',para%zaxis_ra)
-      call line('zaxis_dec',para%zaxis_dec)
-      call line('xy_angle',para%xy_angle)
-      call line('seed',para%seed)
-      call line('translate',para%translate)
-      call line('rotate',para%rotate)
-      call line('invert',para%invert)
-      call line('velocity_ra',para%velocity_ra)
-      call line('velocity_dec',para%velocity_dec)
-      call line('velocity_norm',para%velocity_norm)
-      call line('search_angle',para%search_angle)
-      call line('volume_search_level',para%volume_search_level)
-      
-      ! close files
+      ! Copy parameter text-file
+      open(1,file=trim(para%path_output)//'parameters.txt',action='write',form="formatted",status='replace')
+      open(2,file=trim(parameter_filename),action='read',form='formatted')
+      do
+         read(2,'(A)',IOSTAT=io) line
+         if (io.ne.0) exit
+         write(1,'(A)') trim(line)
+      end do
       close(1)
+      close(2)
 
    end subroutine save_parameters
    
@@ -97,7 +69,7 @@ contains
       write(1,'(A)') 'Col  5:  Number of tiles this sn has been considered for, irrespective of whether a galaxy was selected.'
       write(1,'(A)') '--------------------------------------------------------------------------------------------------------'
       do i = lbound(snapshot,1),ubound(snapshot,1)
-         write(1,'(I6,3F14.7,I3,3F9.5)') i,snapshot(i)%redshift,snapshot(i)%dmin,snapshot(i)%dmax,snapshot(i)%n_replication
+         write(1,'(I6,3F14.7,I3,3F9.5)') i,snapshot(i)%redshift,snapshot(i)%dmin,snapshot(i)%dmax,snapshot(i)%n_tiles
       end do
       close(1)
       
@@ -131,7 +103,7 @@ contains
       
    end subroutine load_snapshot_list
 
-   subroutine save_box_list
+   subroutine save_tile_list
 
       implicit none
       character(len=255)   :: filename
@@ -142,13 +114,13 @@ contains
       open(1,file=trim(filename),action='write',form="formatted",status='replace')
       write(1,'(A)') 'Stingray 3D tiling geometry'
       write(1,'(A)') '--------------------------------------------------------------------------------'
-      write(1,'(A)') 'Col  1:  Box index, starting at 1'
-      write(1,'(A)') 'Col  2:  x-position of box-centre in units of box side lengths (L)'
-      write(1,'(A)') 'Col  3:  y-position of box-centre in units of L'
-      write(1,'(A)') 'Col  4:  z-position of box-centre in units of L'
-      write(1,'(A)') 'Col  5:  min comoving distance to be considered to fill this box in units of L'
-      write(1,'(A)') 'Col  6:  max comoving distance to be considered to fill this box in units of L'
-      write(1,'(A)') 'Col  7:  index [1,...,6] of rotation, where 1 is the identity (negative if inversion)'
+      write(1,'(A)') 'Col  1:  Tile index, starting at 1'
+      write(1,'(A)') 'Col  2:  x-position of tile-centre in units of box side lengths (L)'
+      write(1,'(A)') 'Col  3:  y-position of tile-centre in units of L'
+      write(1,'(A)') 'Col  4:  z-position of tile-centre in units of L'
+      write(1,'(A)') 'Col  5:  min comoving distance to be considered to fill this tile in units of L'
+      write(1,'(A)') 'Col  6:  max comoving distance to be considered to fill this tile in units of L'
+      write(1,'(A)') 'Col  7:  index [1,...,6] of rotation, where 1 is the identity (<0 if inversion)'
       write(1,'(A)') 'Col  8:  x-component of translation vector in units of L'
       write(1,'(A)') 'Col  9:  y-component of translation vector in units of L'
       write(1,'(A)') 'Col 10:  z-component of translation vector in units of L'
@@ -167,9 +139,9 @@ contains
       end do
       close(1)
 
-   end subroutine save_box_list
+   end subroutine save_tile_list
 
-   subroutine load_box_list
+   subroutine load_tile_list
 
       implicit none
       character(len=255)                     :: filename
@@ -186,7 +158,7 @@ contains
       end do
       close(1)
 
-   end subroutine load_box_list
+   end subroutine load_tile_list
 
    ! subroutines used by interface line
    

@@ -1,6 +1,8 @@
+! Fortran HDF5 Module
+! Standard functions for reading and writing HDF5 data
+! Author: Danail Obreschkow, 2019
+   
 module module_hdf5
-
-   ! Fortran HDF5 Module by Danail Obreschkow 2019
 
    use hdf5
    

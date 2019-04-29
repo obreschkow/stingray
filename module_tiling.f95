@@ -13,7 +13,7 @@ module module_tiling
    
    integer*4,allocatable   :: intersection(:,:,:)   ! ==  0 : not checked
                                                     ! == -1 : does not intersect
-                                                    ! >= +1 : box id of intersecting box
+                                                    ! >= +1 : id of intersecting tile
    integer*4               :: imax,ntile,counter
    
 contains
@@ -37,18 +37,18 @@ subroutine make_tiling
    ntile = 0
    call sph2car(para%dc_min/para%L,(para%ra_min+para%ra_max)/2.0,(para%dec_min+para%dec_max)/2.0,starting_point)
    starting_point = matmul(starting_point,para%sky_rotation)
-   call check_boxes(nint(starting_point))
-   call make_boxes
-   call save_box_list
+   call check_tile(nint(starting_point))
+   call make_tile_list
+   call save_tile_list
    
-   call out('Number of boxes = ',size(tile)*1_8)
+   call out('Number of tiles = ',size(tile)*1_8)
    call out('Number of points checked = ',counter*1_8)
    if (allocated(tile)) deallocate(tile)
    call toc
 
 end subroutine make_tiling
 
-recursive subroutine check_boxes(ix)
+recursive subroutine check_tile(ix)
 
    implicit none
    integer,intent(in) :: ix(3)
@@ -56,28 +56,37 @@ recursive subroutine check_boxes(ix)
    if (maxval(abs(ix))>imax) return
    if (intersection(ix(1),ix(2),ix(3)).ne.0) return
    
-   if (is_box_in_survey(ix,.false.)) then
+   if (is_tile_in_survey(ix,.false.)) then
+      
+      ! tile intersects with survey volume specified by parameter file
    
-      if (is_box_in_survey(ix,.true.)) then
+      if (is_tile_in_survey(ix,.true.)) then
+         ! tile also intersects with survey volume specified by user file
          ntile = ntile+1
          intersection(ix(1),ix(2),ix(3)) = ntile
       else
-         intersection(ix(1),ix(2),ix(3)) = -1 ! box is only in survey volume specified by parameter file
+         ! tile does not intersect with survey volume specified by user file
+         intersection(ix(1),ix(2),ix(3)) = -1
       end if
    
-      ! check neighboring boxes
-      call check_boxes(ix+(/+1,0,0/))
-      call check_boxes(ix+(/-1,0,0/))
-      call check_boxes(ix+(/0,+1,0/))
-      call check_boxes(ix+(/0,-1,0/))
-      call check_boxes(ix+(/0,0,+1/))
-      call check_boxes(ix+(/0,0,-1/))
+      ! check neighboring tiles
+      call check_tile(ix+(/+1,0,0/))
+      call check_tile(ix+(/-1,0,0/))
+      call check_tile(ix+(/0,+1,0/))
+      call check_tile(ix+(/0,-1,0/))
+      call check_tile(ix+(/0,0,+1/))
+      call check_tile(ix+(/0,0,-1/))
+      
+   else
+   
+      ! tile does not intersect with survey volume specified by parameter file
+      intersection(ix(1),ix(2),ix(3)) = -1
       
    end if
 
-end subroutine check_boxes
+end subroutine check_tile
 
-subroutine make_boxes
+subroutine make_tile_list
 
    implicit none
    real*4                     :: rand,dmin,dmax
@@ -98,7 +107,7 @@ subroutine make_boxes
                ! position
                tile(itile)%ix = (/i,j,k/)
       
-               ! distance range of box
+               ! distance range of tile
                call get_distance_range_of_cube(tile(itile)%ix,dmin,dmax)
                tile(itile)%dmin = max(para%dc_min/para%L,dmin)
                tile(itile)%dmax = min(para%dc_max/para%L,dmax)
@@ -131,7 +140,7 @@ subroutine make_boxes
       end do
    end do
 
-end subroutine make_boxes
+end subroutine make_tile_list
 
 subroutine get_distance_range_of_cube(ix,dmin,dmax)
 
@@ -217,10 +226,10 @@ function get_min_distance_to_line(p,e) result(dmin)
    
 end function get_min_distance_to_line
 
-logical function is_box_in_survey(ix,user)
+logical function is_tile_in_survey(ix,user)
 
    implicit none
-   integer*4,intent(in)    :: ix(3) ! [box side-length] box center in tiling coordinates
+   integer*4,intent(in)    :: ix(3) ! [box side-length] tile center in tiling coordinates
    logical,intent(in)      :: user
    integer*4               :: n2D,n3D
    real*4                  :: x(3),dx(3),dy(3),dz(3),sx(3),sy(3),sz(3),fi,fj,d
@@ -232,7 +241,7 @@ logical function is_box_in_survey(ix,user)
    sz = matmul(para%sky_rotation,(/0.0,0.0,1.0/))*para%L
    x  = matmul(para%sky_rotation,real(ix,4))*para%L
 
-   d = max(0.5,sqrt(real(sum(ix**2),4))) ! [box side-length] approximate distance from origin to nearest box face
+   d = max(0.5,sqrt(real(sum(ix**2),4))) ! [box side-length] approximate distance from origin to nearest tile face
    n2D = max(10,2*nint(0.5/(d*para%search_angle)))
    allocate(index(0:n2D))
    do i = 0,n2D/2-1
@@ -245,12 +254,12 @@ logical function is_box_in_survey(ix,user)
       fi = real(index(i),4)/n2D-0.5
       do j = 0,n2D
          fj = real(index(j),4)/n2D-0.5
-         if (is_point_in_survey(x+fi*sx+fj*sy+0.5*sz,user)) then; is_box_in_survey = .true.; return; end if
-         if (is_point_in_survey(x+fi*sx+fj*sy-0.5*sz,user)) then; is_box_in_survey = .true.; return; end if
-         if (is_point_in_survey(x+fi*sx+0.5*sy+fj*sz,user)) then; is_box_in_survey = .true.; return; end if
-         if (is_point_in_survey(x+fi*sx-0.5*sy+fj*sz,user)) then; is_box_in_survey = .true.; return; end if
-         if (is_point_in_survey(x+0.5*sx+fi*sy+fj*sz,user)) then; is_box_in_survey = .true.; return; end if
-         if (is_point_in_survey(x-0.5*sx+fi*sy+fj*sz,user)) then; is_box_in_survey = .true.; return; end if
+         if (is_point_in_survey(x+fi*sx+fj*sy+0.5*sz,user)) then; is_tile_in_survey = .true.; return; end if
+         if (is_point_in_survey(x+fi*sx+fj*sy-0.5*sz,user)) then; is_tile_in_survey = .true.; return; end if
+         if (is_point_in_survey(x+fi*sx+0.5*sy+fj*sz,user)) then; is_tile_in_survey = .true.; return; end if
+         if (is_point_in_survey(x+fi*sx-0.5*sy+fj*sz,user)) then; is_tile_in_survey = .true.; return; end if
+         if (is_point_in_survey(x+0.5*sx+fi*sy+fj*sz,user)) then; is_tile_in_survey = .true.; return; end if
+         if (is_point_in_survey(x-0.5*sx+fi*sy+fj*sz,user)) then; is_tile_in_survey = .true.; return; end if
       end do
    end do
    
@@ -262,15 +271,15 @@ logical function is_box_in_survey(ix,user)
             dy = ((real(j,4)+0.5)/(n3D+1)-0.5)*sy
             do k = 0,n3D
                dz = ((real(k,4)+0.5)/(n3D+1)-0.5)*sz
-               if (is_point_in_survey(x+dx+dy+dz,user)) then; is_box_in_survey = .true.; return; end if
+               if (is_point_in_survey(x+dx+dy+dz,user)) then; is_tile_in_survey = .true.; return; end if
             end do
          end do
       end do
    end if
    
-   is_box_in_survey = .false. 
+   is_tile_in_survey = .false. 
 
-end function is_box_in_survey
+end function is_tile_in_survey
 
 logical function is_point_in_survey(x,user)
 

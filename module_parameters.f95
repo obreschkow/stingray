@@ -36,7 +36,7 @@ subroutine make_parameters(parameter_filename_custom)
    call check_parameters
    call adjust_parameters
    call make_derived_parameters
-   call save_parameters
+   call save_parameters(parameter_filename)
    
    call toc
 

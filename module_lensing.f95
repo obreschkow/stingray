@@ -20,5 +20,4 @@ contains
 
 !subroutine make_positioning
 
-
 end module module_lensing

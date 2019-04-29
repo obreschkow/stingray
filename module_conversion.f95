@@ -1,6 +1,6 @@
+! Standard functions for the conversion from intrinsic to apparent galaxy properties
+   
 module module_conversion
-
-! standard functions for the conversion from intrinsic to apparent galaxy properties
 
    use module_constants
    use module_system

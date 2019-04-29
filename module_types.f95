@@ -101,7 +101,7 @@ module module_types
       real*4      :: redshift
       real*4      :: dmin           ! [units of side-length] minimum comoving distance at which galaxies are drawn from this redshift
       real*4      :: dmax           ! [units of side-length] maximum ...
-      integer*4   :: n_replication  ! Number of tiles this snapshot has been considered for, irrespective of whether a galaxy was selected
+      integer*4   :: n_tiles        ! Number of tiles this snapshot has been considered for, irrespective of whether a galaxy was selected
 
    end type type_snapshot
    

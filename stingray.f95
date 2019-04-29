@@ -85,7 +85,6 @@ program stingray
       call make_tiling
    case ('make_sky')
       call make_sky
-      call custom_routines('my_additions_to_make_all','',success)
    case default
       call custom_routines(trim(arg_task),trim(custom_option),success)
       if (.not.success) then
@@ -102,8 +101,6 @@ program stingray
    subroutine  task_version
       implicit none
       write(*,'(A,A,A)') 'This is Stingray Version ',version,'.'
-      !write(*,'(A)') 'Consult the README file for additional information.'
-      stop
    end subroutine task_version
     
 end program stingray

@@ -51,7 +51,7 @@ character(len=255),parameter  :: parameter_filename_default = &
 
 type type_sam
 
-   integer*8   :: id_galaxy      ! unique galaxy ID
+   integer*4   :: id_galaxy      ! unique galaxy ID
    integer*8   :: id_halo        ! unique ID of parent halo
    integer*4   :: snapshot       ! snapshot ID
    integer*4   :: subvolume      ! subvolume index
@@ -92,7 +92,7 @@ end type type_sam
 ! write_to_file
 ! is_selected
    
-type type_sky_object
+type type_sky
 
    integer*4   :: snapshot       ! snapshot ID
    integer*4   :: subvolume      ! subvolume index
@@ -112,9 +112,9 @@ type type_sky_object
 
    procedure   :: write_to_file  => sky_write_to_file    ! required subroutine
    
-end type type_sky_object
+end type type_sky
 
-type,extends(type_sky_object) :: type_sky_galaxy ! must exist
+type,extends(type_sky) :: type_sky_galaxy ! must exist
 
    integer*8   :: id_galaxy_sky           ! unique ID in the mock sky
    integer*8   :: id_galaxy_sam           ! galaxy ID in the SAM
@@ -149,10 +149,6 @@ type,extends(type_sky_object) :: type_sky_galaxy ! must exist
    real*4      :: rgas_disk_intrinsic     ! [cMpc/h] intrinsic half-mass radius of gas in the disk
    real*4      :: rgas_bulge_intrinsic    ! [cMpc/h] intrinsic half-mass radius of gas in the bulge
    
-
-   !group_disp_part	?	real*4	km/s	i		?	ASGR: Intrinsic 3D dispersion of the group halo (VR output)
-   !group_disp_sat_los	-	real*4	km/s	a			ASGR: Measured line-of-site dispersion of the group satellites (close to what we would measure in real life)
-
    real*4      :: vvir_hosthalo           ! [km/s]	virial velocity of hosthalo
    real*4      :: vvir_subhalo            ! [km/s]	virial velocity of subhalo
    real*4      :: vmax_subhalo            ! [km/s]	maximum circular velocity of subhalo
@@ -164,7 +160,7 @@ type,extends(type_sky_object) :: type_sky_galaxy ! must exist
    
 end type type_sky_galaxy
 
-type,extends(type_sky_object) :: type_sky_group ! must exist
+type,extends(type_sky) :: type_sky_group ! must exist
    
    real*4      :: mvir                 ! [Msun/h] virial mass of group
    real*4      :: vvir                 ! [km/s]	virial velocity of group halo
@@ -182,7 +178,7 @@ type,extends(type_sky_object) :: type_sky_group ! must exist
    
 end type type_sky_group
 
-! In order to place the objects in the mock sky, the class type_sam must have the following two functions
+! In order to place the objects in the mock sky, the class type_sam must have the following functions
 ! enabling stingray to extract the position and group id of each object.
 
 contains
@@ -206,7 +202,7 @@ end function sam_is_group_center
 ! For instances of the user-defined sky-types to be saved, add all sky types in the following subroutine
 
 subroutine sky_write_to_file(self,fileID)
-   class(type_sky_object) :: self
+   class(type_sky) :: self
    integer*4,intent(in) :: fileID
    select type (self)
    type is (type_sky_galaxy); write(fileID) self
@@ -222,7 +218,7 @@ end subroutine sky_write_to_file
 
 subroutine make_sky_object(sky_object,sam,base,groupid)
 
-   class(type_sky_object),intent(out)     :: sky_object
+   class(type_sky),intent(out)     :: sky_object
    type(type_sam),intent(in)              :: sam
    type(type_base),intent(in)             :: base                 ! basic properties of the position of this galaxy in the sky
    integer*8,intent(in)                   :: groupid              ! unique group in sky index
@@ -456,7 +452,8 @@ subroutine make_automatic_parameters
 end subroutine make_automatic_parameters
 
 ! load redshifts
-! this routine must allocate the array snapshot and fill in its real*4-valued property 'redshift'
+! this routine must write the redshift of each snapshot into the real*4-array
+! snapshot(isnapshot)%redshift
 
 subroutine make_redshifts
 
@@ -595,7 +592,7 @@ subroutine make_hdf5
    
    ! load auxilary data
    call load_parameters
-   call load_box_list
+   call load_tile_list
    call load_snapshot_list
    
    ! load auxilary data from shark output
@@ -798,7 +795,7 @@ subroutine make_hdf5
    & '[Mpc/h] minimal comoving distance at which this snapshot is used')
    call hdf5_write_data('snapshots/dc_max',snapshot%dmax*para%L, &
    & '[Mpc/h] maximal comoving distance at which this snapshot is used')
-   call hdf5_write_data('snapshots/n_replication',snapshot%n_replication, &
+   call hdf5_write_data('snapshots/n_tiles',snapshot%n_tiles, &
    & 'Number of tiles this snapshot has been considered for, irrespective of whether a galaxy was selected')
    
    ! close HDF5 file
