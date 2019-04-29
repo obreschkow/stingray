@@ -27,7 +27,7 @@ transparency_property = gal$mag
 # plot
 rgl.closeall()
 rgl.tiling(tile,rotationmatrix,para$box_length)
-alpha = 0.5-0.5*(transparency_property-min(transparency_property))/(max(transparency_property)-min(transparency_property))
+alpha = 1-0.5*(transparency_property-min(transparency_property))/(max(transparency_property)-min(transparency_property))
 col = color[(1-(color_property-min(color_property))/(max(color_property)-min(color_property)))*99+1]
 points3d(gal$x, col = col, alpha = alpha)
-points3d(group$x[group$flag==1,], col = 'black')
+#points3d(group$x[group$flag==1,], col = 'black')
