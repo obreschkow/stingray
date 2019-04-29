@@ -36,7 +36,7 @@ ifeq ($(system),ism49) # private backup laptop of developer Obreschkow
 endif
 ifeq ($(system),hyades) # in-house cluster at ICRAR/UWA
    SHELL:=/bin/bash
-   module load gfortran/6.3.0 hdf5/1.10.2
+   module load gfortran/6.3.0 hdf5/1.10.2; \
    hdfflags = -I/opt/bldr/local/storage/hdf5/1.10.2/include -L/opt/bldr/local/storage/hdf5/1.10.2/lib -lhdf5_fortran -lhdf5
 endif
 ifeq ($(hdfflags),empty)
