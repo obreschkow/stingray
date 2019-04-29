@@ -32,7 +32,7 @@ GETTING STARTED
 4) Clean potential previous compilations
    > make clean
    
-5) If needed, specify the compiler flags for your computing system by adding a new block to the makefile
+5) If needed, specify the HDF compiler flags for your system by adding a new block to the makefile
    ifeq ($(system),[your system name])
       hdfflags = [your HDF flats]
    endif
