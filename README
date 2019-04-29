@@ -33,23 +33,24 @@ GETTING STARTED
    > make clean
    
 5) If needed, specify the compiler flags for your computing system by adding a new block to the makefile
+   ifeq ($(system),[your system name])
+      hdfflags = [your HDF flats]
+   endif
    
+6) Compile the code by typing
+   > make system=[your system name]
+   NB: depending on the system, it might be necessary to load fortran and hdf5 packages,
+       e.g. using a command like
+       > module load gfortran/6.3.0 hdf5/1.10.2
    
-5) Modify the makefile (if needed) and compile the code by typing
-   > make [system=...]
-   NB: depending on the system, it might be necessary
-   a) to load fortran and hdf5 packages, e.g. using a command like
-      > module load gfortran/6.3.0 hdf5/1.10.2
-   b) to specify the system
+7) Edit the parameter file parameter.txt, especially the input and output paths
    
-6) Edit the parameter file parameter.txt, especially the input and output paths
-   
-7) Produce mock observing cone
+8) Produce mock observing cone
    > ./stingray make_all [-parameterfile .../parameter.txt]
    
-8) Check files written into output directory
+9) Check files written into output directory
    
-9) Optionally, visualise the cone in R
+10) Optionally, visualise the cone in R
 
 
 ARGUMENTS
