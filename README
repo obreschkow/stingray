@@ -34,7 +34,9 @@ GETTING STARTED
    
 5) Modify the makefile as needed and compile the code by typing
    > make
-   (NB: depending on the system, it might be necessary to load fortran and hdf5 modules first)
+   NB: depending on the system, it might be necessary to load fortran and hdf5 modules first, e.g. using
+   a command like
+   > module load gfortran/6.3.0 hdf5/1.10.2
    
 6) Edit the parameter file parameter.txt, especially the input and output paths
    
