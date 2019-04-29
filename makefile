@@ -1,12 +1,11 @@
-# Call as make [model=shark,...] [system=hyades,...] [mode=standard,dev]
+# Call as make [sam=shark,...] [system=hyades,...] [mode=standard,dev]
 
-
-# model = galaxy formation model; each model requires custom modules "module_user_routines_[SAM].f03" and "module_user_selection_[SAM].f95"
+# sam = galaxy formation model; each model requires custom modules "module_user_routines_[sam].f03" and "module_user_selection_[sam].f95"
 # system = computing system on which stingray is complied and executed
 # mode = compilation mode; allowed modes are 'standard' and 'dev'
 
-ifndef model
-   model = shark
+ifndef sam
+   sam = shark
 endif
 
 ifndef system
@@ -16,45 +15,46 @@ endif
 ifdef mode
    ifneq ($(mode),standard)
       ifneq ($(mode),dev)
-         $(info WARNING unknown mode: '${mode}')
+         $(info ERROR unknown mode: '${mode}')
+stop
       endif
    endif
 else
    mode = standard
 endif
 
-# user info
-$(info Compilation options:)
-$(info + Computing system = '${system}'.)
-$(info + Compiling mode = '${mode}'.)
-$(info + Galaxy formation model = '${model}'.)
 
-ifeq ($(system),ems)
-   ifeq ($(mode),standard)
-      FCFLAGS = -O3 -fopenmp -I/usr/local/include -L/usr/local/lib -lhdf5_fortran -lhdf5
-   else
-      FCFLAGS = -g -O0 -I/usr/local/include -L/usr/local/lib -lhdf5_fortran -lhdf5 -fbounds-check -fwhole-file -ffpe-trap=invalid,zero,overflow -Wall -Wunused -Wuninitialized -Wsurprising -Wconversion
-   endif
+# custom flags to load the HDF5 library
+hdfflags = empty
+ifeq ($(system),ems) # private laptop of developer Obreschkow
+   hdfflags = -I/usr/local/include -L/usr/local/lib -lhdf5_fortran -lhdf5
+endif
+ifeq ($(system),ism49) # private backup laptop of developer Obreschkow
+   hdfflags = -I/usr/local/lib/hdf5/include -L/usr/local/lib/hdf5/lib -lhdf5_fortran -lhdf5
+endif
+ifeq ($(system),hyades) # in-house cluster at ICRAR/UWA
+   hdfflags = -I/opt/bldr/local/storage/hdf5/1.10.2/include -L/opt/bldr/local/storage/hdf5/1.10.2/lib -lhdf5_fortran -lhdf5
+endif
+ifeq ($(hdfflags),empty)
+   $(info ERROR unknown system: '${system}')
+stop
 endif
 
-ifeq ($(system),ism49)
-   ifeq ($(mode),standard)
-      FCFLAGS = -O3 -fopenmp -I/usr/local/lib/hdf5/include -L/usr/local/lib/hdf5/lib -lhdf5_fortran -lhdf5
-   else
-      FCFLAGS = -g -O0 -I/usr/local/lib/hdf5/include -L/usr/local/lib/hdf5/lib -lhdf5_fortran -lhdf5 -fbounds-check -fwhole-file -ffpe-trap=invalid,zero,overflow -Wall -Wunused -Wuninitialized -Wsurprising -Wconversion
-   endif
-endif
-
-ifeq ($(system),hyades)
-   ifeq ($(mode),standard)
-      FCFLAGS = -g -O3 -fopenmp -I/opt/bldr/local/storage/hdf5/1.10.2/include -L/opt/bldr/local/storage/hdf5/1.10.2/lib -lhdf5_fortran -lhdf5
-   else
-      FCFLAGS = -g -O0 -I/opt/bldr/local/storage/hdf5/1.10.2/include -L/opt/bldr/local/storage/hdf5/1.10.2/lib -lhdf5_fortran -lhdf5 -fbounds-check -fwhole-file -ffpe-trap=invalid,zero,overflow -Wall -Wunused -Wuninitialized -Wsurprising -Wconversion
-   endif
+# make all compiler flags
+ifeq ($(mode),standard)
+   FCFLAGS = -g $(hdfflags) -O3 -fopenmp
+else
+   FCFLAGS = -g $(hdfflags) -O0 -fbounds-check -fwhole-file -ffpe-trap=invalid,zero,overflow -Wall -Wunused -Wuninitialized -Wsurprising -Wconversion
 endif
 
 # Compiler
 FC = gfortran
+
+# user info
+$(info Compilation options:)
+$(info + Computing system = '${system}'.)
+$(info + Compiling mode = '${mode}'.)
+$(info + Galaxy formation model = '${sam}'.)
 
 # List of executables to be built within the package
 PROGRAMS = stingray
@@ -71,8 +71,8 @@ stingray.o:    module_constants.o \
                module_sort.o \
                module_conversion.o \
                module_hdf5.o \
-               module_user_routines_$(model).o \
-               module_user_selections_$(model).o \
+               module_user_routines_$(sam).o \
+               module_user_selections_$(sam).o \
                module_parameters.o \
                module_tiling.o \
                module_sky.o
@@ -86,8 +86,8 @@ stingray: 	   module_constants.o \
                module_cosmology.o \
                module_conversion.o \
                module_hdf5.o \
-               module_user_routines_$(model).o \
-               module_user_selections_$(model).o \
+               module_user_routines_$(sam).o \
+               module_user_selections_$(sam).o \
                module_parameters.o \
                module_tiling.o \
                module_sky.o

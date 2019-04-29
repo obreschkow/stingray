@@ -9,7 +9,7 @@ survey                  test
 # Paths
 #path_output             /Users/do/Data/SURFS/L210_N1536/stingray/
 path_output             /mnt/su3ctm/dobreschkow/Stingray/output/
-#path_input              /Users/do/Data/SURFS/L210_N1536/Shark-v1p2x/
+#path_input              /Users/do/Data/SURFS/L210_N1536/Shark-v1p2/
 path_input              /mnt/su3ctm/clagos/SHARK_Out/medi-SURFS/Shark-v1p2
 
 # Snapshot parameters

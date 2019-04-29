@@ -11,7 +11,7 @@ V0.7  26/10/2018: Separated user-module into a two modules for routines and sele
 V0.8  10/12/2018: Fixed bug with galaxy counting in multi-threading mode
 V0.9  26/02/2019: Updated HDF5 module for increased flexibility with data type conversions
 V0.10 26/03/2019: Better commenting, copy parameter file, instead of rewriting it
-V0.11 29/04/2019: Improved cosmology module, general clean up
+V0.11 29/04/2019: Improved cosmology module, general clean up, improved makefile
 
 Copyright Danail Obreschkow (danail.obreschkow@icrar.org)
 
@@ -32,11 +32,15 @@ GETTING STARTED
 4) Clean potential previous compilations
    > make clean
    
-5) Modify the makefile as needed and compile the code by typing
-   > make
-   NB: depending on the system, it might be necessary to load fortran and hdf5 modules first, e.g. using
-   a command like
-   > module load gfortran/6.3.0 hdf5/1.10.2
+5) If needed, specify the compiler flags for your computing system by adding a new block to the makefile
+   
+   
+5) Modify the makefile (if needed) and compile the code by typing
+   > make [system=...]
+   NB: depending on the system, it might be necessary
+   a) to load fortran and hdf5 packages, e.g. using a command like
+      > module load gfortran/6.3.0 hdf5/1.10.2
+   b) to specify the system
    
 6) Edit the parameter file parameter.txt, especially the input and output paths
    
