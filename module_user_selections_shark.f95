@@ -46,6 +46,8 @@ logical function pos_selection(dc,ra,dec) result(selected)
       selected = ((ra>=211.500).and.(ra<=223.500).and.(dec>= -4.5).and.(dec<=+4.5))
    case ('deep-optical')
       selected = ((ra>=211.500).and.(ra<=223.500).and.(dec>= -4.5).and.(dec<=+4.5))
+   case ('deep-optical-narrow')
+      selected = ((ra>=221.500).and.(ra<=223.500).and.(dec>= -2.5).and.(dec<=+2.5))
    case ('alfalfa')
       selected = ((dec>= 0.000).and.(dec<= 36.000)).and. &
                & (((ra>= 112.500).and.(ra<= 247.500)).or.((ra>= 330.000).or.(ra<= 45.000))).and. &
@@ -73,6 +75,8 @@ logical function sam_selection(sam) result(selected)
    case ('gama')
       selected = (sam%mstars_disk+sam%mstars_bulge>1e6)
    case ('deep-optical')
+      selected = (sam%mstars_disk+sam%mstars_bulge>1e6)
+   case ('deep-optical-narrow')
       selected = (sam%mstars_disk+sam%mstars_bulge>1e6)
    case ('deep-optical-agn')
       selected = (sam%mstars_disk+sam%mstars_bulge>1e6)
@@ -103,6 +107,8 @@ logical function sky_selection(sky,sam) result(selected)
       selected = ((sky%mag<=19.8+dmag).and.(sky%ra<330.0*degree)).or.(sky%mag<=19.2+dmag)
    case ('deep-optical')
       selected = sky%mag<=28.0+dmag
+   case ('deep-optical-narrow')
+      selected = sky%mag<=38.0+dmag
    case ('deep-optical-agn')
       selected = sky%mag<=26.0+dmag
    case ('alfalfa')

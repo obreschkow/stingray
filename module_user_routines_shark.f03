@@ -164,7 +164,9 @@ type,extends(type_sky_object) :: type_sky_galaxy ! must exist
    
    real*4      :: zgas_disk      ! metallicity of the gas in the disk
    real*4      :: zgas_bulge     ! metallicity of the gas in the disk
-   real*4      :: sfr            ! [Msun/Gyr/h] star formation rate
+
+   real*4      :: sfr_disk       ! [Msun/Gyr/h] star formation rate in the disk
+   real*4      :: sfr_burst      ! [Msun/Gyr/h] star formation rate in the bulge
 
    real*4      :: mbh            ! [Msun/h] black hole mass
    real*4      :: mbh_acc_hh     ! [Msun/Gyr/h] accretion rate in hot-halo mode
@@ -323,7 +325,9 @@ subroutine make_sky_galaxy(sky_galaxy,sam,base,groupid,galaxyid)
    sky_galaxy%matom_bulge     = sam%matom_bulge 
    sky_galaxy%mmol_disk       = sam%mmol_disk   
    sky_galaxy%mmol_bulge      = sam%mmol_bulge  
-   sky_galaxy%sfr             = sam%sfr_disk + sam%sfr_burst
+   sky_galaxy%sfr_disk        = sam%sfr_disk
+   sky_galaxy%sfr_burst       = sam%sfr_burst
+
  
    ! intrinsic angular momentum
    pseudo_rotation   = tile(base%tile)%Rpseudo
@@ -748,9 +752,16 @@ subroutine make_hdf5
    call hdf5_write_data(trim(name)//'/mvir_subhalo',sky_galaxy%mvir_subhalo,'[Msun/h] subhalo mass')
    call hdf5_write_data(trim(name)//'/zgas_disk',sky_galaxy%zgas_disk,'metallicity of the gas in the disk')
    call hdf5_write_data(trim(name)//'/zgas_bulge',sky_galaxy%zgas_bulge,'metallicity of the gas in the bulge')
+   call hdf5_write_data(trim(name)//'/sfr_disk',sky_galaxy%sfr_disk,'star formation rate in the disk [Msun/Gyr/h]')
+   call hdf5_write_data(trim(name)//'/sfr_burst',sky_galaxy%sfr_burst,'star formation rate in the bulge [Msun/Gyr/h]')
+
    call hdf5_write_data(trim(name)//'/mbh',sky_galaxy%mbh,'[Msun/h] black hole mass')
    call hdf5_write_data(trim(name)//'/mbh_acc_hh',sky_galaxy%mbh_acc_hh,'[Msun/Gyr/h] black hole accretion rate in the hot halo mode')
    call hdf5_write_data(trim(name)//'/mbh_acc_sb',sky_galaxy%mbh_acc_sb,'[Msun/Gyr/h] black hole accretion rate in the starburst mode')
+
+   call hdf5_write_data(trim(name)//'/vvir_hosthalo',sky_galaxy%vvir_hosthalo,'[km/sM] host halo virial velocity')
+   call hdf5_write_data(trim(name)//'/vvir_subhalo',sky_galaxy%vvir_subhalo,'[Msun/h] subhalo virial velocity')
+   call hdf5_write_data(trim(name)//'/cnfw_subhalo',sky_galaxy%cnfw_subhalo,'narro-frenk-white concentration of subhalo')
 
    call hdf5_write_data(trim(name)//'/rstar_disk_apparent',sky_galaxy%rstar_disk_apparent,&
    &'[arcsec] apparent half-mass radius of stellar disk')
