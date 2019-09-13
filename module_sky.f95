@@ -263,9 +263,11 @@ subroutine write_subvolume_into_tile(itile,isnapshot,isubvolume,sam,sam_sel,sam_
    call reset_group_variables
    n_galaxies = 0
    n_groups = 0
+   if (n>9999999) call error('There are more than 9,999,999 galaxies in a single subvolume.')
    if (itile>9999) call error('There are more than 9999 tiles, which is not allowed.')
    if (isubvolume>999) call error('There are more than 999 subvolumes, which is not allowed.')
-   prefixid = 10000000000_8*isnapshot+10000000_8*isubvolume+10000_8*itile
+   if (isubvolume>999) call error('There are more than 999 subvolumes, which is not allowed.')
+   prefixid = 100000000000000_8*isnapshot+100000000000_8*isubvolume+10000000_8*itile
    
    ! iterate over all mock galaxies in the subvolume, ordered by group, and check how groups have been truncated
    do i = 1,n
@@ -302,8 +304,6 @@ subroutine write_subvolume_into_tile(itile,isnapshot,isubvolume,sam,sam_sel,sam_
       
       ! close this group
       if (last_galaxy_in_group) then ! check if group id differs from next group id
-      
-         if (base%group_ntot>9999) call error('There are more than 9999 galaxies in a group, which is not allowed.') ! only to avoid non-unique IDs
       
          if (group_preselected) then
          
