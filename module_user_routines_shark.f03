@@ -12,6 +12,7 @@ use module_io
 use module_linalg
 use module_cosmology
 use module_conversion
+use module_emission_lines
 
 ! custom modules
 use module_hdf5
@@ -123,7 +124,21 @@ type,extends(type_sky) :: type_sky_galaxy ! must exist
    real*4      :: inclination             ! [rad] inclination
    real*4      :: pa                      ! [rad] position angle from North to East
    real*4      :: mag                     ! apparent magnitude (generic: M/L ratio of 1, no k-correction)
-   real*8      :: SHI                     ! [W/m^2] integrated HI line flux
+   
+   ! NEW OUTPUT PARAMETERS, NOT YET CODED UP
+   real*4      :: s_hi_int                ! [W/m^2] integrated HI line flux
+   real*4      :: s_hi_int_vel            ! [Jy km/s] velocity-integrated HI line flux
+   real*4      :: s_hi_peak               ! [Jy] peak HI line flux density of inclined galaxy
+   real*4      :: s_hi_central            ! [Jy] central HI line flux density of inclined galaxy
+   real*4      :: w_hi_peak               ! [km/s] line width of inclined galaxy in rest-frame velocity at peak flux
+   real*4      :: w_hi_50                 ! [km/s] line width of inclined galaxy in rest-frame velocity at 50% or peak flux
+   real*4      :: w_hi_20                 ! [km/s] line width of inclined galaxy in rest-frame velocity at 20% of peak flux
+   real*4      :: s_hi_peak_edgeon        ! [Jy] peak HI line flux density of edge-on galaxy
+   real*4      :: s_hi_central_edgeon     ! [Jy] central HI line flux density of edge-on galaxy
+   real*4      :: w_hi_peak_edgeon        ! [km/s] line width of edge-on galaxy in rest-frame velocity at peak flux
+   real*4      :: w_hi_50_edgeon          ! [km/s] line width of edge-on galaxy in rest-frame velocity at 50% or peak flux
+   real*4      :: w_hi_20_edgeon          ! [km/s] line width of edge-on galaxy in rest-frame velocity at 20% of peak flux
+   ! END NEW OUTPUT PARAMETERS
    
    real*4      :: mstars_disk             ! [Msun/h] stellar mass of the disk
    real*4      :: mstars_bulge            ! [Msun/h] stellar mass of the bulge
@@ -218,7 +233,7 @@ end subroutine sky_write_to_file
 
 subroutine make_sky_object(sky_object,sam,base,groupid)
 
-   class(type_sky),intent(out)     :: sky_object
+   class(type_sky),intent(out)            :: sky_object
    type(type_sam),intent(in)              :: sam
    type(type_base),intent(in)             :: base                 ! basic properties of the position of this galaxy in the sky
    integer*8,intent(in)                   :: groupid              ! unique group in sky index
@@ -265,7 +280,9 @@ subroutine make_sky_galaxy(sky_galaxy,sam,base,groupid,galaxyid)
    real*4                              :: pos(3)               ! [simulation length units] position vector of galaxy
    real*4                              :: dl                   ! [simulation length units] luminosity distance to observer
    real*4                              :: elos(3)              ! unit vector pointing from the observer to the object in comoving space
-   real*4                              :: mHI,mstars
+   real*4                              :: mHI,mstars,a,rgas_exp,rstars_exp
+   type(type_lineinput)                :: line_input
+   type(type_line)                     :: line_inclined,line_edgeon
    
    call nil(sky_galaxy,sam,base,groupid,galaxyid) ! dummy statement to avoid compiler warnings
    
@@ -323,9 +340,50 @@ subroutine make_sky_galaxy(sky_galaxy,sam,base,groupid,galaxyid)
    mstars = (sam%mstars_disk+sam%mstars_bulge)/para%h ! [Msun]
    sky_galaxy%mag = convert_absmag2appmag(convert_stellarmass2absmag(mstars,1.0),dl/para%h)
    
-   ! HI flux
-   mHI = (sam%matom_disk+sam%matom_bulge)/1.35/para%h ! [Msun] HI mass
-   sky_galaxy%SHI = convert_luminosity2flux(real(mHI,8)*real(L2MHI,8)*Lsun,dl/para%h)
+   ! HI line
+   mHI = (sam%matom_disk+sam%matom_bulge)/1.35 ! [Msun/h] HI mass
+   if (mHI>1e20) then
+      line_input%mhalo      = sam%mvir_subhalo   ! [Msun/h] Halo mass
+      line_input%mdisk      = sam%mstars_disk+sam%mgas_disk   ! [Msun/h] Disk mass (all baryons)
+      line_input%mbulg      = sam%mstars_bulge+sam%mgas_bulge   ! [Msun/h] bulge mass
+      line_input%mHI        = mHI   ! [Msun/h] HI mass
+      line_input%rvir       = (4.3022682e-6*line_input%mhalo)**(1.0/3.0)/para%h ! [pkpc] virial radius at 200 rho_crit
+      a = 1/(1+sky_galaxy%zobs) ! scale factor
+      rgas_exp = 1e3*a/1.67835*max(sam%rgas_disk,sam%rgas_bulge) ! [pkpc] exponential radius of gas
+      rstars_exp = 1e3*a/1.67835*max(sam%rstar_disk,sam%rstar_bulge) ! [pkpc] exponential radius of stars
+      line_input%rdisk      = (sam%mstars_disk*rstars_exp+sam%mgas_disk*rgas_exp)/(sam%mstars_disk+sam%mgas_disk)     ! [kpc, physical] exponential disk scale (stars+HI)
+      line_input%rHI        = rgas_exp     ! [kpc, physical] exponential scale of HI
+      line_input%dispersion = sigmaHI      ! [km/s] velocity dispersion of the line emitting component
+      line_input%z          = sky_galaxy%zobs    ! [-] redshift
+      line_input%incl       = sky_galaxy%inclination    ! [rad] inclination (0 = face-on, pi/2 = edge-on)
+      line_input%Dc         = sky_galaxy%dc     ! [Mpc/h] comoving distance
+      call line_profile(line_input,para%h,line_inclined,line_edgeon)
+      sky_galaxy%s_hi_int = real(convert_luminosity2flux(real(mHI/para%h,8)*real(L2MHI,8)*Lsun,dl/para%h),4)
+      sky_galaxy%s_hi_int_vel = line_edgeon%sintvel
+      sky_galaxy%s_hi_peak_edgeon = line_edgeon%speak
+      sky_galaxy%s_hi_central_edgeon = line_edgeon%scentral
+      sky_galaxy%w_hi_peak_edgeon = line_edgeon%wpeak
+      sky_galaxy%w_hi_50_edgeon = line_edgeon%w50
+      sky_galaxy%w_hi_20_edgeon = line_edgeon%w20
+      sky_galaxy%s_hi_peak = line_inclined%speak
+      sky_galaxy%s_hi_central = line_inclined%scentral
+      sky_galaxy%w_hi_peak = line_inclined%wpeak
+      sky_galaxy%w_hi_50 = line_inclined%w50
+      sky_galaxy%w_hi_20 = line_inclined%w20
+   else
+      sky_galaxy%s_hi_int = 0
+      sky_galaxy%s_hi_int_vel = 0
+      sky_galaxy%s_hi_peak_edgeon = 0
+      sky_galaxy%s_hi_central_edgeon = 0
+      sky_galaxy%w_hi_peak_edgeon = 0
+      sky_galaxy%w_hi_50_edgeon = 0
+      sky_galaxy%w_hi_20_edgeon = 0
+      sky_galaxy%s_hi_peak = 0
+      sky_galaxy%s_hi_central = 0
+      sky_galaxy%w_hi_peak = 0
+      sky_galaxy%w_hi_50 = 0
+      sky_galaxy%w_hi_20 = 0
+   end if
       
    ! apparent radii (note division by comoving distance, because intrinsic radii given in comoving units)
    sky_galaxy%rstar_disk_apparent = sam%rstar_disk/sky_galaxy%dc/degree*3600.0 ! [arcsec]
@@ -574,7 +632,7 @@ contains
 subroutine make_hdf5
    
    implicit none
-   logical,parameter                   :: show_test_sum = .false.
+   logical,parameter                   :: show_test_sum = .true.
    character(len=255)                  :: filename_bin
    character(len=255)                  :: filename_hdf5
    type(type_sky_galaxy),allocatable   :: sky_galaxy(:)
@@ -675,7 +733,25 @@ subroutine make_hdf5
    call hdf5_write_data(trim(name)//'/pa',sky_galaxy%pa/degree,'[deg] position angle from north to east')
    call hdf5_write_data(trim(name)//'/mag',sky_galaxy%mag, &
    & 'apparent magnitude (generic: M/L ratio of 1, no k-correction)')
-   call hdf5_write_data(trim(name)//'/s_hi',sky_galaxy%SHI,'[W/m^2] integrated HI line flux')
+   call hdf5_write_data(trim(name)//'/s_hi_int',sky_galaxy%s_hi_int,'[W/m^2] integrated HI line flux')
+   call hdf5_write_data(trim(name)//'/s_hi_int_vel',sky_galaxy%s_hi_int_vel,'[Jy km/s] velocity-integrated HI line flux')
+   call hdf5_write_data(trim(name)//'/s_hi_peak',sky_galaxy%s_hi_peak,'[Jy] peak HI line flux density of inclined galaxy')
+   call hdf5_write_data(trim(name)//'/s_hi_mean',sky_galaxy%s_hi_central,'[Jy] central HI line flux density of inclined galaxy')
+   call hdf5_write_data(trim(name)//'/w_hi_peak',sky_galaxy%w_hi_peak, &
+   & '[km/s] line-width between flux peaks of the inclined galaxy in rest-frame velocity units')
+   call hdf5_write_data(trim(name)//'/w_hi_50',sky_galaxy%w_hi_50, &
+   & '[km/s] line-width at 50% of the peak flux of the inclined galaxy in rest-frame velocity units')
+   call hdf5_write_data(trim(name)//'/w_hi_20',sky_galaxy%w_hi_20, &
+   & '[km/s] line-width at 20% of the peak flux of the inclined galaxy in rest-frame velocity units')
+   call hdf5_write_data(trim(name)//'/s_hi_peak_edgeon',sky_galaxy%s_hi_peak,'[Jy] peak HI line flux density of edge-on galaxy')
+   call hdf5_write_data(trim(name)//'/s_hi_mean_edgeon',sky_galaxy%s_hi_central, &
+   & '[Jy] central HI line flux density of edge-on galaxy')
+   call hdf5_write_data(trim(name)//'/w_hi_peak_edgeon',sky_galaxy%w_hi_peak, &
+   & '[km/s] line-width between flux peaks of the edge-on galaxy in rest-frame velocity units')
+   call hdf5_write_data(trim(name)//'/w_hi_50_edgeon',sky_galaxy%w_hi_50, &
+   & '[km/s] line-width at 50% of the peak flux of the edge-on galaxy in rest-frame velocity units')
+   call hdf5_write_data(trim(name)//'/w_hi_20_edgeon',sky_galaxy%w_hi_20, &
+   & '[km/s] line-width at 20% of the peak flux of the edge-on galaxy in rest-frame velocity units')
    call hdf5_write_data(trim(name)//'/vpec_x',sky_galaxy%vpec(1),'[proper km/s] x-component of peculiar velocity')
    call hdf5_write_data(trim(name)//'/vpec_y',sky_galaxy%vpec(2),'[proper km/s] y-component of peculiar velocity')
    call hdf5_write_data(trim(name)//'/vpec_z',sky_galaxy%vpec(3),'[proper km/s] z-component of peculiar velocity')
@@ -803,10 +879,10 @@ subroutine make_hdf5
    
    ! check test sum
    if (show_test_sum) then
-      expected_sum = 17520.368820190
+      expected_sum = 150126.430847168
       if (abs(sum(test)/expected_sum-1)>1e-5) then
          write(str,'(F16.9)') sum(test)
-         call out('Test sum FAILED, expected_sum = '//trim(str))
+         call out('Test sum FAILED, found = '//trim(str))
       else
          call out('Test sum OK.')
       end if

@@ -46,7 +46,8 @@ logical function pos_selection(dc,ra,dec) result(selected)
                & (((ra>= 112.500).and.(ra<= 247.500)).or.((ra>= 330.000).or.(ra<= 45.000))).and. &
                & (dc<260.0)
    case ('wallaby')
-      selected = ((dec>= -90.000).and.(dec<=30.000).and.(ra>=0.00).and.(ra<=360.0))
+      selected = ((dec>= -90.000).and.(dec<=30.000).and.(ra>=0.00).and.(ra<=360.0).and.&
+               & dc<=780.0)
    case default
       selected = .true.
    end select
@@ -95,7 +96,7 @@ logical function sky_selection(sky,sam) result(selected)
    case ('alfalfa')
       selected = sam%matom_disk>10000.0*sky%dc**2
    case ('wallaby')
-      selected = sky%SHI>4e-24
+      selected = sky%s_hi_int>4e-24
    case default
       selected = .true.
    end select

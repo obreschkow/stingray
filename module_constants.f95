@@ -4,7 +4,7 @@ module module_constants
 
    public
    
-   character(*),parameter  :: version = '0.11'
+   character(*),parameter  :: version = '0.12'
    
    ! Universal constants
    real*4,parameter        :: pi = 3.14159265359
@@ -20,6 +20,7 @@ module module_constants
    real*4,parameter        :: degree = pi/180.0 ! [rad]
    real*8,parameter        :: ASphereMpc = 1.1964952e+46_8 ! [m^2] surface area of a sphere with 1 Mpc radius (=4*pi*(Mpc/m)^2)
    real*4,parameter        :: L2MHI = 6.27e-9 ! (LHI/Lsun)/(MHI/Msun)
+   real*4,parameter        :: sigmaHI = 8.0 ! [km/s] velocity dispersion of HI
    
    ! 90-degree rotation matrices
    real*4                  :: rot(3,3,-6:6)

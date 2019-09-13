@@ -1,4 +1,4 @@
-# Call as make [sam=shark,...] [system=hyades,...] [mode=standard,dev]
+# Call as make [sam=shark,...] [system=ems,ism49,hyades,...] [mode=standard,dev]
 
 # sam = galaxy formation model; each model requires custom modules "module_user_routines_[sam].f03" and "module_user_selection_[sam].f95"
 # system = computing system on which stingray is complied and executed
@@ -70,6 +70,7 @@ stingray.o:    module_constants.o \
                module_cosmology.o \
                module_sort.o \
                module_conversion.o \
+               module_emission_lines.o \
                module_hdf5.o \
                module_user_routines_$(sam).o \
                module_user_selections_$(sam).o \
@@ -85,6 +86,7 @@ stingray: 	   module_constants.o \
                module_sort.o \
                module_cosmology.o \
                module_conversion.o \
+               module_emission_lines.o \
                module_hdf5.o \
                module_user_routines_$(sam).o \
                module_user_selections_$(sam).o \
