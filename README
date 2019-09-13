@@ -12,6 +12,7 @@ V0.8  10/12/2018: Fixed bug with galaxy counting in multi-threading mode
 V0.9  26/02/2019: Updated HDF5 module for increased flexibility with data type conversions
 V0.10 26/03/2019: Better commenting, copy parameter file, instead of rewriting it
 V0.11 29/04/2019: Improved cosmology module, general clean up, improved makefile
+V0.12 12/09/2019: Bug fixes, embedded HI-line module (still in developper mode)
 
 Copyright Danail Obreschkow (danail.obreschkow@icrar.org)
 
