@@ -18,7 +18,7 @@ length_unit             auto           [m] SI-value of comoving length unit, her
 snapshot_min            auto
 snapshot_max            auto
 subvolume_min           auto
-subvolume_max           0
+subvolume_max           1
 
 # Cosmology
 h                       auto           [-] Hubble parameter H0=h*100 km/s/Mpc
