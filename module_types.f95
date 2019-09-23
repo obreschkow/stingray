@@ -26,7 +26,7 @@ module module_types
       character(len=255)   :: path_input
    
       ! simulation box
-      real*4               :: L ! box side length in simulation units
+      real*4               :: box_side ! box side length in simulation units
       real*4               :: length_unit ! [m]
       integer*4            :: snapshot_min
       integer*4            :: snapshot_max
@@ -72,6 +72,9 @@ module module_types
       ! derived parameters, not directly specified by the user
       real*4               :: velocity_car(3)   ! [km/s] velocity of observer cartesian survey-coordinates
       real*4               :: sky_rotation(3,3) ! rotation matrix to move the (x,y,z)-sky axis onto the central (RA,dec)-sky
+      
+      ! output options
+      integer*4            :: line_parameters
    
    end type type_para
    

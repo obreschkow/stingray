@@ -12,7 +12,8 @@ V0.8  10/12/2018: Fixed bug with galaxy counting in multi-threading mode
 V0.9  26/02/2019: Updated HDF5 module for increased flexibility with data type conversions
 V0.10 26/03/2019: Better commenting, copy parameter file, instead of rewriting it
 V0.11 29/04/2019: Improved cosmology module, general clean up, improved makefile
-V0.12 12/09/2019: Bug fixes, embedded HI-line module (still in developper mode)
+V0.12 12/09/2019: Bug fixes, developper version of HI-line module added
+V0.13 19/09/2019: Emission line maker for HI and CO with many rotation curve models for halos, disks and bulges
 
 Copyright Danail Obreschkow (danail.obreschkow@icrar.org)
 
@@ -43,6 +44,8 @@ GETTING STARTED
    NB: depending on the system, it might be necessary to load fortran and hdf5 packages,
        e.g. using a command like
        > module load gfortran/6.3.0 hdf5/1.10.2
+   NB: to activate all debugging flags and suppress multi-threading use
+       > make mode=dev
    
 7) Edit the parameter file parameter.txt, especially the input and output paths
    

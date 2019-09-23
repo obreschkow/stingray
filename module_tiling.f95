@@ -30,12 +30,12 @@ subroutine make_tiling
    call set_seed(para%seed)
    ntile = 0
    counter = 0
-   imax = ceiling(para%dc_max/para%L)
+   imax = ceiling(para%dc_max/para%box_side)
    if (imax>100) call error('Maximum comoving distance too large for this box side length.')
    allocate(intersection(-imax:imax,-imax:imax,-imax:imax))
    intersection = 0
    ntile = 0
-   call sph2car(para%dc_min/para%L,(para%ra_min+para%ra_max)/2.0,(para%dec_min+para%dec_max)/2.0,starting_point)
+   call sph2car(para%dc_min/para%box_side,(para%ra_min+para%ra_max)/2.0,(para%dec_min+para%dec_max)/2.0,starting_point)
    starting_point = matmul(starting_point,para%sky_rotation)
    call check_tile(nint(starting_point))
    call make_tile_list
@@ -109,8 +109,8 @@ subroutine make_tile_list
       
                ! distance range of tile
                call get_distance_range_of_cube(tile(itile)%ix,dmin,dmax)
-               tile(itile)%dmin = max(para%dc_min/para%L,dmin)
-               tile(itile)%dmax = min(para%dc_max/para%L,dmax)
+               tile(itile)%dmin = max(para%dc_min/para%box_side,dmin)
+               tile(itile)%dmax = min(para%dc_max/para%box_side,dmax)
                
                ! choose random proper rotation
                if (para%rotate==1) then
@@ -236,10 +236,10 @@ logical function is_tile_in_survey(ix,user)
    integer*4               :: i,j,k
    integer*4,allocatable   :: index(:)
    
-   sx = matmul(para%sky_rotation,(/1.0,0.0,0.0/))*para%L
-   sy = matmul(para%sky_rotation,(/0.0,1.0,0.0/))*para%L
-   sz = matmul(para%sky_rotation,(/0.0,0.0,1.0/))*para%L
-   x  = matmul(para%sky_rotation,real(ix,4))*para%L
+   sx = matmul(para%sky_rotation,(/1.0,0.0,0.0/))*para%box_side
+   sy = matmul(para%sky_rotation,(/0.0,1.0,0.0/))*para%box_side
+   sz = matmul(para%sky_rotation,(/0.0,0.0,1.0/))*para%box_side
+   x  = matmul(para%sky_rotation,real(ix,4))*para%box_side
 
    d = max(0.5,sqrt(real(sum(ix**2),4))) ! [box side-length] approximate distance from origin to nearest tile face
    n2D = max(10,2*nint(0.5/(d*para%search_angle)))

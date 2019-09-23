@@ -46,10 +46,10 @@ logical function pos_selection(dc,ra,dec) result(selected)
                & (((ra>= 112.500).and.(ra<= 247.500)).or.((ra>= 330.000).or.(ra<= 45.000))).and. &
                & (dc<260.0)
    case ('wallaby')
-      selected = ((dec>= -90.000).and.(dec<=30.000).and.(ra>=0.00).and.(ra<=360.0).and.&
-               & dc<=780.0)
+      selected = ((dec>= -90.000).and.(dec<=30.000).and.(ra>=0.00).and.(ra<=10.00).and.& ! should be 360
+               & dc<=750.0)
    case default
-      selected = .true.
+      call error('Unknown survey name.')
    end select
 
 end function pos_selection
@@ -63,7 +63,7 @@ logical function sam_selection(sam) result(selected)
    
    select case (trim(para%survey))
    case ('test')
-      selected = (sam%mstars_disk>1e10)
+      selected = .true.!(sam%mstars_disk>2e9)
    case ('devils')
       selected = (sam%mstars_disk>1e8)
    case ('gama')
@@ -73,7 +73,7 @@ logical function sam_selection(sam) result(selected)
    case ('wallaby')
       selected = (sam%mstars_disk>1e5)
    case default
-      selected = .true.
+      call error('Unknown survey name.')
    end select
    
 end function sam_selection
@@ -96,9 +96,9 @@ logical function sky_selection(sky,sam) result(selected)
    case ('alfalfa')
       selected = sam%matom_disk>10000.0*sky%dc**2
    case ('wallaby')
-      selected = sky%s_hi_int>4e-24
+      selected = (sky%hiline_flux_int>4e-24).and.(sky%zobs<=0.26)
    case default
-      selected = .true.
+      call error('Unknown survey name.')
    end select
    
 end function sky_selection

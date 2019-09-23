@@ -279,7 +279,7 @@ subroutine write_subvolume_into_tile(itile,isnapshot,isubvolume,sam,sam_sel,sam_
       last_galaxy_in_group = sam(i)%get_groupid().ne.sam(modulo(i,n)+1)%get_groupid()
       
       ! compute sky position and determine range
-      call convert_position_sam_to_sky(sam(i)%get_position()/para%L,itile,dc(i),ra(i),dec(i),x(i,:),xbox)
+      call convert_position_sam_to_sky(sam(i)%get_position()/para%box_side,itile,dc(i),ra(i),dec(i),x(i,:),xbox)
       do j = 1,3
          xmin(j) = min(xmin(j),xbox(j))
          xmax(j) = max(xmax(j),xbox(j))
@@ -293,7 +293,7 @@ subroutine write_subvolume_into_tile(itile,isnapshot,isubvolume,sam,sam_sel,sam_
       end if
       
       ! check full position
-      if (is_in_fov(dc(i)*para%L,ra(i),dec(i)).and.pos_selection(dc(i)*para%L,ra(i)/degree,dec(i)/degree)) then
+      if (is_in_fov(dc(i)*para%box_side,ra(i),dec(i)).and.pos_selection(dc(i)*para%box_side,ra(i)/degree,dec(i)/degree)) then
          n_in_survey_volume = n_in_survey_volume+1     
       else
          ok(i) = .false. ! => this object will be rejected
@@ -434,7 +434,7 @@ subroutine make_distance_ranges
    
    allocate(d(para%snapshot_min:para%snapshot_max))
    do i = para%snapshot_min,para%snapshot_max
-      d(i) = redshift_to_dc(snapshot(i)%redshift)*(Mpc/para%length_unit)/para%L ! [box side-length] comoving distance to redshift of the box
+      d(i) = redshift_to_dc(snapshot(i)%redshift)*(Mpc/para%length_unit)/para%box_side ! [box side-length] comoving distance to redshift of the box
    end do
    
    do i = para%snapshot_min,para%snapshot_max

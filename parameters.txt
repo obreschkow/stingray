@@ -1,57 +1,60 @@
 # Parameters given a value 'auto' are meant to be imported from the SAM output files.
-# The rules for importing these parameters must be set programmatically in the user module.
+# The rules for importing these parameters must be set programmatically in the function
+# "make_automatic_parameters" of the user module "module_user_routines_...".
 # If parameters are set in the user model *and* given a numerical value in this parameter
-# file, the parameter file takes priority.
+# file, the parameter file takes priority of the automatic assignment.
 
 # Name of mock survey (for this name, selection rules should be defined in the module "module_user_selection_...")
-survey                  test
+survey                  wallaby
 
 # Paths
 path_output             /Users/do/Data/SURFS/L210_N1536/stingray/
-#path_output             /mnt/su3ctm/dobreschkow/Stingray/output/
+#path_output             /mntmake_line_profiles/su3ctm/dobreschkow/Stingray/output/
 path_input              /Users/do/Data/SURFS/L210_N1536/shark/
 #path_input              /mnt/su3ctm/clagos/SHARK_Out/medi-SURFS/Shark-v1p2
 
 # Snapshot parameters
-L                       auto           [length_unit] side-length of simulation box
-length_unit             auto           [m] SI-value of comoving length unit, here Mpc/h
-snapshot_min            auto
-snapshot_max            auto
-subvolume_min           auto
-subvolume_max           0
+box_side                auto           [length_unit] comoving side-length of simulation box in multiples of length_unit
+length_unit             auto           [m] SI-value of comoving length unit
+snapshot_min            auto           index of earliest snapshot used for the mock sky
+snapshot_max            auto           index of latest snapshot used for the mock sky
+subvolume_min           auto           index of first subvolume used for the mock sky
+subvolume_max           0              index of last subvolume used for the mock sky
 
 # Cosmology
 h                       auto           [-] Hubble parameter H0=h*100 km/s/Mpc
-omega_l                 auto           Space density of dark energy relative to closure density
-omega_m                 auto           Space density of all matter relative to closure density
-omega_b                 auto           Space density of baryonic matter relative to closure density
+omega_l                 auto           energy density of dark energy relative to closure density
+omega_m                 auto           energy density of all matter relative to closure density
+omega_b                 auto           energy density of baryonic matter relative to closure density
 
 # Considered distance range and field-of-view. Additional, more complex positional selection criteria can
 # be coded in the user module function "pos_selection".
-dc_min                  0              [length_unit] minimal comoving distance (>=0)
-dc_max                  1000           [length_unit] maximal comoving distance (>=0)
-ra_min                  0              [deg] min right ascension (from 0 to 360)
-ra_max                  360            [deg] max right ascension (from 0 to 360)
-dec_min                 -90            [deg] min declination (from -90 to 90)
-dec_max                 90             [deg] max declination (from -90 to 90)
+dc_min                  0              [length_unit] minimal comoving distance of mock sky (>=0)
+dc_max                  1000           [length_unit] maximal comoving distance of mock sky (>=0)
+ra_min                  0              [deg] min right ascension of mock sky (from 0 to 360)
+ra_max                  360            [deg] max right ascension of mock sky (from 0 to 360)
+dec_min                 -90            [deg] min declination of mock sky (from -90 to 90)
+dec_max                 90             [deg] max declination of mock sky (from -90 to 90)
 
 # Mapping of SAM-coordinates on to survey-coordinates
-zaxis_ra                0              [deg] direction of the SAM z-axis in spherical survey coordinates
-zaxis_dec               0              [deg] direction of the SAM z-axis in spherical survey coordinates
-xy_angle                0              [deg]
+zaxis_ra                0              [deg] RA coordinate of the SAM z-axis in spherical survey coordinates
+zaxis_dec               0              [deg] Dec coordinate the SAM z-axis in spherical survey coordinates
+xy_angle                0              [deg] Rotation of the SAM (x,y)-plane on the sky
 
 # Symmetry operations applied to boxes
-# 1 = random symmetry is applied, 0 = symmetry is not applied
-seed                    1
-translate               1
-rotate                  1
-invert                  1
+seed                    1              seed for the random number generator of symmetry operations (positive integer)
+translate               1              logical flag specifying if random translations are applied (0=false, 1=true)
+rotate                  1              logical flag specifying if random rotations are applied (0=false, 1=true)
+invert                  1              logical flag specifying if random inversions are applied (0=false, 1=true)
 
-# Observer velocity relative to CMB
-velocity_norm           369.0          [km/s] J2000 coordinates of WMAP dipole velocity (arxiv 0803.0732)
-velocity_ra             167.93         [deg]  J2000 coordinates of WMAP dipole velocity
-velocity_dec            -6.9269        [deg]  J2000 coordinates of WMAP dipole velocity
+# Observer velocity relative to CMB (from WMAP in J2000 coordinates, arxiv 0803.0732)
+velocity_norm           369.0          [km/s] observer velocity relative to CMB rest-frame
+velocity_ra             167.93         [deg] RA coordinate to which the observer is moving relative to CMB rest-frame
+velocity_dec            -6.9269        [deg] Dec coordinate to which the observer is moving relative to CMB rest-frame
 
-# Advanced options
-search_angle            0.5            [deg]
-volume_search_level     0              [-] value >=0, giving the number of search points (2^#)^3 inside each box
+# Tiling options, defining how accurately the edges of the survey volume are checked when tiling the volume
+search_angle            0.5            [deg] typical angle in which overlaps between survey volume and tiling grid are searched
+volume_search_level     0              [-] value >=0, giving the number of search points (2^#)^3 inside each tile
+
+# Output options
+line_parameters         1              logical flag specifying if global emission line parameters are saved (0=false, 1=true)
