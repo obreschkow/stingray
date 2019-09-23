@@ -319,14 +319,14 @@ subroutine make_sky_galaxy(sky_galaxy,sam,base,groupid,galaxyid)
    sky_galaxy%cnfw_subhalo    = sam%cnfw_subhalo
    
    ! intrinsic masses
-   sky_galaxy%mstars_disk     = sam%mstars_disk 
+   sky_galaxy%mstars_disk     = sam%mstars_disk
    sky_galaxy%mstars_bulge    = sam%mstars_bulge
-   sky_galaxy%mgas_disk       = sam%mgas_disk   
-   sky_galaxy%mgas_bulge      = sam%mgas_bulge  
-   sky_galaxy%matom_disk      = sam%matom_disk  
-   sky_galaxy%matom_bulge     = sam%matom_bulge 
-   sky_galaxy%mmol_disk       = sam%mmol_disk   
-   sky_galaxy%mmol_bulge      = sam%mmol_bulge  
+   sky_galaxy%mgas_disk       = sam%mgas_disk
+   sky_galaxy%mgas_bulge      = sam%mgas_bulge
+   sky_galaxy%matom_disk      = sam%matom_disk
+   sky_galaxy%matom_bulge     = sam%matom_bulge
+   sky_galaxy%mmol_disk       = sam%mmol_disk
+   sky_galaxy%mmol_bulge      = sam%mmol_bulge
    
    ! intrinsic angular momentum
    pseudo_rotation   = tile(base%tile)%Rpseudo

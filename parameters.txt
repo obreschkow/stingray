@@ -5,7 +5,7 @@
 # file, the parameter file takes priority of the automatic assignment.
 
 # Name of mock survey (for this name, selection rules should be defined in the module "module_user_selection_...")
-survey                  wallaby
+survey                  test
 
 # Paths
 path_output             /Users/do/Data/SURFS/L210_N1536/stingray/
@@ -42,7 +42,7 @@ zaxis_dec               0              [deg] Dec coordinate the SAM z-axis in sp
 xy_angle                0              [deg] Rotation of the SAM (x,y)-plane on the sky
 
 # Symmetry operations applied to boxes
-seed                    1              seed for the random number generator of symmetry operations (positive integer)
+seed                    2              seed for the random number generator of symmetry operations (positive integer)
 translate               1              logical flag specifying if random translations are applied (0=false, 1=true)
 rotate                  1              logical flag specifying if random rotations are applied (0=false, 1=true)
 invert                  1              logical flag specifying if random inversions are applied (0=false, 1=true)
