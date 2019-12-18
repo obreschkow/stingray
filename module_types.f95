@@ -4,7 +4,6 @@
 module module_types
 
    use module_constants
-   use module_system
 
    public
 
@@ -73,8 +72,12 @@ module module_types
       real*4               :: velocity_car(3)   ! [km/s] velocity of observer cartesian survey-coordinates
       real*4               :: sky_rotation(3,3) ! rotation matrix to move the (x,y,z)-sky axis onto the central (RA,dec)-sky
       
-      ! output options
+      ! galaxy options
       integer*4            :: line_parameters
+      
+      ! I/O options
+      integer*4            :: keep_binaries
+      integer*4            :: keep_log
    
    end type type_para
    

@@ -4,7 +4,15 @@ module module_constants
 
    public
    
-   character(*),parameter  :: version = '0.13'
+   character(*),parameter  :: version = '0.14'
+   
+   ! File names
+   character(*),parameter  :: fn_parameters = 'parameters.bin'
+   character(*),parameter  :: fn_snapshots = 'snapshots.bin'
+   character(*),parameter  :: fn_tiles = 'tiles.bin'
+   character(*),parameter  :: fn_galaxies = 'galaxies.bin'
+   character(*),parameter  :: fn_groups = 'groups.bin'
+   character(*),parameter  :: fn_log = 'log.txt'
    
    ! Universal constants
    real*4,parameter        :: pi = 3.14159265359
@@ -17,7 +25,7 @@ module module_constants
    real*4,parameter        :: kpc = 3.0856776e+19 ! [m]
    real*4,parameter        :: Mpc = 3.0856776e+22 ! [m]
    real*4,parameter        :: Gpc = 3.0856776e+25 ! [m]
-   real*4,parameter        :: degree = pi/180.0 ! [rad]
+   real*4,parameter        :: degree = pi/180.0 ! [rad] one degree in radians
    real*8,parameter        :: ASphereMpc = 1.1964952e+46_8 ! [m^2] surface area of a sphere with 1 Mpc radius (=4*pi*(Mpc/m)^2)
    real*4,parameter        :: L2MHI = 6.27e-9 ! (LHI/Lsun)/(MHI/Msun)
    real*4,parameter        :: sigma_gas = 10.0 ! [km/s] standard velocity dispersion of cold gas

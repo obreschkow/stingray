@@ -63,8 +63,8 @@ PROGRAMS = stingray
 all: $(PROGRAMS)
 
 stingray.o:    module_constants.o \
-               module_system.o \
                module_types.o \
+               module_system.o \
                module_io.o \
                module_linalg.o \
                module_cosmology.o \
@@ -79,8 +79,8 @@ stingray.o:    module_constants.o \
                module_sky.o
                
 stingray: 	   module_constants.o \
-               module_system.o \
                module_types.o \
+               module_system.o \
                module_io.o \
                module_linalg.o \
                module_sort.o \

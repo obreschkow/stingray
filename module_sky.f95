@@ -53,12 +53,12 @@ subroutine make_sky
    call save_snapshot_list
    
    ! initialize apparent sky (galaxies)
-   write(filename,'(A,A,A,A)') trim(para%path_output),'mocksky_galaxies.bin'
+   filename = trim(para%path_output)//fn_galaxies
    open(1,file=trim(filename),action='write',form="unformatted",status='replace',access='stream')
    write(1) 0_8,0_4,0_4 ! place holder for number of objects in mock sky and replication values
    
    ! initialize apparent sky (groups)
-   write(filename,'(A,A,A,A)') trim(para%path_output),'mocksky_groups.bin'
+   filename = trim(para%path_output)//fn_groups
    open(2,file=trim(filename),action='write',form="unformatted",status='replace',access='stream')
    write(2) 0_8 ! place holder for number of objects in mock sky
    
@@ -132,7 +132,7 @@ subroutine make_sky
    
    ! check number of galaxies
    if (n_galaxies_tot==0) then
-      call error('No galaxy in sky. Consider widening the sky geometry or relaxing the selection criteria.')
+      call warning('No galaxy in sky. Consider widening the sky geometry or relaxing the selection criteria.')
    end if
    
    ! add number of objects to beginning of file & close files
@@ -141,9 +141,6 @@ subroutine make_sky
    write(2,pos=1) n_groups_tot
    close(1)
    close(2)
-   
-   ! check number of objects
-   if (n_galaxies_tot==0) call error('No galaxies in the mock sky. Consider changing selection function.')
    
    ! user output
    call out('Number of galaxies in mock sky:',n_galaxies_tot)
@@ -337,15 +334,18 @@ subroutine write_subvolume_into_tile(itile,isnapshot,isubvolume,sam,sam_sel,sam_
                   ok(j) = .false.
                   if (sam_sel(j)) then
                      galaxyid = prefixid+n_galaxies+1
-                     base%ra = ra(j)
-                     base%dec = dec(j)
-                     base%dc = dc(j)
-                     call sky_galaxy(j)%make_from_sam(sam(j),base,groupid,galaxyid)
-                     ok(j) = sky_selection(sky_galaxy(j),sam(j))
+                     ok(j) = pre_selection(sam(j),dc(j)*para%box_side,ra(j)/degree,dec(j)/degree)
                      if (ok(j)) then
-                        n_galaxies = n_galaxies+1
-                        group_nselected = group_nselected+1
-                        sam_replica(j) = sam_replica(j)+1
+                        base%ra = ra(j)
+                        base%dec = dec(j)
+                        base%dc = dc(j)
+                        call sky_galaxy(j)%make_from_sam(sam(j),base,groupid,galaxyid)
+                        ok(j) = sky_selection(sky_galaxy(j),sam(j))
+                        if (ok(j)) then
+                           n_galaxies = n_galaxies+1
+                           group_nselected = group_nselected+1
+                           sam_replica(j) = sam_replica(j)+1
+                        end if
                      end if
                   end if
                end if

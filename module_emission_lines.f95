@@ -246,33 +246,29 @@ use module_system
          
       end do
       
-      !if (abs((input%mdisk/1.92865059e+11+input%mbulg/1.36288600e+12)-2.0)<1e-5) then
-      !if (input%mdisk<1.1e10) then
-      !   call save_profiles('/Users/do/Desktop/testprofile.txt')
-      !   stop
-      !end if
-      
-      contains
-      
-      subroutine save_profiles(filename)
-      
-         ! produces inputs for R-routine "show_emission_line.R"
-      
-         implicit none
-         character(*),intent(in) :: filename
-         integer*4               :: i
-      
-         open(1,file=trim(filename),action='write',form="formatted",status='replace')
-         write(1,'(1Es15.6)') input%incl
-         do k = 1,4
-            write(1,'(5Es15.6)') line(k)%speak,line(k)%scentral,line(k)%wpeak,line(k)%w50,line(k)%w20
-         end do
-         do i = 1,size(x)
-            write(1,'(7Es15.6)') x(i),Sigma(1,i),Sigma(2,i),sqrt(v_halo_sqr(i)),sqrt(v_disk_sqr(i)),sqrt(v_bulg_sqr(i)),v_circ(i)
-         end do
-         close(1)
-      
-      end subroutine save_profiles
+      !if (xy) call save_profiles('/Users/do/Desktop/testprofile.txt')
+      !
+      !contains
+      !
+      !subroutine save_profiles(filename)
+      !
+      !   ! produces inputs for R-routine "show_emission_line.R"
+      !
+      !   implicit none
+      !   character(*),intent(in) :: filename
+      !   integer*4               :: i
+      !
+      !   open(1,file=trim(filename),action='write',form="formatted",status='replace')
+      !   write(1,'(1Es15.6)') input%incl
+      !   do k = 1,4
+      !      write(1,'(5Es15.6)') line(k)%speak,line(k)%scentral,line(k)%wpeak,line(k)%w50,line(k)%w20
+      !   end do
+      !   do i = 1,size(x)
+      !      write(1,'(7Es15.6)') x(i),Sigma(1,i),Sigma(2,i),sqrt(v_halo_sqr(i)),sqrt(v_disk_sqr(i)),sqrt(v_bulg_sqr(i)),v_circ(i)
+      !   end do
+      !   close(1)
+      !
+      !end subroutine save_profiles
        
    end subroutine line_profile
   

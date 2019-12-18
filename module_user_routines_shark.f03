@@ -22,11 +22,11 @@ private
 public :: type_sam   ! SAM class, requires procedures get_position, get_groupid, is_selected
 public :: type_sky_galaxy
 public :: type_sky_group
-public :: get_parameter_filename_default
+public :: parameter_filename_default
 public :: make_automatic_parameters
 public :: make_redshifts
 public :: load_sam_snapshot
-public :: custom_routines
+public :: make_hdf5
 
 ! ==============================================================================================================
 ! SET DEFAULT PARAMETER FILENAME
@@ -52,7 +52,7 @@ character(len=255),parameter  :: parameter_filename_default = &
 
 type type_sam
 
-   integer*4   :: id_galaxy      ! unique galaxy ID
+   integer*8   :: id_galaxy      ! unique galaxy ID
    integer*8   :: id_halo        ! unique ID of parent halo
    integer*4   :: snapshot       ! snapshot ID
    integer*4   :: subvolume      ! subvolume index
@@ -139,10 +139,10 @@ type,extends(type_sky) :: type_sky_galaxy ! must exist
    real*4      :: mvir_hosthalo           ! [Msun/h] mass of 1st generation halo (i.e. direct host of type 0 galaxies)
    real*4      :: mvir_subhalo            ! [Msun/h] halo mass
    
-   real*4      :: rstar_disk_apparent     ! [arcsec] apparent half-mass radius of stars in the disk
-   real*4      :: rstar_bulge_apparent    ! [arcsec] apparent half-mass radius of stars in the bulge
-   real*4      :: rgas_disk_apparent      ! [arcsec] apparent half-mass radius of gas in the disk
-   real*4      :: rgas_bulge_apparent     ! [arcsec] apparent half-mass radius of gas in the bulge
+   real*4      :: rstar_disk_apparent     ! [arcsec] apparent semi-major axis of half-mass ellipse of stars in the disk
+   real*4      :: rstar_bulge_apparent    ! [arcsec] apparent semi-major axis of half-mass ellipse of stars in the bulge
+   real*4      :: rgas_disk_apparent      ! [arcsec] apparent semi-major axis of half-mass ellipse of gas in the disk
+   real*4      :: rgas_bulge_apparent     ! [arcsec] apparent semi-major axis of half-mass ellipse of gas in the bulge
    
    real*4      :: rstar_disk_intrinsic    ! [cMpc/h] intrinsic half-mass radius of stars in the disk
    real*4      :: rstar_bulge_intrinsic   ! [cMpc/h] intrinsic half-mass radius of stars in the bulge
@@ -650,7 +650,7 @@ subroutine load_sam_snapshot(index,subindex,sam)
    allocate(sam(n))
    
    ! read file
-   call hdf5_read_data(g//'id_galaxy',sam%id_galaxy)
+   call hdf5_read_data(g//'id_galaxy',sam%id_galaxy,convert=.true.)
    call hdf5_read_data(g//'id_halo',sam%id_halo)
    call hdf5_read_data(g//'type',sam%typ)
    call hdf5_read_data(g//'position_x',sam%position(1))
@@ -690,50 +690,18 @@ subroutine load_sam_snapshot(index,subindex,sam)
    
 end subroutine load_sam_snapshot
 
-! return default parameter file name
-character(255) function get_parameter_filename_default()
-   get_parameter_filename_default = trim(parameter_filename_default)
-end function get_parameter_filename_default
-
-
-! ==============================================================================================================
-! HANDLE CUSTOM TASKS (= optional subroutines and arguments)
-! ==============================================================================================================
-
-subroutine custom_routines(task,custom_option,success)
-
-   implicit none
-   character(*),intent(in) :: task
-   character(*),intent(in) :: custom_option
-   logical,intent(out)     :: success
-   
-   ! custom task handler
-   success = .true.
-   select case (trim(task))
-   case ('my_task') ! dymmy argument to illustrate the use
-      call out('Here, specify what to do as "my_task"')
-      if (len(custom_option)>0) call out('Using the custom option: '//custom_option)
-   case ('make_hdf5')
-      call make_hdf5
-   case ('my_additions_to_make_all')
-      ! here add optional commands to be executed automatically at the end of a make.all run
-      call make_hdf5
-   case default
-      success = .false.
-   end select
-   
-contains
+! convert binary files into HDF5
 
 subroutine make_hdf5
    
    implicit none
-   logical,parameter                   :: show_test_sum = .true.
+   logical,parameter                   :: show_test_sum = .false.
    character(len=255)                  :: filename_bin
    character(len=255)                  :: filename_hdf5
    type(type_sky_galaxy),allocatable   :: sky_galaxy(:)
    type(type_sky_group),allocatable    :: sky_group(:)
    integer*8                           :: n,i,n_galaxies,n_groups
-   character(len=255)                  :: name,str
+   character(len=255)                  :: name,str,seedstr
    character(len=255)                  :: filename
    character(len=255)                  :: shark_version,shark_git_revision,shark_timestamp
    real*8                              :: test(0:10),expected_sum
@@ -741,7 +709,7 @@ subroutine make_hdf5
    integer*4                           :: n_replica_max
    
    call tic
-   call out('CONVERT MOCK SKY FROM BINARY TO HDF5')
+   call out('CONVERT BINARY FILES TO HDF5')
    
    ! load auxilary data
    call load_parameters
@@ -757,7 +725,8 @@ subroutine make_hdf5
    call hdf5_close()
    
    ! create HDF5 file
-   filename_hdf5 = trim(para%path_output)//'mocksky.hdf5'
+   write(seedstr,'(I0)') para%seed
+   filename_hdf5 = trim(para%path_output)//'mocksky_'//trim(para%survey)//'_'//trim(seedstr)//'.hdf5'
    call hdf5_create(filename_hdf5)
    
    ! open HDF5 file
@@ -824,12 +793,16 @@ subroutine make_hdf5
    & 'specifies the number of search points (2^#)^3 inside each tile')
    call hdf5_write_data('parameters/line_parameters',para%line_parameters, &
    & 'logical flag specifying if global emission line parameters are saved (0=false, 1=true)')
+   call hdf5_write_data('parameters/keep_binaries',para%keep_binaries, &
+   & 'logical flag specifying if binary output files are kept in additino to this HDF5 (0=false, 1=true)')
+   call hdf5_write_data('parameters/keep_log',para%keep_binaries, &
+   & 'logical flag specifying if the logfile is kept after successful runs (0=false, 1=true)')
    call hdf5_write_data('parameters/skyrotation',para%sky_rotation, &
    & 'Rotation matrix to map xyz-coordinates of the tiling structure onto sky coordinates.')
    
    ! Group "galaxies"
    name = 'galaxies'
-   filename_bin = trim(para%path_output)//'mocksky_galaxies.bin'
+   filename_bin = trim(para%path_output)//fn_galaxies
    open(1,file=trim(filename_bin),action='read',form='unformatted',access='stream')
    read(1) n,n_replica_mean,n_replica_max
    n_galaxies = n
@@ -874,13 +847,13 @@ subroutine make_hdf5
    call hdf5_write_data(trim(name)//'/mvir_hosthalo',sky_galaxy%mvir_hosthalo,'[Msun/h] host halo mass')
    call hdf5_write_data(trim(name)//'/mvir_subhalo',sky_galaxy%mvir_subhalo,'[Msun/h] subhalo mass')
    call hdf5_write_data(trim(name)//'/rstar_disk_apparent',sky_galaxy%rstar_disk_apparent,&
-   &'[arcsec] apparent half-mass radius of stellar disk')
+   &'[arcsec] apparent semi-major axis of half-mass ellipse of stellar disk')
    call hdf5_write_data(trim(name)//'/rstar_bulge_apparent',sky_galaxy%rstar_bulge_apparent,&
-   &'[arcsec] apparent half-mass radius of stellar bulge')
+   &'[arcsec] apparent semi-major axis of half-mass ellipse of stellar bulge')
    call hdf5_write_data(trim(name)//'/rgas_disk_apparent',sky_galaxy%rgas_disk_apparent,&
-   &'[arcsec] apparent half-mass radius of gas disk')
+   &'[arcsec] apparent semi-major axis of half-mass ellipse of gas disk')
    call hdf5_write_data(trim(name)//'/rgas_bulge_apparent',sky_galaxy%rgas_bulge_apparent,&
-   &'[arcsec] apparent half-mass radius of gas bulge')
+   &'[arcsec] apparent semi-major axis of half-mass ellipse of gas bulge')
    call hdf5_write_data(trim(name)//'/rstar_disk_intrinsic',sky_galaxy%rstar_disk_intrinsic,&
    &'[cMpc/h] intrinsic half-mass radius of stellar disk')
    call hdf5_write_data(trim(name)//'/rstar_bulge_intrinsic',sky_galaxy%rstar_bulge_intrinsic,&
@@ -959,7 +932,7 @@ subroutine make_hdf5
    
    ! Group "groups"
    name = 'groups'
-   filename_bin = trim(para%path_output)//'mocksky_groups.bin'
+   filename_bin = trim(para%path_output)//fn_groups
    open(1,file=trim(filename_bin),action='read',form='unformatted',access='stream')
    read(1) n
    n_groups = n
@@ -1056,7 +1029,5 @@ subroutine make_hdf5
    call toc
 
 end subroutine make_hdf5
-   
-end subroutine custom_routines
 
 end module module_user_routines

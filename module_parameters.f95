@@ -26,7 +26,7 @@ subroutine make_parameters(parameter_filename_custom)
    if (len(trim(parameter_filename_custom))>0) then
       parameter_filename = parameter_filename_custom
    else
-      parameter_filename = get_parameter_filename_default()
+      parameter_filename = parameter_filename_default
    end if
    call out('File: '//trim(parameter_filename))
    call check_exists(parameter_filename)
@@ -36,7 +36,7 @@ subroutine make_parameters(parameter_filename_custom)
    call check_parameters
    call adjust_parameters
    call make_derived_parameters
-   call save_parameters(parameter_filename)
+   call save_parameters
    
    call toc
 
@@ -77,6 +77,8 @@ subroutine reset_parameters
    para%search_angle = huge(para%search_angle)
    para%volume_search_level= huge(para%volume_search_level)
    para%line_parameters = -1
+   para%keep_binaries = -1
+   para%keep_log = -1
 
 end subroutine reset_parameters
 
@@ -117,6 +119,8 @@ subroutine check_parameters
    if (para%search_angle == huge(para%search_angle)) call wrong('search_angle')
    if (para%volume_search_level == huge(para%volume_search_level)) call wrong('volume_search_level')
    if (para%line_parameters == -1) call wrong('line_parameters')
+   if (para%keep_binaries == -1) call wrong('keep_binaries')
+   if (para%keep_log == -1) call wrong('keep_log')
    
    ! check parameter ranges
    if (para%box_side<=0) call error('L must be larger than 0')
@@ -155,6 +159,8 @@ subroutine check_parameters
    if (para%volume_search_level<0) call error('volume_search_level must be equal to or larger than 0')
    if (para%volume_search_level>10) call error('volume_search_level cannot be larger than 10')
    if (.not.islogical(para%line_parameters)) call error('line_parameters can only be 0 or 1')
+   if (.not.islogical(para%keep_binaries)) call error('keep_binaries can only be 0 or 1')
+   if (.not.islogical(para%keep_log)) call error('keep_log can only be 0 or 1')
    
    contains
    
@@ -274,6 +280,10 @@ subroutine load_user_parameters(parameter_filename)
                if (manual) read(var_value,*) para%volume_search_level
             case ('line_parameters')
                if (manual) read(var_value,*) para%line_parameters
+            case ('keep_binaries')
+               if (manual) read(var_value,*) para%keep_binaries
+            case ('keep_log')
+               if (manual) read(var_value,*) para%keep_log
             case default
                if ((trim(var_name).ne.'path_input').and.(trim(var_name).ne.'path_output')) then
                   call error(trim(var_name)//' is an unknown parameter.')
@@ -300,7 +310,7 @@ subroutine load_paths(parameter_filename_custom)
    if (len(trim(parameter_filename_custom))>0) then
       parameter_filename = parameter_filename_custom
    else
-      parameter_filename = get_parameter_filename_default()
+      parameter_filename = parameter_filename_default
    end if
    
    if (.not.exists(parameter_filename,.true.)) then

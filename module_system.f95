@@ -1,9 +1,11 @@
 module module_system
 
+   use module_types
+   use module_constants
+
    public
    
    ! screen output
-   character(len=255)      :: logfilename
    logical                 :: opt_logfile
    logical                 :: opt_logscreen
 
@@ -40,7 +42,7 @@ subroutine out_open(version)
    implicit none
    character(*),intent(in) :: version
    if (opt_logfile) then
-      open(999,file=trim(logfilename),action='write',status='replace',form='formatted')
+      open(999,file=trim(para%path_output)//fn_log,action='write',status='replace',form='formatted')
       close(999)
    end if
    call hline
@@ -58,7 +60,7 @@ subroutine out(txt,i)
    character(*),intent(in)       :: txt
    integer*8,intent(in),optional :: i
    if (opt_logfile) then
-      open(999,file=trim(logfilename),action='write',status='old',position='append',form='formatted')
+      open(999,file=trim(para%path_output)//fn_log,action='write',status='old',position='append',form='formatted')
       if (present(i)) then
          write(999,'(A,I0)') trim(txt)//' ',i
       else

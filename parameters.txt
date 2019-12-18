@@ -5,13 +5,13 @@
 # file, the parameter file takes priority of the automatic assignment.
 
 # Name of mock survey (for this name, selection rules should be defined in the module "module_user_selection_...")
-survey                  test
+survey                  wallaby_micro
 
 # Paths
-path_output             /Users/do/Data/SURFS/L210_N1536/stingray/
-#path_output             /mntmake_line_profiles/su3ctm/dobreschkow/Stingray/output/
-path_input              /Users/do/Data/SURFS/L210_N1536/shark/
-#path_input              /mnt/su3ctm/clagos/SHARK_Out/medi-SURFS/Shark-v1p2
+path_output             /Users/do/Data/SURFS/L40_N512/stingray/
+#path_output             /Users/do/Data/SURFS/L210_N1536/stingray/
+path_input              /Users/do/Data/SURFS/L40_N512/shark/
+#path_input              /Users/do/Data/SURFS/L210_N1536/shark/
 
 # Snapshot parameters
 box_side                auto           [length_unit] comoving side-length of simulation box in multiples of length_unit
@@ -19,7 +19,7 @@ length_unit             auto           [m] SI-value of comoving length unit
 snapshot_min            auto           index of earliest snapshot used for the mock sky
 snapshot_max            auto           index of latest snapshot used for the mock sky
 subvolume_min           auto           index of first subvolume used for the mock sky
-subvolume_max           0              index of last subvolume used for the mock sky
+subvolume_max           auto           index of last subvolume used for the mock sky
 
 # Cosmology
 h                       auto           [-] Hubble parameter H0=h*100 km/s/Mpc
@@ -42,7 +42,7 @@ zaxis_dec               0              [deg] Dec coordinate the SAM z-axis in sp
 xy_angle                0              [deg] Rotation of the SAM (x,y)-plane on the sky
 
 # Symmetry operations applied to boxes
-seed                    2              seed for the random number generator of symmetry operations (positive integer)
+seed                    1              seed for the random number generator of symmetry operations (positive integer)
 translate               1              logical flag specifying if random translations are applied (0=false, 1=true)
 rotate                  1              logical flag specifying if random rotations are applied (0=false, 1=true)
 invert                  1              logical flag specifying if random inversions are applied (0=false, 1=true)
@@ -56,5 +56,9 @@ velocity_dec            -6.9269        [deg] Dec coordinate to which the observe
 search_angle            0.5            [deg] typical angle in which overlaps between survey volume and tiling grid are searched
 volume_search_level     0              [-] value >=0, giving the number of search points (2^#)^3 inside each tile
 
-# Output options
+# Galaxy options
 line_parameters         1              logical flag specifying if global emission line parameters are saved (0=false, 1=true)
+
+# I/O options
+keep_binaries           0              logical flag specifying if the binary output files are kept, if run successful
+keep_log                0              logical flag specifying if the logfile is kept, if run successful (normall overwritten at next run)

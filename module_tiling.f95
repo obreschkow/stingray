@@ -21,7 +21,7 @@ contains
 subroutine make_tiling
 
    implicit none
-   real*4   :: starting_point(3)
+   integer*4   :: starting_point(3)
    
    call tic
    call out('MAKE 3D TILING')
@@ -35,9 +35,8 @@ subroutine make_tiling
    allocate(intersection(-imax:imax,-imax:imax,-imax:imax))
    intersection = 0
    ntile = 0
-   call sph2car(para%dc_min/para%box_side,(para%ra_min+para%ra_max)/2.0,(para%dec_min+para%dec_max)/2.0,starting_point)
-   starting_point = matmul(starting_point,para%sky_rotation)
-   call check_tile(nint(starting_point))
+   call make_starting_point(starting_point)
+   call check_tile(starting_point)
    call make_tile_list
    call save_tile_list
    
@@ -47,6 +46,28 @@ subroutine make_tiling
    call toc
 
 end subroutine make_tiling
+
+subroutine make_starting_point(ix)
+
+   implicit none
+   integer*4,intent(out)   :: ix(3)
+   integer*4               :: i,j,k
+   
+   ix = (/0,0,0/)
+   if (is_tile_in_survey(ix,.false.).and.is_tile_in_survey(ix,.true.)) return
+   
+   do i = -imax,imax
+      do j = -imax,imax
+         do k = -imax,imax
+            ix = (/i,j,k/)
+            if (is_tile_in_survey(ix,.false.).and.is_tile_in_survey(ix,.true.)) return
+         end do
+      end do
+   end do
+      
+   call error('Maximum comoving distance too large for this box side length.')
+   
+end subroutine make_starting_point
 
 recursive subroutine check_tile(ix)
 
@@ -263,19 +284,17 @@ logical function is_tile_in_survey(ix,user)
       end do
    end do
    
-   if (para%volume_search_level>0) then
-      n3D = int(2**para%volume_search_level-1,4)
-      do i = 0,n3D
-         dx = ((real(i,4)+0.5)/(n3D+1)-0.5)*sx
-         do j = 0,n3D
-            dy = ((real(j,4)+0.5)/(n3D+1)-0.5)*sy
-            do k = 0,n3D
-               dz = ((real(k,4)+0.5)/(n3D+1)-0.5)*sz
-               if (is_point_in_survey(x+dx+dy+dz,user)) then; is_tile_in_survey = .true.; return; end if
-            end do
+   n3D = int(2**para%volume_search_level-1,4)
+   do i = 0,n3D
+      dx = ((real(i,4)+0.5)/(n3D+1)-0.5)*sx
+      do j = 0,n3D
+         dy = ((real(j,4)+0.5)/(n3D+1)-0.5)*sy
+         do k = 0,n3D
+            dz = ((real(k,4)+0.5)/(n3D+1)-0.5)*sz
+            if (is_point_in_survey(x+dx+dy+dz,user)) then; is_tile_in_survey = .true.; return; end if
          end do
       end do
-   end if
+   end do
    
    is_tile_in_survey = .false. 
 

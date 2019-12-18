@@ -14,6 +14,7 @@ V0.10 26/03/2019: Better commenting, copy parameter file, instead of rewriting i
 V0.11 29/04/2019: Improved cosmology module, general clean up, improved makefile
 V0.12 12/09/2019: Bug fixes, developper version of HI-line module added
 V0.13 19/09/2019: Emission line maker for HI and CO with many rotation curve models for halos, disks and bulges
+v0.14 28/10/2019: Added pre_selection function to module_user_selections
 
 Copyright Danail Obreschkow (danail.obreschkow@icrar.org)
 
@@ -50,7 +51,7 @@ GETTING STARTED
 7) Edit the parameter file parameter.txt, especially the input and output paths
    
 8) Produce mock observing cone
-   > ./stingray make_all [-parameterfile .../parameter.txt]
+   > ./stingray [-parameterfile .../parameter.txt]
    
 9) Check files written into output directory
    
@@ -72,7 +73,9 @@ Optional arguments:
 
 -parameterfile (default parameters.txt): path+filename of parameter-file
 
--logfile (default none) allows the user to specify a path+filename for the screen-log, which is particularly usefull
- if the code is executed using a queueing system
+-verbose (default 1): logical flag (0 or 1) specifying whether the log should be displayed on the screen; this is normally turned off
+ if run on a cluster with a queueing system
  
 -version: returns the version of Stingray
+
+-help: points to README file
