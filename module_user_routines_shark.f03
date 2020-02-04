@@ -33,10 +33,9 @@ public :: make_hdf5
 ! ==============================================================================================================
 
 ! Here, specify the default parameter filename, used when stingray is called without the optional argument
-! "parameterfile"
+! "parameterfile", use leading '%' for path of code on mac OS
 
-character(len=255),parameter  :: parameter_filename_default = &
-   & '/Users/do/Dropbox/Code/Fortran/stingray/stingray/parameters.txt'
+character(len=255),parameter  :: parameter_filename_default = '%/parameters.txt'
 
 
 ! ==============================================================================================================
@@ -206,10 +205,10 @@ type,extends(type_sky) :: type_sky_group ! must exist
    
 end type type_sky_group
 
-! In order to place the objects in the mock sky, the class type_sam must have the following functions
-! enabling stingray to extract the position and group id of each object.
-
 contains
+
+! In order to place the objects in the mock sky, the class type_sam must have the following function
+! enabling stingray to extract the position of each object.
 
 function sam_get_position(self) result(position)
    class(type_sam) :: self
@@ -217,17 +216,29 @@ function sam_get_position(self) result(position)
    position = self%position ! [length_unit of simulation] position if the galaxy in the box
 end function sam_get_position
 
+! In order to associated different galaxies with groups of galaxies, class type_sam must have the
+! following two functions, enabling stingray to extract the group-id and central/satellite-status of each object
+
 integer*8 function sam_get_groupid(self)
    class(type_sam) :: self
+   call nil(self) ! dummy statement to avoid compiler warnings
    sam_get_groupid = self%id_halo ! unique group identifier
+   ! NB: if groups are irrelevant and/or not available in the SAM,
+   ! use "sam_get_groupid = 0" (as a dummy)
+   ! and set "make_groups = 0" in the parameter file
 end function sam_get_groupid
 
 logical function sam_is_group_center(self)
    class(type_sam) :: self
+   call nil(self) ! dummy statement to avoid compiler warnings
    sam_is_group_center = self%typ==0
+   ! NB: if groups are irrelevant and/or not available in the SAM,
+   ! use "sam_is_group_center = .true." (as a dummy)
+   ! and set "make_groups = 0" in the parameter file
 end function sam_is_group_center
 
-! For instances of the user-defined sky-types to be saved, add all sky types in the following subroutine
+! For instances of the user-defined sky-types to be saved, objects of the class type_sky must have the following subroutine
+! Normally, this subroutine does not to be changed for different SAMs.
 
 subroutine sky_write_to_file(self,fileID)
    class(type_sky) :: self
@@ -500,8 +511,7 @@ subroutine make_sky_group(sky_group,sam,sky_galaxy,selected,base,groupid,group_n
    logical,intent(in)                  :: selected(:)
    type(type_base),intent(in)          :: base                 ! basic properties of the position of this galaxy in the sky
    integer*8,intent(in)                :: groupid              ! unique group in sky index
-   integer*4,intent(in)                :: group_nselected
-   
+   integer*4,intent(in)                :: group_nselected   
    integer*4                           :: i,n,count
    real*4                              :: dv,v0(3),vr
    
@@ -571,8 +581,12 @@ subroutine make_automatic_parameters
    implicit none
    
    character(len=255)   :: filename
-   integer*4            :: isnapshot,nsub
+   integer*4            :: isnapshot,isubvolume
    
+   ! assume that first subvolume always exists
+   para%subvolume_min = 0
+   
+   ! find minimal snapshot, assuming that the first subvolume exists
    isnapshot = -1
    filename = ''
    do while (.not.exists(filename,.true.).and.(isnapshot<10000))
@@ -582,18 +596,25 @@ subroutine make_automatic_parameters
    if (isnapshot==10000) call error('No snapshots found in '//trim(para%path_input))
    para%snapshot_min = isnapshot
    
+   ! find maximal snapshot, assuming that the first subvolume exists
    do while (exists(filename,.true.))
       isnapshot = isnapshot+1
       write(filename,'(A,I0,A)') trim(para%path_input),isnapshot,'/0/galaxies.hdf5'
    end do
    para%snapshot_max = isnapshot-1
    
+   ! find maximal subvolume, assuming that the last snapshot is representative
+   isubvolume = 0
+   write(filename,'(A,I0,A,I0,A)') trim(para%path_input),para%snapshot_max,'/',isubvolume,'/galaxies.hdf5'
+   do while (exists(filename,.true.))
+      isubvolume = isubvolume+1
+      write(filename,'(A,I0,A,I0,A)') trim(para%path_input),para%snapshot_max,'/',isubvolume,'/galaxies.hdf5'
+   end do
+   para%subvolume_max = isubvolume-1
+   
    write(filename,'(A,I0,A)') trim(para%path_input),para%snapshot_min,'/0/galaxies.hdf5'
    call out('File of automatic parameters: '//trim(filename))
    call hdf5_open(filename)
-   call hdf5_read_data('/run_info/tot_n_subvolumes',nsub)
-   para%subvolume_min = 0
-   para%subvolume_max = nsub-1
    call hdf5_read_data('/cosmology/h',para%h)
    call hdf5_read_data('/cosmology/omega_l',para%omega_l)
    call hdf5_read_data('/cosmology/omega_m',para%omega_m)
@@ -695,18 +716,18 @@ end subroutine load_sam_snapshot
 subroutine make_hdf5
    
    implicit none
-   logical,parameter                   :: show_test_sum = .false.
    character(len=255)                  :: filename_bin
    character(len=255)                  :: filename_hdf5
    type(type_sky_galaxy),allocatable   :: sky_galaxy(:)
    type(type_sky_group),allocatable    :: sky_group(:)
    integer*8                           :: n,i,n_galaxies,n_groups
-   character(len=255)                  :: name,str,seedstr
+   character(len=255)                  :: name,seedstr
    character(len=255)                  :: filename
    character(len=255)                  :: shark_version,shark_git_revision,shark_timestamp
-   real*8                              :: test(0:10),expected_sum
    real*4                              :: n_replica_mean
    integer*4                           :: n_replica_max
+   integer*4                           :: i4
+   integer*8                           :: i8
    
    call tic
    call out('CONVERT BINARY FILES TO HDF5')
@@ -819,8 +840,14 @@ subroutine make_hdf5
    call hdf5_write_data(trim(name)//'/dc',sky_galaxy%dc,'[Mpc/h] comoving distance')
    call hdf5_write_data(trim(name)//'/ra',sky_galaxy%ra/degree,'[deg] right ascension')
    call hdf5_write_data(trim(name)//'/dec',sky_galaxy%dec/degree,'[deg] declination')
-   call hdf5_write_data(trim(name)//'/id_galaxy_sky',sky_galaxy%id_galaxy_sky,'unique galaxy ID in mock sky')
-   call hdf5_write_data(trim(name)//'/id_group_sky',sky_galaxy%id_group_sky,'unique group ID if galaxy is in a group, -1 otherwise')
+   if (n<=huge(i4)) then
+      call hdf5_write_data(trim(name)//'/id_galaxy_sky',(/(i4,i4=1,int(n,4))/),'unique galaxy ID in mock sky, from 1 to n')
+   else
+      call hdf5_write_data(trim(name)//'/id_galaxy_sky',(/(i8,i8=1,n)/),'unique galaxy ID in mock sky, from 1 to n')
+   end if
+   call hdf5_write_data(trim(name)//'/id_galaxy_sky_smart',sky_galaxy%id_galaxy_sky,'unique galaxy ID in mock sky, smart format')
+   if (para%make_groups==1) call hdf5_write_data(trim(name)//'/id_group_sky',sky_galaxy%id_group_sky, &
+   & 'unique group ID if galaxy is in a group, -1 otherwise')
    call hdf5_write_data(trim(name)//'/id_galaxy_sam',sky_galaxy%id_galaxy_sam,'galaxy ID in SAM')
    call hdf5_write_data(trim(name)//'/id_halo_sam',sky_galaxy%id_halo_sam,'host halo ID in SAM')
    call hdf5_write_data(trim(name)//'/type',sky_galaxy%typ,'galaxy type (0=central, 1=satellite in halo, 2=orphan)')
@@ -915,61 +942,51 @@ subroutine make_hdf5
       call hdf5_write_data(trim(name)//'/coline_width_20_eo',sky_galaxy%coline_width_20_eo, &
       & '[km/s] CO line-width at 20% of the peak flux of edge-on galaxy in rest-frame velocity units')
       
-      test(0) = sum(sky_galaxy%hiline_flux_peak*sky_galaxy%hiline_width_50_eo)+ &
-              & sum(sky_galaxy%coline_flux_central_eo*sky_galaxy%coline_width_20)
-   
-   else
-   
-      test(0) = 0
-      
    end if
    
-   test(1) = n
-   test(3) = sum(sky_galaxy%tile)
-   test(4) = sum(sky_galaxy%inclination)
-   test(5) = sum(sky_galaxy%zobs)
    deallocate(sky_galaxy)
    
    ! Group "groups"
-   name = 'groups'
-   filename_bin = trim(para%path_output)//fn_groups
-   open(1,file=trim(filename_bin),action='read',form='unformatted',access='stream')
-   read(1) n
-   n_groups = n
-   allocate(sky_group(n))
-   read(1) sky_group
-   close(1)
-   call hdf5_add_group(trim(name))
-   call hdf5_write_data(trim(name)//'/snapshot',sky_group%snapshot,'snapshot index')
-   call hdf5_write_data(trim(name)//'/subvolume',sky_group%subvolume,'subvolume index')
-   call hdf5_write_data(trim(name)//'/tile',sky_group%tile,'tile index in tiling array')
-   call hdf5_write_data(trim(name)//'/zobs',sky_group%zobs,'redshift in observer-frame')
-   call hdf5_write_data(trim(name)//'/zcmb',sky_group%zcmb,'redshift in CMB frame')
-   call hdf5_write_data(trim(name)//'/zcos',sky_group%zcos,'cosmological redshift without peculiar motions')
-   call hdf5_write_data(trim(name)//'/dc',sky_group%dc,'[Mpc/h] comoving distance')
-   call hdf5_write_data(trim(name)//'/ra',sky_group%ra/degree,'[deg] right ascension')
-   call hdf5_write_data(trim(name)//'/dec',sky_group%dec/degree,'[deg] declination')
-   call hdf5_write_data(trim(name)//'/vpec_x',sky_group%vpec(1),'[proper km/s] x-component of peculiar velocity')
-   call hdf5_write_data(trim(name)//'/vpec_y',sky_group%vpec(2),'[proper km/s] y-component of peculiar velocity')
-   call hdf5_write_data(trim(name)//'/vpec_z',sky_group%vpec(3),'[proper km/s] z-component of peculiar velocity')
-   call hdf5_write_data(trim(name)//'/vpec_r',sky_group%vpecrad,'[proper km/s] line-of-sight peculiar velocity')
-   call hdf5_write_data(trim(name)//'/sigma_3d_all',sky_group%sigma_3d_all,&
-   &'[proper km/s] 3D peculiar velocity dispersion of ALL group members, including non-detections')
-   call hdf5_write_data(trim(name)//'/sigma_los_detected',sky_group%sigma_los_detected,&
-   &'[proper km/s] line-of-sight peculiar velocity dispersion of detected group members')
-   call hdf5_write_data(trim(name)//'/id_group_sky',sky_group%id_group_sky,'unique parent halo ID in mock sky')
-   call hdf5_write_data(trim(name)//'/id_halo_sam',sky_group%id_halo_sam,'parent halo ID in SAM')
-   call hdf5_write_data(trim(name)//'/mvir',sky_group%mvir,'[Msun/h] virial mass')
-   call hdf5_write_data(trim(name)//'/n_galaxies_total',sky_group%group_ntot, &
-   & 'total number of galaxies that live in the same group (host halo)')
-   call hdf5_write_data(trim(name)//'/n_galaxies_selected',sky_group%group_nsel, &
-   & 'number of galaxies that live in the same group (host halo) and are present in the mock sky')
-   call hdf5_write_data(trim(name)//'/flag',sky_group%group_flag, &
-   & 'group flag (0 if group complete, >0 if truncated by survey edge (+1), snapshot limit (+2), tile edge (+4))')
-   test(6) = sum(sky_group%tile)
-   test(7) = sum(sky_group%zcmb)
-   test(2) = sum(sky_group%group_flag)+sum(sky_group%group_flag**2)
-   deallocate(sky_group)
+   if (para%make_groups==1) then
+   
+      name = 'groups'
+      filename_bin = trim(para%path_output)//fn_groups
+      open(1,file=trim(filename_bin),action='read',form='unformatted',access='stream')
+      read(1) n
+      n_groups = n
+      allocate(sky_group(n))
+      read(1) sky_group
+      close(1)
+      call hdf5_add_group(trim(name))
+      call hdf5_write_data(trim(name)//'/snapshot',sky_group%snapshot,'snapshot index')
+      call hdf5_write_data(trim(name)//'/subvolume',sky_group%subvolume,'subvolume index')
+      call hdf5_write_data(trim(name)//'/tile',sky_group%tile,'tile index in tiling array')
+      call hdf5_write_data(trim(name)//'/zobs',sky_group%zobs,'redshift in observer-frame')
+      call hdf5_write_data(trim(name)//'/zcmb',sky_group%zcmb,'redshift in CMB frame')
+      call hdf5_write_data(trim(name)//'/zcos',sky_group%zcos,'cosmological redshift without peculiar motions')
+      call hdf5_write_data(trim(name)//'/dc',sky_group%dc,'[Mpc/h] comoving distance')
+      call hdf5_write_data(trim(name)//'/ra',sky_group%ra/degree,'[deg] right ascension')
+      call hdf5_write_data(trim(name)//'/dec',sky_group%dec/degree,'[deg] declination')
+      call hdf5_write_data(trim(name)//'/vpec_x',sky_group%vpec(1),'[proper km/s] x-component of peculiar velocity')
+      call hdf5_write_data(trim(name)//'/vpec_y',sky_group%vpec(2),'[proper km/s] y-component of peculiar velocity')
+      call hdf5_write_data(trim(name)//'/vpec_z',sky_group%vpec(3),'[proper km/s] z-component of peculiar velocity')
+      call hdf5_write_data(trim(name)//'/vpec_r',sky_group%vpecrad,'[proper km/s] line-of-sight peculiar velocity')
+      call hdf5_write_data(trim(name)//'/sigma_3d_all',sky_group%sigma_3d_all,&
+      &'[proper km/s] 3D peculiar velocity dispersion of ALL group members, including non-detections')
+      call hdf5_write_data(trim(name)//'/sigma_los_detected',sky_group%sigma_los_detected,&
+      &'[proper km/s] line-of-sight peculiar velocity dispersion of detected group members')
+      call hdf5_write_data(trim(name)//'/id_group_sky',sky_group%id_group_sky,'unique parent halo ID in mock sky')
+      call hdf5_write_data(trim(name)//'/id_halo_sam',sky_group%id_halo_sam,'parent halo ID in SAM')
+      call hdf5_write_data(trim(name)//'/mvir',sky_group%mvir,'[Msun/h] virial mass')
+      call hdf5_write_data(trim(name)//'/n_galaxies_total',sky_group%group_ntot, &
+      & 'total number of galaxies that live in the same group (host halo)')
+      call hdf5_write_data(trim(name)//'/n_galaxies_selected',sky_group%group_nsel, &
+      & 'number of galaxies that live in the same group (host halo) and are present in the mock sky')
+      call hdf5_write_data(trim(name)//'/flag',sky_group%group_flag, &
+      & 'group flag (0 if group complete, >0 if truncated by survey edge (+1), snapshot limit (+2), tile edge (+4))')
+      deallocate(sky_group)
+      
+   end if
    
    ! Group "Tiling"
    call hdf5_add_group('tiling')
@@ -1014,17 +1031,6 @@ subroutine make_hdf5
    
    ! close HDF5 file
    call hdf5_close()
-   
-   ! check test sum
-   if (show_test_sum) then
-      expected_sum = 831651.793945312
-      if (abs(sum(test)/expected_sum-1)>1e-5) then
-         write(str,'(F20.9)') sum(test)
-         call out('Test sum FAILED, found = '//trim(str))
-      else
-         call out('Test sum OK.')
-      end if
-   end if
    
    call toc
 

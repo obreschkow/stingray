@@ -5,13 +5,15 @@
 # file, the parameter file takes priority of the automatic assignment.
 
 # Name of mock survey (for this name, selection rules should be defined in the module "module_user_selection_...")
-survey                  wallaby_micro
+survey                  test
 
-# Paths
-path_output             /Users/do/Data/SURFS/L40_N512/stingray/
+# Paths (can use leading '%' for stingray directory on macOS systems)
+#path_output             /Users/do/Data/SURFS/L40_N512/stingray/
 #path_output             /Users/do/Data/SURFS/L210_N1536/stingray/
-path_input              /Users/do/Data/SURFS/L40_N512/shark/
+path_output             %/test
+#path_input              /Users/do/Data/SURFS/L40_N512/shark/
 #path_input              /Users/do/Data/SURFS/L210_N1536/shark/
+path_input              %/data/shark/
 
 # Snapshot parameters
 box_side                auto           [length_unit] comoving side-length of simulation box in multiples of length_unit
@@ -30,7 +32,7 @@ omega_b                 auto           energy density of baryonic matter relativ
 # Considered distance range and field-of-view. Additional, more complex positional selection criteria can
 # be coded in the user module function "pos_selection".
 dc_min                  0              [length_unit] minimal comoving distance of mock sky (>=0)
-dc_max                  1000           [length_unit] maximal comoving distance of mock sky (>=0)
+dc_max                  200            [length_unit] maximal comoving distance of mock sky (>=0)
 ra_min                  0              [deg] min right ascension of mock sky (from 0 to 360)
 ra_max                  360            [deg] max right ascension of mock sky (from 0 to 360)
 dec_min                 -90            [deg] min declination of mock sky (from -90 to 90)
@@ -57,6 +59,7 @@ search_angle            0.5            [deg] typical angle in which overlaps bet
 volume_search_level     0              [-] value >=0, giving the number of search points (2^#)^3 inside each tile
 
 # Galaxy options
+make_groups             1              logical flag specifying if groups are produced (0=false, 1=true)
 line_parameters         1              logical flag specifying if global emission line parameters are saved (0=false, 1=true)
 
 # I/O options

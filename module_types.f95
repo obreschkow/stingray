@@ -73,6 +73,7 @@ module module_types
       real*4               :: sky_rotation(3,3) ! rotation matrix to move the (x,y,z)-sky axis onto the central (RA,dec)-sky
       
       ! galaxy options
+      integer*4            :: make_groups
       integer*4            :: line_parameters
       
       ! I/O options

@@ -124,3 +124,4 @@ clean:
 	rm -f *~ $(PROGRAMS)
 	rm -f fort.*
 	rm -rf *.dSYM
+	rm -rf test

@@ -109,7 +109,7 @@ contains
          call system('rm '//trim(para%path_output)//fn_snapshots)
          call system('rm '//trim(para%path_output)//fn_tiles)
          call system('rm '//trim(para%path_output)//fn_galaxies)
-         call system('rm '//trim(para%path_output)//fn_groups)
+         if (para%make_groups==1) call system('rm '//trim(para%path_output)//fn_groups)
       end if
       
       if (para%keep_log==0) then 

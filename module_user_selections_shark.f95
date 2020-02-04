@@ -37,7 +37,7 @@ logical function pos_selection(dc,ra,dec) result(selected)
    
    select case (trim(para%survey))
    case ('test')
-      selected = ((ra>=0.0).and.(ra<=60.0).and.(dec>=-5.0).and.(dec<=12.0).and.(dc<1000.0))
+      selected = ((ra>=165.0).and.(ra<=195.0).and.(dec>=-10.0).and.(dec<=10.0).and.(dc<200.0))
    case ('devils')
       selected = ((ra>= 34.000).and.(ra<= 37.050).and.(dec>= -5.200).and.(dec<= -4.200)).or. &
                & ((ra>= 52.263).and.(ra<= 53.963).and.(dec>=-28.500).and.(dec<=-27.500)).or. &
@@ -71,7 +71,7 @@ logical function sam_selection(sam) result(selected)
    
    select case (trim(para%survey))
    case ('test')
-      selected = (sam%mstars_disk>2e9)
+      selected = (sam%mstars_disk>1e8)
    case ('devils')
       selected = (sam%mstars_disk>1e8)
    case ('gama')

@@ -246,7 +246,7 @@ use module_system
          
       end do
       
-      !if (xy) call save_profiles('/Users/do/Desktop/testprofile.txt')
+      !call save_profiles('/Users/do/Desktop/testprofile.txt')
       !
       !contains
       !
