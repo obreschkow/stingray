@@ -49,10 +49,17 @@ GETTING STARTED
        > module load gfortran/6.3.0 hdf5/1.10.2
    NB: to activate all debugging flags and suppress multi-threading use
        > make mode=dev
+       
+7) Try to run the test-cone using the
+   > ./stingray
+   On most MacOS systems, stingray will be able to automatically find the path of the parameterfile
+   and the small dataset included for testing. It will produce a small mocksky in the subdirectory 'test'.
+   The sky should contain 336 galaxies in 278 groups. If the parameterfile and/or paths cannot be found
+   automatically, follow steps (8) and (9).
+      
+8) Edit the parameter file parameter.txt, especially the input and output paths
    
-7) Edit the parameter file parameter.txt, especially the input and output paths
-   
-8) Produce mock observing cone
+9) Produce mock observing cone
    > ./stingray [-parameterfile .../parameter.txt]
    
 9) Check files written into output directory

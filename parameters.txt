@@ -1,10 +1,19 @@
-# Parameters given a value 'auto' are meant to be imported from the SAM output files.
-# The rules for importing these parameters must be set programmatically in the function
+# This file specfies the parameters used to generate the mock sky.
+#
+# Automatic values:
+# Parameters given a value 'auto' are understood to be set automatically.
+# The rules for making these parameters must be set programmatically in the function
 # "make_automatic_parameters" of the user module "module_user_routines_...".
 # If parameters are set in the user model *and* given a numerical value in this parameter
-# file, the parameter file takes priority of the automatic assignment.
+# file, the parameter file takes priority over the automatic assignment.
+#
+# Comments:
+# Arbitrary comment lines, starting with '#' can be added to this parameter file. Also note
+# that the text following the parameter values in the same line is ignored and can be used to describe the parameter.
 
-# Name of mock survey (for this name, selection rules should be defined in the module "module_user_selection_...")
+
+# Name of mock survey (for this name, selection rules must be defined in the module "module_user_selection_...")
+# The output files will have the filename 'path_output/mocksky_[survey]_[seed].hdf5'
 survey                  test
 
 # Paths (can use leading '%' for stingray directory on macOS systems)
@@ -47,7 +56,7 @@ xy_angle                0              [deg] Rotation of the SAM (x,y)-plane on 
 seed                    1              seed for the random number generator of symmetry operations (positive integer)
 translate               1              logical flag specifying if random translations are applied (0=false, 1=true)
 rotate                  1              logical flag specifying if random rotations are applied (0=false, 1=true)
-invert                  1              logical flag specifying if random inversions are applied (0=false, 1=true)
+invert                  0              logical flag specifying if random inversions are applied (0=false, 1=true)
 
 # Observer velocity relative to CMB (from WMAP in J2000 coordinates, arxiv 0803.0732)
 velocity_norm           369.0          [km/s] observer velocity relative to CMB rest-frame
