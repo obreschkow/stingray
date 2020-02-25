@@ -8,6 +8,7 @@ module module_system
    ! screen output
    logical                 :: opt_logfile
    logical                 :: opt_logscreen
+   logical                 :: log_file_open = .false.
 
    ! computation time evaluation
    integer*8               :: tstart_total
@@ -44,6 +45,7 @@ subroutine out_open(version)
    if (opt_logfile) then
       open(999,file=trim(para%path_output)//fn_log,action='write',status='replace',form='formatted')
       close(999)
+      log_file_open = .true.
    end if
    call hline
    call out('RUNNING stingray '//version)
@@ -59,7 +61,7 @@ subroutine out(txt,i)
    implicit none
    character(*),intent(in)       :: txt
    integer*8,intent(in),optional :: i
-   if (opt_logfile) then
+   if (log_file_open) then
       open(999,file=trim(para%path_output)//fn_log,action='write',status='old',position='append',form='formatted')
       if (present(i)) then
          write(999,'(A,I0)') trim(txt)//' ',i

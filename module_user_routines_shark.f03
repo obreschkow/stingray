@@ -13,17 +13,16 @@ use module_linalg
 use module_cosmology
 use module_conversion
 use module_emission_lines
-
-! custom modules
 use module_hdf5
 
 private
 
-public :: type_sam   ! SAM class, requires procedures get_position, get_groupid, is_selected
+! required objects
+public :: type_sam
 public :: type_sky_galaxy
-public :: type_sky_group
+public :: type_sky_group ! (can be empty)
 public :: parameter_filename_default
-public :: make_automatic_parameters
+public :: make_automatic_parameters ! (can be empty)
 public :: make_redshifts
 public :: load_sam_snapshot
 public :: make_hdf5
@@ -44,7 +43,7 @@ character(len=255),parameter  :: parameter_filename_default = '%/parameters.txt'
 
 ! Here, specify the class of SAM-properties to be loaded for making the mock sky. How these properties are
 ! read from files is specified in the subroutine load_sam_snapshot below
-! The class requires four class functions:
+! The class requires three class functions:
 ! get_position: returns xyz-position of the galaxy
 ! get_groupid: returns the group id of the galaxy
 ! is_group_center: logical function specifying if the galaxy is the group_center
@@ -90,7 +89,6 @@ end type type_sam
 ! See the existing routines below for clarifications. The class must contain the following class functions:
 ! make_from_sam
 ! write_to_file
-! is_selected
    
 type type_sky
 

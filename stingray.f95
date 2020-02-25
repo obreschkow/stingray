@@ -17,7 +17,7 @@ program stingray
    character(len=255)   :: arg_value
    character(len=255)   :: custom_option
    integer*4            :: i,narg
-      
+   
    narg = iargc() ! number of arguments
    
    if (narg==1) then
@@ -41,7 +41,7 @@ program stingray
    opt_logfile = .true.
    custom_option = ''
    if (narg>1) then
-      if (mod(narg,2)==0) then
+      if (mod(narg,2)==1) then
          call out('ERROR: wrong input format. Each option needs to be given an argument.')
          stop
       end if

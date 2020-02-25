@@ -4,7 +4,7 @@ module module_constants
 
    public
    
-   character(*),parameter  :: version = '0.15'
+   character(*),parameter  :: version = '0.16'
    
    ! File names
    character(*),parameter  :: fn_parameters = 'parameters.bin'

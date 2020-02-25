@@ -17,6 +17,7 @@ V0.13 19/09/2019: Emission line maker for HI and CO with many rotation curve mod
 v0.14 28/10/2019: Added pre_selection function to module_user_selections
 v0.15 04/02/2020: New entry "make_groups" in the parameter file, id_galaxy_sky changed and id_galaxy_sky_smart added,
                   Included test data (shark subvolume L40_N512/199/0/)
+v0.16 25/02/2020: Input argument check fixed
 
 Copyright Danail Obreschkow (danail.obreschkow@icrar.org)
 
