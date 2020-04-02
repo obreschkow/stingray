@@ -19,10 +19,10 @@ survey                  test
 # Paths (can use leading '%' for stingray directory on macOS systems)
 #path_output             /Users/do/Data/SURFS/L40_N512/stingray/
 #path_output             /Users/do/Data/SURFS/L210_N1536/stingray/
-path_output             %/test
+path_output              %/test
 #path_input              /Users/do/Data/SURFS/L40_N512/shark/
 #path_input              /Users/do/Data/SURFS/L210_N1536/shark/
-path_input              %/data/shark/
+path_input               %/data/shark/
 
 # Snapshot parameters
 box_side                auto           [length_unit] comoving side-length of simulation box in multiples of length_unit

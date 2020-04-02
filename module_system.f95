@@ -217,18 +217,19 @@ end subroutine check_exists
 
 character(len=255) function code_path()
    implicit none
-   character(len=255)   :: cwd, me, mydir
-   integer*4            :: scanVal 
-   logical              :: back=.true.
-   call get_command_argument(0,me)
-   scanVal = scan (me, '/', back)
-   if (scanVal .gt. 0) then
-      mydir=me(2:scanVal)
-   else
-      call getcwd(mydir)
-   endif
-   call getcwd(cwd)
-   code_path = trim(cwd)//trim(mydir)
+   !character(len=255)   :: cwd, me, mydir
+   !integer*4            :: scanVal 
+   !logical              :: back=.true.
+   !call get_command_argument(0,me)
+   !scanVal = scan (me, '/', back)
+   !if (scanVal .gt. 0) then
+   !   mydir=me(2:scanVal)
+   !else
+   !   call getcwd(mydir)
+   !endif
+   !call getcwd(cwd)
+   !code_path = trim(cwd)//trim(mydir)
+   code_path = '/Users/do/Dropbox/Code/Fortran/stingray/stingray/'
 end function code_path
 
 subroutine nil(x1,x2,x3,x4,x5,x6,x7,x8,x9,x10,x11,x12,x13,x14,x15,x16,x17,x18,x19,x20)

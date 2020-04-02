@@ -45,7 +45,7 @@ program stingray
          call out('ERROR: wrong input format. Each option needs to be given an argument.')
          stop
       end if
-      do i = 2,narg-1,2
+      do i = 1,narg-1,2
          call getarg(i,arg_option)
          call getarg(i+1,arg_value)
          select case (trim(arg_option))

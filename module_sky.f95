@@ -144,7 +144,7 @@ subroutine make_sky
    n_replica_mean = real(real(n_galaxies_tot,8)/n_distinct_galaxies,4)
    write(1,pos=1) n_galaxies_tot,n_replica_mean,n_replica_max
    close(1)
-   if (para%make_groups==1) then 
+   if (para%make_groups==1) then
       write(2,pos=1) n_groups_tot
       close(2)
    end if
@@ -336,7 +336,7 @@ subroutine write_subvolume_into_tile(itile,isnapshot,isubvolume,sam,sam_sel,sam_
       
       ! check full position
       if (is_in_fov(dc(i)*para%box_side,ra(i),dec(i)).and.pos_selection(dc(i)*para%box_side,ra(i)/degree,dec(i)/degree)) then
-         n_in_survey_volume = n_in_survey_volume+1     
+         n_in_survey_volume = n_in_survey_volume+1
       else
          ok(i) = .false. ! => this object will be rejected
       end if
