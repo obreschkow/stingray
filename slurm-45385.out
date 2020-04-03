@@ -1,8 +1,0 @@
-----------------------------------------------------------------------------------
-RUNNING stingray 0.6
-----------------------------------------------------------------------------------
-MAKE PARAMETERS
-File: parameters-gama.txt
-File of automatic parameters: /mnt/su3ctm/clagos/SHARK_Out/medi-SURFS/Shark-Lagos18-final/79/0/galaxies.hdf5
- Will read from file/mnt/su3ctm/clagos/SHARK_Out/medi-SURFS/Shark-Lagos18-final/79/0/galaxies.hdf5                                                                                                                                                                                 
-ERROR: name is an unknown parameter.
