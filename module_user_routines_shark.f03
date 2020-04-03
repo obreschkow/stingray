@@ -738,7 +738,7 @@ subroutine make_hdf5
    call hdf5_write_data(trim(name)//'/mstars_disk',sky_galaxy%mstars_disk,'[Msun/h] stellar mass in the disk')
    call hdf5_write_data(trim(name)//'/mstars_bulge',sky_galaxy%mstars_bulge,'[Msun/h] stellar mass in the bulge')
    call hdf5_write_data(trim(name)//'/mgas_disk',sky_galaxy%mgas_disk,'[Msun/h] gas mass in the disk')
-   call hdf5_write_data(trim(name)//'/msgas_bulge',sky_galaxy%mgas_bulge,'[Msun/h] gas mass in the bulge')
+   call hdf5_write_data(trim(name)//'/mgas_bulge',sky_galaxy%mgas_bulge,'[Msun/h] gas mass in the bulge')
    call hdf5_write_data(trim(name)//'/matom_disk',sky_galaxy%matom_disk,'[Msun/h] atomic gas mass in the disk')
    call hdf5_write_data(trim(name)//'/matom_bulge',sky_galaxy%matom_bulge,'[Msun/h] atomic mass in the bulge')
    call hdf5_write_data(trim(name)//'/mmol_disk',sky_galaxy%mmol_disk,'[Msun/h] molecular gas mass in the disk')
@@ -759,7 +759,7 @@ subroutine make_hdf5
    call hdf5_write_data(trim(name)//'/mbh_acc_hh',sky_galaxy%mbh_acc_hh,'[Msun/Gyr/h] black hole accretion rate in the hot halo mode')
    call hdf5_write_data(trim(name)//'/mbh_acc_sb',sky_galaxy%mbh_acc_sb,'[Msun/Gyr/h] black hole accretion rate in the starburst mode')
 
-   call hdf5_write_data(trim(name)//'/vvir_hosthalo',sky_galaxy%vvir_hosthalo,'[km/sM] host halo virial velocity')
+   call hdf5_write_data(trim(name)//'/vvir_hosthalo',sky_galaxy%vvir_hosthalo,'[km/s] host halo virial velocity')
    call hdf5_write_data(trim(name)//'/vvir_subhalo',sky_galaxy%vvir_subhalo,'[Msun/h] subhalo virial velocity')
    call hdf5_write_data(trim(name)//'/cnfw_subhalo',sky_galaxy%cnfw_subhalo,'narro-frenk-white concentration of subhalo')
 
