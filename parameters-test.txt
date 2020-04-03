@@ -7,9 +7,9 @@ survey                    test
 
 # Paths
 #path_output             /Users/do/Data/SURFS/stingray/shark/output/
-path_output             /mnt/su3ctm/clagos/Stingray/output/medi-SURFS/Shark-Lagos18-final/test-writing/
+path_output             /mnt/su3ctm/clagos/Stingray/output/medi-SURFS/Shark-TreeFixed-ReincPSO-kappa0p002/test-med/
 #path_input              /Users/do/Data/SURFS/stingray/shark/input/
-path_input              /mnt/su3ctm/clagos/SHARK_Out/medi-SURFS/Shark-Lagos18-final/
+path_input              /mnt/su3ctm/clagos/SHARK_Out/medi-SURFS/Shark-TreeFixed-ReincPSO-kappa0p002/
 
 # Snapshot parameters
 L                       auto           [length_unit] side-length of simulation box

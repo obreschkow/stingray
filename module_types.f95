@@ -4,7 +4,6 @@
 module module_types
 
    use module_constants
-   use module_system
 
    public
 
@@ -26,7 +25,7 @@ module module_types
       character(len=255)   :: path_input
    
       ! simulation box
-      real*4               :: L ! box side length in simulation units
+      real*4               :: box_side ! box side length in simulation units
       real*4               :: length_unit ! [m]
       integer*4            :: snapshot_min
       integer*4            :: snapshot_max
@@ -72,6 +71,14 @@ module module_types
       ! derived parameters, not directly specified by the user
       real*4               :: velocity_car(3)   ! [km/s] velocity of observer cartesian survey-coordinates
       real*4               :: sky_rotation(3,3) ! rotation matrix to move the (x,y,z)-sky axis onto the central (RA,dec)-sky
+      
+      ! galaxy options
+      integer*4            :: make_groups
+      integer*4            :: line_parameters
+      
+      ! I/O options
+      integer*4            :: keep_binaries
+      integer*4            :: keep_log
    
    end type type_para
    
@@ -101,7 +108,7 @@ module module_types
       real*4      :: redshift
       real*4      :: dmin           ! [units of side-length] minimum comoving distance at which galaxies are drawn from this redshift
       real*4      :: dmax           ! [units of side-length] maximum ...
-      integer*4   :: n_replication  ! Number of tiles this snapshot has been considered for, irrespective of whether a galaxy was selected
+      integer*4   :: n_tiles        ! Number of tiles this snapshot has been considered for, irrespective of whether a galaxy was selected
 
    end type type_snapshot
    

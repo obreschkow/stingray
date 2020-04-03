@@ -3,10 +3,10 @@
 #SBATCH --job-name=medi_stingray
 
 #SBATCH --nodes=1
-#SBATCH --time=10:00:00
+#SBATCH --time=00:10:00
 #SBATCH --ntasks-per-node=24
 
-#SBATCH --mem=50GB
+#SBATCH --mem=100GB
 
 
 module load hdf5/1.10.2

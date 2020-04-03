@@ -1,19 +1,60 @@
-# Input model; each model requires a custom module "module_user_[SAM].f03"
-Model = shark
+# Call as make [sam=shark,...] [system=ems,ism49,hyades,...] [mode=standard,dev]
+
+# sam = galaxy formation model; each model requires custom modules "module_user_routines_[sam].f03" and "module_user_selection_[sam].f95"
+# system = computing system on which stingray is complied and executed
+# mode = compilation mode; allowed modes are 'standard' and 'dev'
+
+ifndef sam
+   sam = shark
+endif
+
+ifndef system
+   system = ems
+endif
+
+ifdef mode
+   ifneq ($(mode),standard)
+      ifneq ($(mode),dev)
+         $(info ERROR unknown mode: '${mode}')
+stop
+      endif
+   endif
+else
+   mode = standard
+endif
+
+
+# custom flags to load the HDF5 library
+hdfflags = empty
+ifeq ($(system),ems) # private laptop of developer Obreschkow
+   hdfflags = -I/usr/local/include -L/usr/local/lib -lhdf5_fortran -lhdf5
+endif
+ifeq ($(system),ism49) # private backup laptop of developer Obreschkow
+   hdfflags = -I/usr/local/lib/hdf5/include -L/usr/local/lib/hdf5/lib -lhdf5_fortran -lhdf5
+endif
+ifeq ($(system),hyades) # in-house cluster at ICRAR/UWA
+   hdfflags = -I/opt/bldr/local/storage/hdf5/1.10.2/include -L/opt/bldr/local/storage/hdf5/1.10.2/lib -lhdf5_fortran -lhdf5
+endif
+ifeq ($(hdfflags),empty)
+   $(info ERROR unknown system: '${system}')
+stop
+endif
+
+# make all compiler flags
+ifeq ($(mode),standard)
+   FCFLAGS = -g $(hdfflags) -O3 -fopenmp
+else
+   FCFLAGS = -g $(hdfflags) -O0 -fbounds-check -fwhole-file -ffpe-trap=invalid,zero,overflow -Wall -Wunused -Wuninitialized -Wsurprising -Wconversion
+endif
 
 # Compiler
 FC = gfortran
 
-# Compiler flags for testing and debugging
-#FCFLAGS = -g -O0 -I/usr/local/lib/hdf5/include -L/usr/local/lib/hdf5/lib -lhdf5_fortran -lhdf5 -fbounds-check -fwhole-file -ffpe-trap=invalid,zero,overflow -Wall -Wunused -Wuninitialized -Wsurprising -Wconversion
-#FCFLAGS = -g -O0 -I/usr/local/include -L/usr/local/lib -lhdf5_fortran -lhdf5 -fbounds-check -fwhole-file -ffpe-trap=invalid,zero,overflow -Wall -Wunused -Wuninitialized -Wsurprising -Wconversion
-
-# Compiler flags for optimized execution
-# FCFLAGS = -O3 -fopenmp -I/usr/local/lib/hdf5/include -L/usr/local/lib/hdf5/lib -lhdf5_fortran -lhdf5
-FCFLAGS = -O3 -fopenmp -I/usr/local/include -L/usr/local/lib -lhdf5_fortran -lhdf5
-
-# Compiler flags on hyades
-FCFLAGS = -g -O3 -fopenmp -I/opt/bldr/local/storage/hdf5/1.10.2/include -L/opt/bldr/local/storage/hdf5/1.10.2/lib -lhdf5_fortran -lhdf5 -ffree-line-length-none
+# user info
+$(info Compilation options:)
+$(info + Computing system = '${system}'.)
+$(info + Compiling mode = '${mode}'.)
+$(info + Galaxy formation model = '${sam}'.)
 
 # List of executables to be built within the package
 PROGRAMS = stingray
@@ -22,31 +63,33 @@ PROGRAMS = stingray
 all: $(PROGRAMS)
 
 stingray.o:    module_constants.o \
-               module_system.o \
                module_types.o \
+               module_system.o \
                module_io.o \
                module_linalg.o \
                module_cosmology.o \
                module_sort.o \
                module_conversion.o \
+               module_emission_lines.o \
                module_hdf5.o \
-               module_user_routines_$(Model).o \
-               module_user_selections_$(Model).o \
+               module_user_routines_$(sam).o \
+               module_user_selections_$(sam).o \
                module_parameters.o \
                module_tiling.o \
                module_sky.o
                
 stingray: 	   module_constants.o \
-               module_system.o \
                module_types.o \
+               module_system.o \
                module_io.o \
                module_linalg.o \
                module_sort.o \
                module_cosmology.o \
                module_conversion.o \
+               module_emission_lines.o \
                module_hdf5.o \
-               module_user_routines_$(Model).o \
-               module_user_selections_$(Model).o \
+               module_user_routines_$(sam).o \
+               module_user_selections_$(sam).o \
                module_parameters.o \
                module_tiling.o \
                module_sky.o
@@ -80,3 +123,5 @@ clean:
 	rm -f *.o *.mod *.MOD
 	rm -f *~ $(PROGRAMS)
 	rm -f fort.*
+	rm -rf *.dSYM
+	rm -rf test

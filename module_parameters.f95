@@ -26,7 +26,7 @@ subroutine make_parameters(parameter_filename_custom)
    if (len(trim(parameter_filename_custom))>0) then
       parameter_filename = parameter_filename_custom
    else
-      parameter_filename = get_parameter_filename_default()
+      parameter_filename = trim(fixpath(parameter_filename_default))
    end if
    call out('File: '//trim(parameter_filename))
    call check_exists(parameter_filename)
@@ -48,7 +48,7 @@ subroutine reset_parameters
 
    implicit none
    para%survey = ''
-   para%L = huge(para%L)
+   para%box_side = huge(para%box_side)
    para%length_unit = huge(para%length_unit)
    para%snapshot_min = huge(para%snapshot_min)
    para%snapshot_max = huge(para%snapshot_max)
@@ -76,6 +76,10 @@ subroutine reset_parameters
    para%velocity_norm = huge(para%velocity_norm)
    para%search_angle = huge(para%search_angle)
    para%volume_search_level= huge(para%volume_search_level)
+   para%make_groups = -1
+   para%line_parameters = -1
+   para%keep_binaries = -1
+   para%keep_log = -1
 
 end subroutine reset_parameters
 
@@ -87,7 +91,7 @@ subroutine check_parameters
    if (trim(para%survey)=='') call wrong('survey')
    if (trim(para%path_output)=='') call wrong('path_output')
    if (trim(para%path_input)=='') call wrong('path_input')
-   if (para%L == huge(para%L)) call wrong('L')
+   if (para%box_side == huge(para%box_side)) call wrong('L')
    if (para%length_unit == huge(para%length_unit)) call wrong('length_unit')
    if (para%snapshot_min == huge(para%snapshot_min)) call wrong('snapshot_min')
    if (para%snapshot_max == huge(para%snapshot_max)) call wrong('snapshot_max')
@@ -115,12 +119,16 @@ subroutine check_parameters
    if (para%velocity_norm == huge(para%velocity_norm)) call wrong('velocity_norm')
    if (para%search_angle == huge(para%search_angle)) call wrong('search_angle')
    if (para%volume_search_level == huge(para%volume_search_level)) call wrong('volume_search_level')
+   if (para%make_groups == -1) call wrong('make_groups')
+   if (para%line_parameters == -1) call wrong('line_parameters')
+   if (para%keep_binaries == -1) call wrong('keep_binaries')
+   if (para%keep_log == -1) call wrong('keep_log')
    
    ! check parameter ranges
-   if (para%L<=0) call error('L must be larger than 0')
+   if (para%box_side<=0) call error('L must be larger than 0')
    if (para%length_unit<=0) call error('length_unit must be larger than 0')
-   if (para%snapshot_min>para%snapshot_max) call error('snapshot_min must be smaller than snapshot_max')
-   if (para%subvolume_min>para%subvolume_max) call error('subvolume_min must be smaller than subvolume_max')
+   if (para%snapshot_min>para%snapshot_max) call error('snapshot_min must be <= snapshot_max')
+   if (para%subvolume_min>para%subvolume_max) call error('subvolume_min must be <= subvolume_max')
    if (para%h<=0) call error('h must be larger than 0')
    if (para%omega_l<0) call error('omega_l must be >=0')
    if (para%omega_m<0) call error('omega_m must be >=0')
@@ -152,6 +160,10 @@ subroutine check_parameters
    if (para%search_angle<=0.0) call error('search_angle must be larger than 0')
    if (para%volume_search_level<0) call error('volume_search_level must be equal to or larger than 0')
    if (para%volume_search_level>10) call error('volume_search_level cannot be larger than 10')
+   if (.not.islogical(para%make_groups)) call error('make_groups can only be 0 or 1')
+   if (.not.islogical(para%line_parameters)) call error('line_parameters can only be 0 or 1')
+   if (.not.islogical(para%keep_binaries)) call error('keep_binaries can only be 0 or 1')
+   if (.not.islogical(para%keep_log)) call error('keep_log can only be 0 or 1')
    
    contains
    
@@ -213,8 +225,8 @@ subroutine load_user_parameters(parameter_filename)
          select case (trim(var_name))
             case ('survey')
                if (manual) read(var_value,*) para%survey
-            case ('L')
-               if (manual) read(var_value,*) para%L
+            case ('box_side')
+               if (manual) read(var_value,*) para%box_side
             case ('length_unit')
                if (manual) read(var_value,*) para%length_unit
             case ('snapshot_min')
@@ -269,6 +281,14 @@ subroutine load_user_parameters(parameter_filename)
                if (manual) read(var_value,*) para%search_angle
             case ('volume_search_level')
                if (manual) read(var_value,*) para%volume_search_level
+            case ('make_groups')
+               if (manual) read(var_value,*) para%make_groups
+            case ('line_parameters')
+               if (manual) read(var_value,*) para%line_parameters
+            case ('keep_binaries')
+               if (manual) read(var_value,*) para%keep_binaries
+            case ('keep_log')
+               if (manual) read(var_value,*) para%keep_log
             case default
                if ((trim(var_name).ne.'path_input').and.(trim(var_name).ne.'path_output')) then
                   call error(trim(var_name)//' is an unknown parameter.')
@@ -295,7 +315,7 @@ subroutine load_paths(parameter_filename_custom)
    if (len(trim(parameter_filename_custom))>0) then
       parameter_filename = parameter_filename_custom
    else
-      parameter_filename = get_parameter_filename_default()
+      parameter_filename = trim(fixpath(parameter_filename_default))
    end if
    
    if (.not.exists(parameter_filename,.true.)) then
@@ -320,14 +340,14 @@ subroutine load_paths(parameter_filename_custom)
                   write(*,*) 'ERROR: parameter path_output empty.'
                   stop
                end if
-               para%path_output = trim(noslash(var_value))//'/'
+               para%path_output = trim(fixpath(var_value))//'/'
                call system('mkdir -p '//trim(para%path_output))
             case ('path_input')
                if (len(trim(var_value))==0) then
                   write(*,*) 'ERROR: parameter path_input empty.'
                   stop
                end if
-               para%path_input = trim(noslash(var_value))//'/'
+               para%path_input = trim(fixpath(var_value))//'/'
                if (.not.exists(trim(para%path_input),.true.)) then
                   write(*,*) 'ERROR: Input path cannot be found: '//trim(para%path_input)
                   stop

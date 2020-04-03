@@ -1,11 +1,14 @@
 module module_system
 
+   use module_types
+   use module_constants
+
    public
    
    ! screen output
-   character(len=255)      :: logfilename
    logical                 :: opt_logfile
    logical                 :: opt_logscreen
+   logical                 :: log_file_open = .false.
 
    ! computation time evaluation
    integer*8               :: tstart_total
@@ -40,8 +43,9 @@ subroutine out_open(version)
    implicit none
    character(*),intent(in) :: version
    if (opt_logfile) then
-      open(999,file=trim(logfilename),action='write',status='replace',form='formatted')
+      open(999,file=trim(para%path_output)//fn_log,action='write',status='replace',form='formatted')
       close(999)
+      log_file_open = .true.
    end if
    call hline
    call out('RUNNING stingray '//version)
@@ -57,8 +61,8 @@ subroutine out(txt,i)
    implicit none
    character(*),intent(in)       :: txt
    integer*8,intent(in),optional :: i
-   if (opt_logfile) then
-      open(999,file=trim(logfilename),action='write',status='old',position='append',form='formatted')
+   if (log_file_open) then
+      open(999,file=trim(para%path_output)//fn_log,action='write',status='old',position='append',form='formatted')
       if (present(i)) then
          write(999,'(A,I0)') trim(txt)//' ',i
       else
@@ -163,19 +167,35 @@ function nodot(strin) result(strout)
    end if
 end function nodot
 
-function noslash(strin) result(strout)
+function fixpath(strin) result(strout)
    ! removed slash from on the RHS of string
    implicit none
    character(*),intent(in) :: strin
    character(len=255)      :: strout
    integer*4               :: l
+   
+   ! remove trailing slash if necessary
    l = len(trim(strin))
    if (strin(l:l)=='/') then
-      strout = strin(1:l-1)
+      strout = strin(1:(l-1))
    else
       strout = strin
    end if
-end function noslash
+   
+   ! replace leading '%' with code directory
+   l = len(trim(strout))
+   if (strout(1:1)=='%') then
+      strout = strout(2:l)
+      l = l-1
+      ! remove leading '/' if necessary
+      if (strout(1:1)=='/') then
+         strout = strout(2:l)
+         l = l-1
+      end if
+      strout = trim(code_path())//trim(strout)
+   end if
+   
+end function fixpath
 
 function exists(filename,do_not_stop) result(res)
    implicit none
@@ -194,6 +214,23 @@ subroutine check_exists(filename)
    character(*),intent(in) :: filename
    if (.not.exists(filename)) stop
 end subroutine check_exists
+
+character(len=255) function code_path()
+   implicit none
+   !character(len=255)   :: cwd, me, mydir
+   !integer*4            :: scanVal 
+   !logical              :: back=.true.
+   !call get_command_argument(0,me)
+   !scanVal = scan (me, '/', back)
+   !if (scanVal .gt. 0) then
+   !   mydir=me(2:scanVal)
+   !else
+   !   call getcwd(mydir)
+   !endif
+   !call getcwd(cwd)
+   !code_path = trim(cwd)//trim(mydir)
+   code_path = '/Users/do/Dropbox/Code/Fortran/stingray/stingray/'
+end function code_path
 
 subroutine nil(x1,x2,x3,x4,x5,x6,x7,x8,x9,x10,x11,x12,x13,x14,x15,x16,x17,x18,x19,x20)
    class(*),optional :: x1,x2,x3,x4,x5,x6,x7,x8,x9,x10,x11,x12,x13,x14,x15,x16,x17,x18,x19,x20

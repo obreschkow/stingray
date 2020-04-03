@@ -1,6 +1,6 @@
+! Standard functions for the conversion from intrinsic to apparent galaxy properties
+   
 module module_conversion
-
-! standard functions for the conversion from intrinsic to apparent galaxy properties
 
    use module_constants
    use module_system
@@ -150,11 +150,23 @@ function convert_luminosity2flux(L,dl) result(S)
    implicit none
    real*8,intent(in) :: L     ! [W] Luminosity
    real*4,intent(in) :: dl    ! [Mpc] luminosity distance
-   real*8            :: S     ! [W/m^2] Flux
+   real*8            :: S     ! [W/m^2] Integrated flux density
 
    S = L/real(dl,8)**2/ASphereMpc
 
 end function convert_luminosity2flux
+
+function convert_intflux2velintflux(S,lambda,z) result(S_V)
+
+   implicit none
+   real*4,intent(in) :: S           ! [W/m^2] Integrated flux density
+   real*4,intent(in) :: lambda      ! [m] rest-frame wave length
+   real*4,intent(in) :: z           ! [-] observed redshift
+   real*4            :: S_V         ! [Jy km/s] Velocity-integrated flux density
+   
+   S_V = 1e23*S*lambda*(1+z)
+
+end function convert_intflux2velintflux
 
 function convert_vector(x,rotation) result(y)
 

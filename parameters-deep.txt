@@ -7,9 +7,9 @@ survey                    deep-optical
 
 # Paths
 #path_output             /Users/do/Data/SURFS/stingray/shark/output/
-path_output             /mnt/su3ctm/clagos/Stingray/output/medi-SURFS/Shark-Lagos18-final/deep-optical/
+path_output             /mnt/su3ctm/clagos/Stingray/output/medi-SURFS/Shark-TreeFixed-ReincPSO-kappa0p002/deep-optical/
 #path_input              /Users/do/Data/SURFS/stingray/shark/input/
-path_input              /mnt/su3ctm/clagos/SHARK_Out/medi-SURFS/Shark-Lagos18-final/
+path_input              /mnt/su3ctm/clagos/SHARK_Out/medi-SURFS/Shark-TreeFixed-ReincPSO-kappa0p002/
 
 # Snapshot parameters
 L                       auto           [length_unit] side-length of simulation box
@@ -28,7 +28,7 @@ omega_b                 auto           Space density of baryonic matter relative
 # Considered distance range and field-of-view. Additional and/or more complex positional selection criteria can
 # be coded in the user module function "pos_selection".
 dc_min                  0              [simulation units] minimal comoving distance
-dc_max                  8436.03        [simulation units] maximal comoving distance
+dc_max                  8943.21        [simulation units] maximal comoving distance
 ra_min                  0              [deg] min right ascension
 ra_max                  360            [deg] max right ascension
 dec_min                 -90            [deg] min declination
