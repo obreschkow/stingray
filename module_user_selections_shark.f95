@@ -48,8 +48,6 @@ logical function pos_selection(dc,ra,dec) result(selected)
                & ((ra>=174.000).and.(ra<=186.000).and.(dec>= -3.000).and.(dec<= +2.000)).or. &
                & ((ra>=211.500).and.(ra<=223.500).and.(dec>= -2.000).and.(dec<= +3.000)).or. &
                & ((ra>=339.000).and.(ra<=351.000).and.(dec>=-35.000).and.(dec<=-30.000))
-   case ('deep-optical-agn')
-      selected = ((ra>=211.500).and.(ra<=223.500).and.(dec>= -4.5).and.(dec<=+4.5))
    case ('deep-optical')
       selected = ((ra>=211.500).and.(ra<=223.500).and.(dec>= -4.5).and.(dec<=+4.5))
    case ('deep-optical-narrow')
@@ -88,8 +86,6 @@ logical function sam_selection(sam) result(selected)
       selected = (sam%mstars_disk+sam%mstars_bulge>1e6)
    case ('deep-optical-narrow')
       selected = (sam%mstars_disk+sam%mstars_bulge>1e6)
-   case ('deep-optical-agn')
-      selected = (sam%mstars_disk+sam%mstars_bulge>1e6)
    case ('waves-g23')
       selected = (sam%mstars_disk+sam%mstars_bulge>1e6)
    case ('alfalfa')
@@ -121,6 +117,10 @@ logical function pre_selection(sam,dc,ra,dec) result(selected)
    case ('devils')
       selected = .true.
    case ('gama')
+      selected = .true.
+   case ('deep-optical')
+      selected = .true.
+   case ('deep-optical-narrow')
       selected = .true.
    case ('alfalfa')
       selected = .true.
@@ -156,8 +156,6 @@ logical function sky_selection(sky,sam) result(selected)
       selected = sky%mag<=28.0+dmag
    case ('deep-optical-narrow')
       selected = sky%mag<=38.0+dmag
-   case ('deep-optical-agn')
-      selected = sky%mag<=26.0+dmag
    case ('waves-g23')
       selected = sky%mag<=24+dmag
    case ('alfalfa')

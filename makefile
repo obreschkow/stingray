@@ -42,7 +42,7 @@ endif
 
 # make all compiler flags
 ifeq ($(mode),standard)
-   FCFLAGS = -g $(hdfflags) -O3 -fopenmp
+   FCFLAGS = -g $(hdfflags) -O3 -fopenmp -fbounds-check -fwhole-file -ffpe-trap=invalid,zero,overflow -Wall -Wunused -Wuninitialized -Wsurprising -Wconversion -ffree-line-length-0
 else
    FCFLAGS = -g $(hdfflags) -O0 -fbounds-check -fwhole-file -ffpe-trap=invalid,zero,overflow -Wall -Wunused -Wuninitialized -Wsurprising -Wconversion
 endif
