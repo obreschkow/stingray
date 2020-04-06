@@ -57,6 +57,7 @@ logical function pos_selection(dc,ra,dec) result(selected)
    case ('wallaby_medi')
       selected = (dec<=30.000).and.(dc>60.0).and.(dc<=750.0)
    case default
+      selected = .false. ! to avoid compiler warning of uninitialised variable
       call error('Unknown survey name.')
    end select
 
@@ -81,6 +82,7 @@ logical function sam_selection(sam) result(selected)
    case ('wallaby_micro','wallaby_medi')
       selected = .true.
    case default
+      selected = .false. ! to avoid compiler warning of uninitialised variable
       call error('Unknown survey name.')
    end select
    
@@ -112,6 +114,7 @@ logical function pre_selection(sam,dc,ra,dec) result(selected)
       mhi = (sam%matom_disk+sam%matom_bulge)/para%h/1.35 ! [Msun] HI mass
       selected = mhi>wallaby_fmin*(dc/para%h)**2
    case default
+      selected = .false. ! to avoid compiler warning of uninitialised variable
       call error('Unknown survey name.')
    end select
    
@@ -147,6 +150,7 @@ logical function sky_selection(sky,sam) result(selected)
       wallaby_noise_integrated = wallaby_noise_wm2*sqrt(n_channels*n_beams) ! [W/m^2] noise threshold level
       selected = (sky%hiline_flux_int>wallaby_noise_integrated*wallaby_sn).and.(sky%zobs<=0.26)
    case default
+      selected = .false. ! to avoid compiler warning of uninitialised variable
       call error('Unknown survey name.')
    end select
    

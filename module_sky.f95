@@ -409,7 +409,7 @@ subroutine write_subvolume_into_tile(itile,isnapshot,isubvolume,sam,sam_sel,sam_
                      ! for the group catalogue. In case this galaxy has been mapped far away from *all* the
                      ! selected group members, due to wrapping at the edge of the tile, it is here moved back
                      ! next to the selected galaxies in the group, accepting a violation of the tile boundary
-                     if (wrapped) then ! group wrapped around
+                     if (base%group_flag>=4) then ! group wrapped around
                         xmin = 2.0
                         xmax = -1.0
                         do k = jmin+1,i

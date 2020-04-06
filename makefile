@@ -44,7 +44,7 @@ endif
 ifeq ($(mode),standard)
    FCFLAGS = -g $(hdfflags) -O3 -fopenmp
 else
-   FCFLAGS = -g $(hdfflags) -O0 -fbounds-check -fwhole-file -ffpe-trap=invalid,zero,overflow -Wall -Wunused -Wuninitialized -Wsurprising -Wconversion
+   FCFLAGS = -g $(hdfflags) -O3 -fbounds-check -fwhole-file -ffpe-trap=invalid,zero,overflow -Wall -Wunused -Wuninitialized -Wsurprising -Wconversion
 endif
 
 # Compiler

@@ -219,10 +219,11 @@ function get_min_distance_to_square(p,e1,e2) result(dmin)
    if ((min(abs(p1),abs(p2))<=0.5).and.(max(abs(p1),abs(p2))>0.5)) then
       if (abs(p1)>0.5) then
          dmin = get_min_distance_to_line(p-s1*e1/2,e2)
+         return
       else if (abs(p2)>0.5) then
          dmin = get_min_distance_to_line(p-s2*e2/2,e1)
+         return
       end if
-      return
    end if
    
    ! handle the situation where the closest point is a corner
@@ -230,9 +231,12 @@ function get_min_distance_to_square(p,e1,e2) result(dmin)
       dmin = norm(p-s1*e1/2-s2*e2/2)
       return
    else
-      write(*,*) 'Error in get_min_distance_to_square'
-      stop
+      call error('Error in get_min_distance_to_square')
    end if
+   
+   ! code never gets here, this is just to avoid compiler warning of uninitialised variable
+   dmin = 0.0 
+   return
    
 end function get_min_distance_to_square
 
