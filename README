@@ -76,7 +76,8 @@ GETTING STARTED
 QUICK START ON ICRAR-HYADES
 ====================================================================================================================
 
-# copy all this into
+# install and compile stingray in your home directory
+cd ~
 rm -rf stingray/ # remove previous surfsuite directory
 git clone https://github.com/obreschkow/stingray # install updated version
 cd stingray # change to surfsuite directory

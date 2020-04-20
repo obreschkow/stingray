@@ -35,7 +35,8 @@ subroutine set_seed(seed)
    integer*4               :: rnd_size
    integer*4,allocatable   :: seed_array(:)
    
-   call random_seed(size=rnd_size)
+   !call random_seed(size=rnd_size)
+   rnd_size = 999
    allocate(seed_array(rnd_size))
    seed_array = seed
    write(*,*) rnd_size
