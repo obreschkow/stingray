@@ -42,7 +42,7 @@ logical function pos_selection(dc,ra,dec) result(selected)
    
    select case (trim(para%survey))
    case ('test')
-      selected = ((ra>=165.0).and.(ra<=195.0).and.(dec>=-10.0).and.(dec<=10.0).and.(dc<100.0))
+      selected = ((ra>=165.0).and.(ra<=195.0).and.(dec>=-10.0).and.(dec<=10.0).and.(dc<200.0))
    case ('devils')
       selected = ((ra>= 34.000).and.(ra<= 37.050).and.(dec>= -5.200).and.(dec<= -4.200)).or. &
                & ((ra>= 52.263).and.(ra<= 53.963).and.(dec>=-28.500).and.(dec<=-27.500)).or. &
