@@ -586,7 +586,7 @@ subroutine load_sam_snapshot(isnapshot,isubvolume,sam)
    type(type_sam),allocatable,intent(out)          :: sam(:)            ! class of SAM properties
    integer*8                                       :: n                 ! number of galaxies
    character(*),parameter                          :: g = '/galaxies/'  ! group name
-   integer*8,allocatable                           :: id_check(:)
+   !integer*8,allocatable                           :: id_check(:)
    
    ! read main galaxy properties
    
