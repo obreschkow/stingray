@@ -35,12 +35,9 @@ subroutine set_seed(seed)
    integer*4               :: rnd_size
    integer*4,allocatable   :: seed_array(:)
    
-   !call random_seed(size=rnd_size)
-   call random_init(.true., .true.)
-   rnd_size = 999
+   call random_seed(size=rnd_size)
    allocate(seed_array(rnd_size))
    seed_array = seed
-   write(*,*) rnd_size
    call random_seed(put=seed_array)
    
 end subroutine set_seed

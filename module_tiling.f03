@@ -30,6 +30,9 @@ subroutine make_tiling
    
    write(*,*) para%seed
    write(*,*) get_normal_random_number(0.0,1.0)
+   
+   call srand(para%seed)
+   write(*,*) rand(),rand()
    stop
    
    ntile = 0
