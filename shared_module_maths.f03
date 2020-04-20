@@ -31,8 +31,8 @@ contains
 subroutine set_seed(seed)
 
    implicit none
-   integer,intent(in)      :: seed
-   integer                 :: rnd_size
+   integer*4,intent(in)    :: seed
+   integer*4               :: rnd_size
    integer*4,allocatable   :: seed_array(:)
    
    call random_seed(size=rnd_size)

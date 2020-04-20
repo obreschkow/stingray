@@ -27,6 +27,11 @@ subroutine make_tiling
    call out('MAKE 3D TILING')
    
    call set_seed(para%seed)
+   
+   write(*,*) para%seed
+   write(*,*) get_normal_random_number(0.0,1.0)
+   stop
+   
    ntile = 0
    counter = 0
    imax = ceiling(para%dc_max/para%box_side)
