@@ -635,18 +635,18 @@ subroutine load_sam_snapshot(isnapshot,isubvolume,sam)
    ! close file
    call hdf5_close()
    
-   ! open file
-   call hdf5_open(filename_sam(isnapshot,isubvolume,2)) ! NB: this routine also checks if the file exists
-   
-   ! check number of galaxies
-   if (hdf5_dataset_size(g//'id_galaxy').ne.n) call error('wrong number of galaxies in CO file')
-   
-   ! read file
-   call hdf5_read_data(g//'LCO_bulge',sam%lco_bulge)
-   call hdf5_read_data(g//'LCO_disk',sam%lco_disk)
-   
-   ! close file
-   call hdf5_close()
+   !! open file
+   !call hdf5_open(filename_sam(isnapshot,isubvolume,2)) ! NB: this routine also checks if the file exists
+   !
+   !! check number of galaxies
+   !if (hdf5_dataset_size(g//'id_galaxy').ne.n) call error('wrong number of galaxies in CO file')
+   !
+   !! read file
+   !call hdf5_read_data(g//'LCO_bulge',sam%lco_bulge)
+   !call hdf5_read_data(g//'LCO_disk',sam%lco_disk)
+   !
+   !! close file
+   !call hdf5_close()
    
    ! assign other properties
    sam%snapshot = isnapshot
