@@ -35,10 +35,14 @@ subroutine set_seed(seed)
    integer*4               :: rnd_size
    integer*4,allocatable   :: seed_array(:)
    
+   ! set seed for PRNG of random_number(), Fortran 90 standard
    call random_seed(size=rnd_size)
    allocate(seed_array(rnd_size))
    seed_array = seed
    call random_seed(put=seed_array)
+   
+   ! set sed for PRNG of rand(), GNU Fortran 77 standard
+   call srand(seed)
    
 end subroutine set_seed
 

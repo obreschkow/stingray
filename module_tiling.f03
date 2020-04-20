@@ -28,13 +28,6 @@ subroutine make_tiling
    
    call set_seed(para%seed)
    
-   write(*,*) para%seed
-   write(*,*) get_normal_random_number(0.0,1.0)
-   
-   call srand(para%seed)
-   write(*,*) rand(),rand()
-   stop
-   
    ntile = 0
    counter = 0
    imax = ceiling(para%dc_max/para%box_side)
@@ -116,8 +109,11 @@ end subroutine check_tile
 
 subroutine make_tile_list
 
+   ! NB: random_number() uses a better prng than rand(), but depends on the system and fortran version
+   !     we therefore chose to use rand()
+
    implicit none
-   real*4                     :: rand,dmin,dmax
+   real*4                     :: dmin,dmax
    integer*4                  :: i,j,k,ntile,itile
    
    ntile = count(intersection>0)
@@ -141,8 +137,8 @@ subroutine make_tile_list
                
                ! choose random proper rotation
                if (para%rotate==1) then
-                  call random_number(rand)
-                  tile(itile)%rotation = max(1,min(6,ceiling(rand*6.0)))
+                  !call random_number(rnd)
+                  tile(itile)%rotation = max(1,min(6,ceiling(rand()*6.0)))
                else
                   tile(itile)%rotation = 1
                end if
@@ -150,14 +146,15 @@ subroutine make_tile_list
 
                ! choose random inversion
                if (para%invert==1) then
-                  call random_number(rand)
-                  if (rand<0.5) tile(itile)%rotation = -tile(itile)%rotation
+                  !call random_number(rnd)
+                  if (rand()<0.5) tile(itile)%rotation = -tile(itile)%rotation
                end if
                tile(itile)%Rpseudo = matmul(para%sky_rotation,rot(:,:,tile(itile)%rotation))
 
                ! choose random translation
                if (para%translate==1) then
-                  call random_number(tile(itile)%translation)
+                  !call random_number(tile(itile)%translation)
+                  tile(itile)%translation = rand()
                else
                   tile(itile)%translation = (/0,0,0/)
                end if

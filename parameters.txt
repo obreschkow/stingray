@@ -55,8 +55,8 @@ xy_angle                0              [deg] Rotation of the SAM (x,y)-plane on 
 
 # Symmetry operations applied to boxes
 seed                    1              seed for the random number generator of symmetry operations (positive integer)
-translate               0              logical flag specifying if random translations are applied (0=false, 1=true)
-rotate                  0              logical flag specifying if random rotations are applied (0=false, 1=true)
+translate               1              logical flag specifying if random translations are applied (0=false, 1=true)
+rotate                  1              logical flag specifying if random rotations are applied (0=false, 1=true)
 invert                  0              logical flag specifying if random inversions are applied (0=false, 1=true)
 
 # Observer velocity relative to CMB (from WMAP in J2000 coordinates, arxiv 0803.0732)
