@@ -38,6 +38,7 @@ subroutine set_seed(seed)
    call random_seed(size=rnd_size)
    allocate(seed_array(rnd_size))
    seed_array = seed
+   write(*,*) rnd_size
    call random_seed(put=seed_array)
    
 end subroutine set_seed
