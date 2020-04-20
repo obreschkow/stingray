@@ -19,6 +19,7 @@ v0.15 04/02/2020: New entry "make_groups" in the parameter file, id_galaxy_sky c
                   Included test data (shark subvolume L40_N512/199/0/)
 v0.16 25/02/2020: Input argument check fixed
 v0.17 01/03/2020: Changed id_galaxy_sky in shark user module to better cope with Viperfish
+v0.20 15/04/2020: Significant restructuring of the code, inclusion of shared modules
 
 Copyright Danail Obreschkow (danail.obreschkow@icrar.org)
 
@@ -27,13 +28,13 @@ GETTING STARTED
 ====================================================================================================================
 
 1) Installations:
-   a) make sure gfortran is installed (code tested for gfortran 4.4.7 and 5.0.0)
+   a) make sure gfortran is installed (code tested for GNU Fortran 9.3.0)
    b) make sure that HDF5 is installed (version 1.10.1 or higher)
 
 2) In terminal, download Stingray
    > git clone https://github.com/obreschkow/stingray
    
-3) Got to Stingray directory
+3) Go to stingray directory
    > cd stingray
    
 4) Clean potential previous compilations
@@ -49,8 +50,11 @@ GETTING STARTED
    NB: depending on the system, it might be necessary to load fortran and hdf5 packages,
        e.g. using a command like
        > module load gfortran/6.3.0 hdf5/1.10.2
-   NB: to activate all debugging flags and suppress multi-threading use
+   NB: to activate all debugging flags use
        > make mode=dev
+       
+7) Check stingray version
+   > ./stingray -v
        
 7) Try to run the test-cone using the
    > ./stingray
@@ -69,6 +73,18 @@ GETTING STARTED
 10) Optionally, visualise the cone in R
 
 
+QUICK START ON ICRAR-HYADES
+====================================================================================================================
+
+# copy all this into
+rm -rf stingray/ # remove previous surfsuite directory
+git clone https://github.com/obreschkow/stingray # install updated version
+cd stingray # change to surfsuite directory
+module load gfortran/6.3.0 hdf5/1.10.2 # load required modules
+make system=hyades # compile code
+./stingray version # check version
+
+
 ARGUMENTS
 ====================================================================================================================
 
@@ -79,9 +95,9 @@ Optional arguments:
 
 -parameterfile (default parameters.txt): path+filename of parameter-file
 
--verbose (default 1): logical flag (0 or 1) specifying whether the log should be displayed on the screen; this is normally turned off
- if run on a cluster with a queueing system
+-logfile (default none) optional filename of an ascii-file for the screen output
+
+-verbose (default n if logfile given, otherwise y): logical flag (y or n) specifying whether the log should be
+ displayed on the screen
  
 -version: returns the version of Stingray
-
--help: points to README file

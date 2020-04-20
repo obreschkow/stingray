@@ -1,28 +1,33 @@
 module module_user_selection
 
-! ==============================================================================================================
+! **********************************************************************************************************************************
 ! This module defines four types of selections functions, which are called sequentially:
 ! 1) pos_selection: select purely on the comoving position in the sky
 ! 2) sam_selection: select purely on sam properties
 ! 3) pre_selection: select purely on sam properties AND position in sky
 ! 4) sky_selection: final selection using all information, including apparent properties
-! Each consecutive selection function should be as restrictive as possible
-! ==============================================================================================================
+! Each consecutive selection function should be as restrictive as possible to avoid unnecessary computations
+! **********************************************************************************************************************************
 
-use module_constants
-use module_system
-use module_types
-use module_io
-use module_linalg
-use module_cosmology
+use shared_module_core
+use shared_module_maths
+use shared_module_cosmology
+use module_global
 use module_conversion
 use module_user_routines
 
-real*4,parameter                    :: wallaby_channel = 4.0 ! [km/s]
-real*4,parameter                    :: wallaby_beam = 30.0 ! [arcsec] beam diameter (at z=0, scales as 1+z)
-real*4,parameter                    :: wallaby_sn = 5.0 ! integrated S/N for a detection
-real*4,parameter                    :: wallaby_noise_jy = 1.6e-3 ! [Jy] channel noise per beam
-real*4,parameter                    :: wallaby_noise_wm2 = wallaby_noise_jy*(wallaby_channel*1e3/0.21)*1e-26 ! [W/m^2] channel noise per beam
+public   :: pos_selection
+public   :: sam_selection
+public   :: pre_selection
+public   :: sky_selection
+
+private
+real*4,parameter  :: wallaby_channel = 4.0 ! [km/s]
+real*4,parameter  :: wallaby_beam = 30.0 ! [arcsec] beam diameter (at z=0, scales as 1+z)
+real*4,parameter  :: wallaby_sn = 5.0 ! integrated S/N for a detection
+real*4,parameter  :: wallaby_noise_jy = 1.6e-3 ! [Jy] channel noise per beam
+real*4,parameter  :: wallaby_noise_wm2 = wallaby_noise_jy*(wallaby_channel*1e3/0.21)*1e-26 ! [W/m^2] channel noise per beam
+real*4,parameter  :: wallaby_zmax = 0.26
 
 contains
 
@@ -58,7 +63,7 @@ logical function pos_selection(dc,ra,dec) result(selected)
       selected = (dec<=30.000).and.(dc>60.0).and.(dc<=750.0)
    case default
       selected = .false. ! to avoid compiler warning of uninitialised variable
-      call error('Unknown survey name.')
+      call error('unknown survey name: ',trim(para%survey))
    end select
 
 end function pos_selection
@@ -83,7 +88,7 @@ logical function sam_selection(sam) result(selected)
       selected = .true.
    case default
       selected = .false. ! to avoid compiler warning of uninitialised variable
-      call error('Unknown survey name.')
+      call error('unknown survey name: ',trim(para%survey))
    end select
    
 end function sam_selection
@@ -115,7 +120,7 @@ logical function pre_selection(sam,dc,ra,dec) result(selected)
       selected = mhi>wallaby_fmin*(dc/para%h)**2
    case default
       selected = .false. ! to avoid compiler warning of uninitialised variable
-      call error('Unknown survey name.')
+      call error('unknown survey name: ',trim(para%survey))
    end select
    
 end function pre_selection
@@ -128,7 +133,7 @@ logical function sky_selection(sky,sam) result(selected)
    type(type_sam),intent(in)           :: sam
    real*4,parameter                    :: dmag = 2.0
    real*4                              :: wallaby_noise_integrated ! [W/m^2]
-   real*4                              :: n_channels,n_beams,dhi,mhi,da
+   real*4                              :: n_channels,n_beams,dhi,mhi,da,n_beams_major,n_beams_minor,d_beam
    
    call nil(sky,sam) ! dummy to avoid compiler warnings for unused arguments
    
@@ -138,20 +143,23 @@ logical function sky_selection(sky,sam) result(selected)
    case ('devils')
       selected = sky%mag<=21.2+dmag
    case ('gama')
-      selected = ((sky%mag<=19.8+dmag).and.(sky%ra<330.0*degree)).or.(sky%mag<=19.2+dmag)
+      selected = ((sky%mag<=19.8+dmag).and.(sky%ra<330.0*unit%degree)).or.(sky%mag<=19.2+dmag)
    case ('alfalfa')
       selected = sam%matom_disk>10000.0*sky%dc**2
    case ('wallaby_micro','wallaby_medi')
-      mhi = (sam%matom_disk+sam%matom_bulge)/para%h/1.35 ! [Msun] HI mass
       da = sky%dc/(1+sky%zobs)/para%h*1e3 ! [kpc] angular diameter distance
-      dhi = 10.0**(0.506*log10(mhi)-3.293)/da/degree*3600.0 ! [arcsec] apparent HI diameter to fixed surface density of 1 Msun/pc^2, empirical relation from J. Wang
-      n_channels = max(1.0,sky%hiline_width_50/wallaby_channel) ! number of channels
-      n_beams = nint(0.25*pi*max(1.0,dhi/wallaby_beam/(1+sky%zobs))*max(1.0,dhi*cos(sky%inclination)/wallaby_beam/(1+sky%zobs))) ! number of beams
+      mhi = (sam%matom_disk+sam%matom_bulge)/para%h/1.35 ! [Msun] HI mass
+      dhi = 10.0**(0.506*log10(mhi)-3.293)/da/unit%arcsec ! [arcsec] apparent HI diameter to fixed surface density of 1 Msun/pc^2, empirical relation from J. Wang
+      d_beam = wallaby_beam*(1+sky%zobs) ! [arcsec] wallaby beam at observed frequency
+      n_beams_major = max(1.0,dhi/d_beam) ! number of spherical beams along major axis
+      n_beams_minor = max(1.0,dhi*cos(sky%inclination)/d_beam) ! number of spherical beams along minor axis
+      n_beams = nint(0.25*pi*n_beams_major*n_beams_minor) ! number of beams
+      n_channels = max(1.0,sky%hiline_shape%w50/wallaby_channel) ! number of channels
       wallaby_noise_integrated = wallaby_noise_wm2*sqrt(n_channels*n_beams) ! [W/m^2] noise threshold level
-      selected = (sky%hiline_flux_int>wallaby_noise_integrated*wallaby_sn).and.(sky%zobs<=0.26)
+      selected = (sky%hiline_flux_int>wallaby_noise_integrated*wallaby_sn).and.(sky%zobs<=wallaby_zmax)
    case default
       selected = .false. ! to avoid compiler warning of uninitialised variable
-      call error('Unknown survey name.')
+      call error('unknown survey name: ',trim(para%survey))
    end select
    
 end function sky_selection

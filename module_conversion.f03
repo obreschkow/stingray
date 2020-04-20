@@ -2,28 +2,34 @@
    
 module module_conversion
 
-   use module_constants
-   use module_system
-   use module_linalg
-   use module_cosmology
+   use shared_module_core
+   use shared_module_cosmology
+   use shared_module_maths
+   use shared_module_constants
+   use module_global
    
    public
    
-   real*4   :: Rvector(3,3), Rpseudo(3,3) ! argument used by function rotate, defined as global variable to
-                                          ! avoid passing them through the use module
-
 contains
 
-function rotate(rotationmatrix,x) result(y)
+function convert_vector(x,tileindex,ispseudovector) result(y)
 
    implicit none
    real*4,intent(in)    :: x(3)
-   real*4,intent(in)    :: rotationmatrix(3,3)
+   integer*4,intent(in) :: tileindex
+   logical,intent(in)   :: ispseudovector
    real*4               :: y(3)
+   real*4               :: rotationmatrix(3,3)
+   
+   if (ispseudovector) then
+      rotationmatrix = tile(tileindex)%Rvector
+   else
+      rotationmatrix = tile(tileindex)%Rpseudo
+   end if
    
    y = matmul(rotationmatrix,x)
    
-end function rotate
+end function convert_vector
 
 subroutine make_redshift(x,v,zobs,zcmb,zcos)
 
@@ -47,8 +53,8 @@ subroutine make_redshift(x,v,zobs,zcmb,zcos)
    else   
       elos = x/dc ! unit-vector along the line of slight
       zcos_ = dc_to_redshift(dc)
-      zv1 = min(0.1,max(-0.1,sum(v*elos)/c*1e3)) ! limited to 0.1 to avoid relativistic regime, ok for all practical purposes
-      zv2 = min(0.1,max(-0.1,-sum(para%velocity_car*elos)/c*1e3)) ! limited to 0.1 to avoid relativistic regime, ok for all practical purposes
+      zv1 = min(0.1,max(-0.1,sum(v*elos)/const%c*1e3)) ! limited to 0.1 to avoid relativistic regime, ok for all practical purposes
+      zv2 = min(0.1,max(-0.1,-sum(para%velocity_car*elos)/const%c*1e3)) ! limited to 0.1 to avoid relativistic regime, ok for all practical purposes
       zcmb_ = (1+zcos_)*(1+zv1)-1 ! following Davis & Scrimgeour 2014
       zobs_ = (1+zcos_)*(1+zv1)*(1+zv2)-1 ! following Davis & Scrimgeour 2014
    end if
@@ -151,7 +157,8 @@ function convert_luminosity2flux(L,dl) result(S)
    real*8,intent(in) :: L     ! [W] Luminosity
    real*4,intent(in) :: dl    ! [Mpc] luminosity distance
    real*8            :: S     ! [W/m^2] Integrated flux density
-
+   real*8,parameter  :: ASphereMpc = 1.1964952e+46_8 ! [m^2] surface area of a sphere with 1 Mpc radius (=4*pi*(Mpc/m)^2)
+   
    S = L/real(dl,8)**2/ASphereMpc
 
 end function convert_luminosity2flux
@@ -167,44 +174,5 @@ function convert_intflux2velintflux(S,lambda,z) result(S_V)
    S_V = 1e23*S*lambda*(1+z)
 
 end function convert_intflux2velintflux
-
-function convert_vector(x,rotation) result(y)
-
-   implicit none
-   real*4,intent(in)    :: x(3)
-   integer*4,intent(in) :: rotation
-   real*4               :: y(3)
-
-   select case (abs(rotation))
-      case (1) ! identity
-         y = x
-      case(2) ! invert x-axis, while permuting y and z
-         y = (/-x(1),x(3),x(2)/)
-      case(3) ! invert y-axis, while permuting z and x
-         y = (/x(3),-x(2),x(1)/)
-      case(4) ! invert z-axis, while permuting x and y
-         y = (/x(2),x(1),-x(3)/)
-      case(5) ! permute (x,y,z) -> (y,z,x)
-         y = (/x(2),x(3),x(1)/)
-      case(6) ! permute (x,y,z) -> (z,x,y)
-         y = (/x(3),x(1),x(2)/)
-      case default
-         call error('Unknown rotation')
-   end select
-
-   if (rotation<0) y = -y ! inversion
-
-end function convert_vector
-
-function convert_pseudovector(x,rotation) result(y)
-
-   implicit none
-   real*4,intent(in)    :: x(3)
-   integer*4,intent(in) :: rotation
-   real*4               :: y(3)
-
-   y = convert_vector(x,abs(rotation))
-
-end function convert_pseudovector
 
 end module module_conversion
