@@ -1,3 +1,13 @@
+! **********************************************************************************************************************************
+! This module defines the interface between the semi-analytic model (SAM) and stingray
+!
+! Each SAM must have its own module, named "module_user_routines_[sam].f03", where "sam" is the name of the semi-analytic model
+! specified in the makefile.
+! 
+! Instructions of how to adapt this module to a particular SAM and/or add new intrinsic or apparent galaxy properties are given
+! in the comments below.
+! **********************************************************************************************************************************
+
 module module_user_routines
 
 ! **********************************************************************************************************************************
@@ -141,7 +151,7 @@ type,extends(type_sky) :: type_sky_galaxy ! must exist
    real*4      :: hiline_flux_int_vel        ! [Jy km/s] velocity-integrated HI line flux
    type(type_line_shape) :: hiline_shape     ! shape-parameters of HI emission line (see module module_emission_lines)
       
-   ! CO (1-0) line   
+   ! CO lines
    real*4      :: coline_flux_int(10)        ! [W/m^2] integrated line fluxes of CO(1-0), C(2-1), ..., C(10-9) transition
    real*4      :: coline_flux_int_vel(10)    ! [Jy km/s] velocity-integrated line fluxes of CO(1-0), C(2-1), ..., C(10-9) transition
    type(type_line_shape) :: coline_shape     ! shape-parameters of CO emission lines (see module module_emission_lines)
@@ -228,9 +238,9 @@ subroutine make_sky_object(sky_object,sam,base,groupid)
    sky_object%id_group_sky  = groupid
    
    ! sky coordinates
-   sky_object%dc  = base%dc*para%box_side    ! [simulation length unit = Mpc/h]
-   sky_object%ra  = base%ra                  ! [rad]
-   sky_object%dec = base%dec                 ! [rad]
+   sky_object%dc  = base%pos%dc*para%box_side    ! [simulation length unit = Mpc/h]
+   sky_object%ra  = base%pos%ra                  ! [rad]
+   sky_object%dec = base%pos%dec                 ! [rad]
    
    ! redshifts from the position and velocity of the object
    call sph2car(sky_object%dc,sky_object%ra,sky_object%dec,pos,astro=.true.)

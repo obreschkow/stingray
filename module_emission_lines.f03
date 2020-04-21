@@ -1,21 +1,13 @@
-! =================================================================================================================
-! WHAT IS THIS CODE?
-! This module calculates emission line profiles of inclined, rotating galactic disks with velocity dispersion,
-! following the prescription of Obreschkow et al. 2009, ApJ 698, 1467. A the moment, only HI lines are generated
-! by the module, but the implementation of other lines (e.g. CO) is trivial, given a prescription for their
-! integrated flux and spatial distribution.
-! Note that the line spectra are given in units of Jy on a velocity grid in rest-frame physical km/s. In this
-! standard convention an extra z-dependence comes into the relationship between mass and integrated flux Sv ("v"
-! stands for velocity-integrated). The correct relationship is MHI/Msun = 2.36e-5*(Dl/Mpc)^2*Sv/(1+z).
+! **********************************************************************************************************************************
+! This Fortran module calculates emission line profiles of inclined, rotating galactic disks with velocity dispersion,
+! following the prescription of Obreschkow et al. 2009, ApJ 698, 1467. A the moment, only HI lines and molecular are generated
+! by the module, but the implementation of other lines is straight forward, given a prescription for their spatial distribution.
 !
-! COMPILER
-! The code was developed in fortran 90 standard and tested on the GNU fortran compiler version 4.8.2.
-! The compiler option -O3 is recommended for accelerated performance.
+! Note that flux densities are given in normalised units (s/km), such that the total line integral along the rest-frame velocity
+! axis is equal to unity.
 !
-! VERSION HISTORY
-! February 2016: Original version - HI line only (contact author for other lines)
-! (Code written by Danail Obreschkow, danail.obreschkow@icrar.org)
-! =================================================================================================================
+! Developed by Danail Obreschkow, danail.obreschkow@icrar.org
+! **********************************************************************************************************************************
 
 module module_emission_lines
 

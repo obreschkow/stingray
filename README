@@ -19,7 +19,9 @@ v0.15 04/02/2020: New entry "make_groups" in the parameter file, id_galaxy_sky c
                   Included test data (shark subvolume L40_N512/199/0/)
 v0.16 25/02/2020: Input argument check fixed
 v0.17 01/03/2020: Changed id_galaxy_sky in shark user module to better cope with Viperfish
-v0.20 15/04/2020: Significant restructuring of the code, inclusion of shared modules
+v0.20 20/04/2020: Significant restructuring of the code, inclusion of shared modules
+v0.21 21/04/2020: Use of system-independent pseudo-random number generator
+v0.22 22/04/2020: Completely revised layout of module "module_user_selection"; only one function per survey needed
 
 Copyright Danail Obreschkow (danail.obreschkow@icrar.org)
 

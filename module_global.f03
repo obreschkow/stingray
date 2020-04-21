@@ -24,6 +24,12 @@ module module_global
    
    type(type_limit),protected   :: limit
    
+   ! selection types
+   integer*4,parameter  :: select_by_pos = 1
+   integer*4,parameter  :: select_by_sam = 2
+   integer*4,parameter  :: select_by_pos_and_sam = 3
+   integer*4,parameter  :: select_by_all = 4
+   
    ! 90-degree rotation matrices
    real*4,protected  :: rot(3,3,-6:6)
    
@@ -101,12 +107,20 @@ module module_global
       
    end type type_para
    
+   type type_pos
+   
+      real*4   :: dc    ! [box lengths] comoving distance from observer
+      real*4   :: ra    ! [rad/deg] right ascension
+      real*4   :: dec   ! [rad/deg] declination
+   
+   end type type_pos
+   
    type type_base
 
-      real*4      :: dc,ra,dec      ! [box lengths,rad,rad] position in spherical Sky-coords
-      integer*4   :: tile           ! unique identifier of box in mock sky
-      integer*4   :: group_ntot     ! total number of members in group
-      integer*4   :: group_flag     ! group flag (0 if group unclipped, >0 if clipped by survey edge (+1), snapshot limit (+2), box limit (+4))
+      type(type_pos) :: pos            ! position in sky coordinates
+      integer*4      :: tile           ! unique identifier of box in mock sky
+      integer*4      :: group_ntot     ! total number of members in group
+      integer*4      :: group_flag     ! group flag (0 if group unclipped, >0 if clipped by survey edge (+1), snapshot limit (+2), box limit (+4))
       
    end type type_base
 

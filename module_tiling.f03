@@ -5,10 +5,10 @@ module module_tiling
    use shared_module_maths
    use shared_module_constants
    use module_global
+   use module_interface
    use module_user_selection
    
    public   :: make_tiling
-   public   :: is_in_fov
    
    private
    integer*4,allocatable   :: intersection(:,:,:)   ! ==  0 : not checked
@@ -310,7 +310,7 @@ end function is_tile_in_survey
 logical function is_point_in_survey(x,user)
 
    ! Check if the point x lies inside the selected survey volume. If user = true, this is the survey volume
-   ! specified by the user function pos_selection, otherwise it is the survey volume specified in the
+   ! specified by the user function selection_function, otherwise it is the survey volume specified in the
    ! parameter file.
 
    implicit none
@@ -318,6 +318,7 @@ logical function is_point_in_survey(x,user)
    logical,intent(in)   :: user
    real*4               :: ra,dec   ! [rad] sky coordinates
    real*4               :: dc       ! [simulation unit] comoving distance
+   type(type_pos)       :: pos
    
    counter = counter+1
    
@@ -325,7 +326,10 @@ logical function is_point_in_survey(x,user)
    
    if (user) then
    
-      is_point_in_survey = pos_selection(dc,ra/unit%degree,dec/unit%degree)
+      pos%dc = dc
+      pos%ra = ra/unit%degree
+      pos%dec = dec/unit%degree
+      is_point_in_survey = selection_function(pos=pos)
       
    else
    
@@ -333,19 +337,13 @@ logical function is_point_in_survey(x,user)
          is_point_in_survey = (para%dc_min<=0)
          return
       end if
-      is_point_in_survey = is_in_fov(dc,ra,dec)
+      pos%dc = dc
+      pos%ra = ra
+      pos%dec = dec
+      is_point_in_survey = is_in_fov(pos)
       
    end if
    
-end function is_point_in_survey
-
-logical function is_in_fov(dc,ra,dec)
-   implicit none
-   real*4,intent(in) :: dc       ! [simulation units]
-   real*4,intent(in) :: ra,dec   ! [rad]
-   is_in_fov = (dc>=para%dc_min).and.(dc<=para%dc_max).and. &
-             & (ra>=para%ra_min).and.(ra<=para%ra_max).and. &
-             & (dec>=para%dec_min).and.(dec<=para%dec_max)
-end function is_in_fov           
+end function is_point_in_survey       
              
 end module module_tiling

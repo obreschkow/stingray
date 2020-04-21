@@ -224,7 +224,7 @@ end subroutine convert_position_sam_to_sky
 
 subroutine preprocess_snapshot(sam,sam_sel)
 
-   ! 1) determine for each galaxy, if it has been selected according to it sam_selection
+   ! 1) determine for each galaxy, if it has been selected according to its selection_function(sam)
    ! 2) sort galaxies in 'sam' by groups, making the central galaxy the first one in its group
    ! 3) remove all groups, where no galaxy was selected
    
@@ -249,7 +249,7 @@ subroutine preprocess_snapshot(sam,sam_sel)
       if (allocated(sam_sel)) deallocate(sam_sel)
       allocate(sam_sel(n))
       do i = 1,n
-         sam_sel(i) = sam_selection(sam(i))
+         sam_sel(i) = selection_function(sam=sam(i))
       end do
    
       ! order galaxies by group id, such that central galaxies come first
@@ -303,7 +303,7 @@ subroutine preprocess_snapshot(sam,sam_sel)
    
       n_keep = 0
       do i = 1,n
-         if (sam_selection(sam(i))) then
+         if (selection_function(sam=sam(i))) then
             n_keep = n_keep+1
             sam(n_keep) = sam(i)
          end if
@@ -322,7 +322,7 @@ subroutine place_subvolume_into_tile(itile,isnapshot,isubvolume,sam,sam_sel,sam_
 
    ! NB: most of this routine deals with groups
    ! if no make_groups==0, this routine essentially places all the galaxies in 'sam' into the sky,
-   ! making sure to only retain the objects that pass pos_selection, sam_selection, pre_selection, sky_selection
+   ! making sure to only retain the objects that pass the selection_function of the user module
 
    implicit none
    integer*4,intent(in)                            :: itile
@@ -349,6 +349,8 @@ subroutine place_subvolume_into_tile(itile,isnapshot,isubvolume,sam,sam_sel,sam_
    integer*8                                       :: galaxyid,groupid,prefixid
    type(type_sky_galaxy),allocatable               :: sky_galaxy(:)
    type(type_sky_group)                            :: sky_group
+   type(type_pos)                                  :: pos
+   logical                                         :: position_selected
    
    ! set tile
    base%tile = itile
@@ -394,8 +396,16 @@ subroutine place_subvolume_into_tile(itile,isnapshot,isubvolume,sam,sam_sel,sam_
       end if
       
       ! check full position
-      if (is_in_fov(dc(i)*para%box_side,ra(i),dec(i)).and. &
-         & pos_selection(dc(i)*para%box_side,ra(i)/unit%degree,dec(i)/unit%degree)) then
+      pos%dc = dc(i)*para%box_side ! [simulation length unit]
+      pos%ra = ra(i) ! [rad]
+      pos%dec = dec(i) ![rad]
+      position_selected = is_in_fov(pos)
+      if (position_selected) then
+         pos%ra = pos%ra/unit%degree ! [deg]
+         pos%dec = pos%dec/unit%degree ! [deg]
+         position_selected = position_selected.and.selection_function(pos=pos)
+      end if
+      if (position_selected) then
          n_in_survey_volume = n_in_survey_volume+1
       else
          ok(i) = .false. ! => this object will be rejected
@@ -432,20 +442,23 @@ subroutine place_subvolume_into_tile(itile,isnapshot,isubvolume,sam,sam_sel,sam_
                if (wrapped) base%group_flag = base%group_flag+4                                 ! group wrapped around
             end if
                
-            ! re-iterate over all accepted group members to check if they also pass the sam_selection, pre_selection and sky_selection
+            ! re-iterate over all accepted group members to check if they also pass the selection by sam, pos+sam and sky
             group_nselected = 0
             do j = jmin,i
                if (ok(j)) then
                   ok(j) = .false.
                   if (sam_sel(j)) then
                      galaxyid = prefixid+n_galaxies+1
-                     ok(j) = pre_selection(sam(j),dc(j)*para%box_side,ra(j)/unit%degree,dec(j)/unit%degree)
+                     pos%dc = dc(j)*para%box_side
+                     pos%ra = ra(j)/unit%degree
+                     pos%dec = dec(j)/unit%degree
+                     ok(j) = selection_function(pos=pos,sam=sam(j))
                      if (ok(j)) then
-                        base%ra = ra(j)
-                        base%dec = dec(j)
-                        base%dc = dc(j)
+                        base%pos%ra = ra(j)
+                        base%pos%dec = dec(j)
+                        base%pos%dc = dc(j)
                         call sky_galaxy(j)%make_from_sam(sam(j),base,groupid,galaxyid)
-                        ok(j) = sky_selection(sky_galaxy(j),sam(j))
+                        ok(j) = selection_function(pos=pos,sam=sam(j),sky=sky_galaxy(j))
                         if (ok(j)) then
                            n_galaxies = n_galaxies+1
                            group_nselected = group_nselected+1
@@ -492,9 +505,9 @@ subroutine place_subvolume_into_tile(itile,isnapshot,isubvolume,sam,sam_sel,sam_
                   end if
                
                   ! make group
-                  base%dc = dc(jmin)
-                  base%ra = ra(jmin)
-                  base%dec = dec(jmin)
+                  base%pos%dc = dc(jmin)
+                  base%pos%ra = ra(jmin)
+                  base%pos%dec = dec(jmin)
                   call sky_group%make_from_sam(sam(jmin:i),sky_galaxy(jmin:i),ok(jmin:i),base,groupid,group_nselected)
                   
                end if

@@ -14,7 +14,7 @@
 
 # Name of mock survey (for this name, selection rules must be defined in the module "module_user_selection_...")
 # The output files will have the filename 'path_output/mocksky_[survey]_[seed].hdf5'
-survey                  test
+survey                  example
 
 # Path and file names
 #path_output             /Users/do/Data/SURFS/L40_N512/stingray/
@@ -72,7 +72,7 @@ volume_search_level     0              [-] value >=0, giving the number of searc
 make_groups             1              logical flag specifying if groups are produced (0=false, 1=true)
 line_parameters         1              logical flag specifying if global emission line parameters are saved (0=false, 1=true)
 
-# I/O options
+# Output file options
 merge_output            1              logical flag specifying whether the output file should be merged, or left split by subvolume
 keep_binaries           0              logical flag specifying if the binary output files are kept, if run was successful
 keep_log                1              logical flag specifying if the logfile is kept, if run was successful

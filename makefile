@@ -71,9 +71,10 @@ stingray.o:    shared_module_core.o \
                shared_module_sort.o \
                module_global.o \
                module_conversion.o \
+               module_interface.o \
                module_emission_lines.o \
                module_user_routines_$(sam).o \
-               module_user_selections_$(sam).o \
+               module_user_selection_$(sam).o \
                module_parameters.o \
                module_tiling.o \
                module_sky.o
@@ -88,9 +89,10 @@ stingray: 	   shared_module_core.o \
                shared_module_sort.o \
                module_global.o \
                module_conversion.o \
+               module_interface.o \
                module_emission_lines.o \
                module_user_routines_$(sam).o \
-               module_user_selections_$(sam).o \
+               module_user_selection_$(sam).o \
                module_parameters.o \
                module_tiling.o \
                module_sky.o
