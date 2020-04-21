@@ -7,6 +7,7 @@ module module_sky
    use shared_module_maths
    use shared_module_sort
    use module_global
+   use module_interface
    use module_user_routines
    use module_user_selection
    use module_tiling

@@ -8,7 +8,7 @@
 ! 4) Link the selection function to a survey name by adding a new 'case' clause in the subroutine assign_selection_function
 !
 ! Notes:
-! + see the example of the WALLABY survey for an example of concatenating two simulations
+! + see the example of the WALLABY survey for an illustration of multiple surveys with very similar selection functions
 ! **********************************************************************************************************************************
 
 
@@ -25,15 +25,18 @@ use module_global
 use module_interface
 use module_conversion
 use module_user_routines
+
+public   :: selection_function
+public   :: assign_selection_function
    
-public
+private
 
 procedure(selection_all),pointer,protected :: selection_function => NULL()
 
 contains
 
-! Default selection function, that always returns .true.
-! Do not remove or edit this function
+! Default selection function that always returns .true.
+! Do not remove or edit this function, as it is used to declare the procedure pointer selection_function.
 
 logical function selection_all(pos,sam,sky) result(selected)
 
@@ -52,8 +55,8 @@ end function
 ! LINKING SURVEY NAMES TO SELECTION FUNCTIONS
 ! **********************************************************************************************************************************
 
-! All custom selection functions must be linked to a survey name (i.e. the parameter "survey" in the parameter file) via a
-! case clause in the following subroutine
+! All custom selection functions must be linked to a survey name, i.e. the parameter "survey" in the parameter file, via a
+! case clause in the following subroutine.
 
 subroutine assign_selection_function
 
@@ -71,7 +74,7 @@ end subroutine assign_selection_function
 
 
 ! **********************************************************************************************************************************
-! CUSTOM SELECTION FUNCTIONS
+! CUSTOM SELECTION FUNCTIONS (private, only accessible via the public pointer "selection_function")
 ! **********************************************************************************************************************************
 
 ! Default example (do not edit)
@@ -125,11 +128,13 @@ logical function selection_gama(pos,sam,sky) result(selected)
    type(type_sam),intent(in),optional           :: sam
    class(type_sky_galaxy),intent(in),optional   :: sky
    
+   ! computation variables
    real*4            :: mstars ! [Msun] stellar mass
    real*4            :: dl ! [Mpc] comoving distance
    real*4            :: mag ! generic apparent magnitude assuming M/L=1
    real*4,parameter  :: dmag = 2.0 ! magnitude tolerance
    
+   ! selection function
    select case (selection_type(pos,sam,sky))
    case (select_by_pos)
       selected = ((pos%ra>= 30.200).and.(pos%ra<= 38.800).and.(pos%dec>=-10.250).and.(pos%dec<= -3.720)).or. & ! field G02
@@ -212,6 +217,7 @@ logical function selection_wallaby(dcmin,dcmax,pos,sam,sky) result(selected)
    real*4   :: n_channels     ! number of channels at W50
    real*4   :: noise          ! [W/m^2] integrated noise
    
+   ! selection function
    select case (selection_type(pos,sam,sky))
    case (select_by_pos)
       selected = pos%dec<=30.0 .and. pos%dc>=dcmin .and. pos%dc<dcmax      
