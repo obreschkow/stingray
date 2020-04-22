@@ -11,7 +11,8 @@
 # Arbitrary comment lines, starting with '#' can be added to this parameter file. Also note
 # that the text following the parameter values in the same line is ignored and can be used to describe the parameter.
 
-# Name of mock survey
+# Name of mock survey (for this name, selection rules must be defined in the module "module_user_selection_...")
+# The output files will have the filename 'path_output/mocksky_[survey]_[seed].hdf5'
 survey                    test
 
 # Paths
@@ -19,6 +20,8 @@ survey                    test
 path_output             /mnt/su3ctm/clagos/Stingray/output/medi-SURFS/Shark-Lagos18-final/test/
 #path_input              /Users/do/Data/SURFS/stingray/shark/input/
 path_input              /mnt/su3ctm/clagos/SHARK_Out/medi-SURFS/Shark-TreeFixed-ReincPSO-kappa0p002/
+filename_sky            mock           #Filename of output file, without extension '.hdf5' and without subvolume index
+
 
 # Snapshot parameters
 box_side                auto           [length_unit] comoving side-length of simulation box in multiples of length_unit
@@ -67,6 +70,7 @@ volume_search_level     0              [-] value >=0, giving the number of searc
 make_groups             1              logical flag specifying if groups are produced (0=false, 1=true)
 line_parameters         1              logical flag specifying if global emission line parameters are saved (0=false, 1=true)
 
-# I/O options
-keep_binaries           0              logical flag specifying if the binary output files are kept, if run successful
-keep_log                0              logical flag specifying if the logfile is kept, if run successful (normall overwritten at next run)
+# Output file options
+merge_output            1              logical flag specifying whether the output file should be merged, or left split by subvolume
+keep_binaries           0              logical flag specifying if the binary output files are kept, if run was successful
+keep_log                1              logical flag specifying if the logfile is kept, if run was successful

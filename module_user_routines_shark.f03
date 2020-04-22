@@ -1,45 +1,43 @@
+! **********************************************************************************************************************************
+! This module defines the interface between the semi-analytic model (SAM) and stingray
+!
+! Each SAM must have its own module, named "module_user_routines_[sam].f03", where "sam" is the name of the semi-analytic model
+! specified in the makefile.
+! 
+! Instructions of how to adapt this module to a particular SAM and/or add new intrinsic or apparent galaxy properties are given
+! in the comments below.
+! **********************************************************************************************************************************
+
 module module_user_routines
 
-! ==============================================================================================================
-! IMPORT MODULES
-! ==============================================================================================================
+! **********************************************************************************************************************************
+! INTERFACE (DO NOT EDIT)
+! **********************************************************************************************************************************
 
 ! default modules, do not edit
-use module_constants
-use module_system
-use module_types
-use module_io
-use module_linalg
-use module_cosmology
+use shared_module_core
+use shared_module_hdf5
+use shared_module_maths
+use shared_module_cosmology
+use module_global
 use module_conversion
 use module_emission_lines
-use module_hdf5
-
-private
 
 ! required objects
 public :: type_sam
 public :: type_sky_galaxy
 public :: type_sky_group ! (can be empty)
-public :: parameter_filename_default
 public :: make_automatic_parameters ! (can be empty)
 public :: make_redshifts
 public :: load_sam_snapshot
 public :: make_hdf5
 
-! ==============================================================================================================
-! SET DEFAULT PARAMETER FILENAME
-! ==============================================================================================================
-
-! Here, specify the default parameter filename, used when stingray is called without the optional argument
-! "parameterfile", use leading '%' for path of code on mac OS
-
-character(len=255),parameter  :: parameter_filename_default = '%/parameters.txt'
+private
 
 
-! ==============================================================================================================
+! **********************************************************************************************************************************
 ! TYPE DECLARATIONS
-! ==============================================================================================================
+! **********************************************************************************************************************************
 
 ! Here, specify the class of SAM-properties to be loaded for making the mock sky. How these properties are
 ! read from files is specified in the subroutine load_sam_snapshot below
@@ -87,19 +85,20 @@ type type_sam
    real*4      :: mbh            ! [Msun/h] black hole mass
    real*4      :: mbh_acc_hh     ! [Msun/Gyr/h] accretion rate in hot-halo mode
    real*4      :: mbh_acc_sb     ! [Msun/Gyr/h] accretion rate in starburst mode
-
+   real*4      :: lco_disk
+   real*4      :: lco_bulge
+   
 contains
 
-   procedure   :: get_position      => sam_get_position     ! required function
-   procedure   :: get_groupid       => sam_get_groupid      ! required function               
-   procedure   :: is_group_center   => sam_is_group_center  ! required function
+   procedure   :: get_position      => sam_get_position     ! required function of type real*4(dim=3)
+   procedure   :: get_groupid       => sam_get_groupid      ! required function of type integer*8
+   procedure   :: is_group_center   => sam_is_group_center  ! required function of type logical*4
 
 end type type_sam
 
 ! Here, specify the class or classes of mock object properties in the sky, such as apparent galaxy properties.
 ! See the existing routines below for clarifications. The class must contain the following class functions:
 ! make_from_sam
-! write_to_file
    
 type type_sky
 
@@ -116,10 +115,6 @@ type type_sky
    real*4      :: vpecrad        ! [proper km/s] radial peculiar velocity
    integer*8   :: id_halo_sam    ! galaxy parent halo ID in the SAM
    integer*8   :: id_group_sky   ! unique group ID in the mock sky
-   
-   contains
-
-   procedure   :: write_to_file  => sky_write_to_file    ! required subroutine
    
 end type type_sky
 
@@ -177,34 +172,16 @@ type,extends(type_sky) :: type_sky_galaxy ! must exist
    real*4      :: vmax_subhalo            ! [km/s]	maximum circular velocity of subhalo
    real*4      :: cnfw_subhalo            ! [-] concentration of NFW fit to subhalo
    
-   ! HI line
-   real*4      :: hiline_flux_int         ! [W/m^2] integrated HI line flux
-   real*4      :: hiline_flux_int_vel     ! [Jy km/s] velocity-integrated HI line flux
-   real*4      :: hiline_flux_peak        ! [s/km] normalised peak HI line flux density of inclined galaxy (multiply by hiline_flux_int_vel to get Jy)
-   real*4      :: hiline_flux_central     ! [s/km] normalised central HI line flux density of inclined galaxy
-   real*4      :: hiline_width_peak       ! [km/s] line width of inclined galaxy in rest-frame velocity at peak flux
-   real*4      :: hiline_width_50         ! [km/s] line width of inclined galaxy in rest-frame velocity at 50% or peak flux
-   real*4      :: hiline_width_20         ! [km/s] line width of inclined galaxy in rest-frame velocity at 20% of peak flux
-   real*4      :: hiline_flux_peak_eo     ! [s/km] peak HI line flux density of edge-on galaxy
-   real*4      :: hiline_flux_central_eo  ! [s/km] central HI line flux density of edge-on galaxy
-   real*4      :: hiline_width_peak_eo    ! [km/s] line width of edge-on galaxy in rest-frame velocity at peak flux
-   real*4      :: hiline_width_50_eo      ! [km/s] line width of edge-on galaxy in rest-frame velocity at 50% or peak flux
-   real*4      :: hiline_width_20_eo      ! [km/s] line width of edge-on galaxy in rest-frame velocity at 20% of peak flux
-   
-   ! CO (1-0) line
-   real*4      :: coline_flux_int         ! [W/m^2] integrated CO(1-0) line flux
-   real*4      :: coline_flux_int_vel     ! [Jy km/s] velocity-integrated CO(1-0) line flux
-   real*4      :: coline_flux_peak        ! [s/km] peak CO line flux density of inclined galaxy (multiply by coline_flux_int_vel to get Jy)
-   real*4      :: coline_flux_central     ! [s/km] central CO line flux density of inclined galaxy
-   real*4      :: coline_width_peak       ! [km/s] line width of inclined galaxy in rest-frame velocity at peak flux
-   real*4      :: coline_width_50         ! [km/s] line width of inclined galaxy in rest-frame velocity at 50% or peak flux
-   real*4      :: coline_width_20         ! [km/s] line width of inclined galaxy in rest-frame velocity at 20% of peak flux
-   real*4      :: coline_flux_peak_eo     ! [s/km] peak CO line flux density of edge-on galaxy
-   real*4      :: coline_flux_central_eo  ! [s/km] central CO line flux density of edge-on galaxy
-   real*4      :: coline_width_peak_eo    ! [km/s] line width of edge-on galaxy in rest-frame velocity at peak flux
-   real*4      :: coline_width_50_eo      ! [km/s] line width of edge-on galaxy in rest-frame velocity at 50% or peak flux
-   real*4      :: coline_width_20_eo      ! [km/s] line width of edge-on galaxy in rest-frame velocity at 20% of peak flux
-   
+   ! HI line   
+   real*4      :: hiline_flux_int            ! [W/m^2] integrated HI line flux
+   real*4      :: hiline_flux_int_vel        ! [Jy km/s] velocity-integrated HI line flux
+   type(type_line_shape) :: hiline_shape     ! shape-parameters of HI emission line (see module module_emission_lines)
+      
+   ! CO lines
+   real*4      :: coline_flux_int(10)        ! [W/m^2] integrated line fluxes of CO(1-0), C(2-1), ..., C(10-9) transition
+   real*4      :: coline_flux_int_vel(10)    ! [Jy km/s] velocity-integrated line fluxes of CO(1-0), C(2-1), ..., C(10-9) transition
+   type(type_line_shape) :: coline_shape     ! shape-parameters of CO emission lines (see module module_emission_lines)
+
    contains
    
    procedure   :: make_from_sam  => make_sky_galaxy   ! required subroutine
@@ -240,7 +217,7 @@ function sam_get_position(self) result(position)
    position = self%position ! [length_unit of simulation] position if the galaxy in the box
 end function sam_get_position
 
-! In order to associated different galaxies with groups of galaxies, class type_sam must have the
+! In order to associate different galaxies with groups of galaxies, class type_sam must have the
 ! following two functions, enabling stingray to extract the group-id and central/satellite-status of each object
 
 integer*8 function sam_get_groupid(self)
@@ -252,7 +229,7 @@ integer*8 function sam_get_groupid(self)
    ! and set "make_groups = 0" in the parameter file
 end function sam_get_groupid
 
-logical function sam_is_group_center(self)
+logical*4 function sam_is_group_center(self)
    class(type_sam) :: self
    call nil(self) ! dummy statement to avoid compiler warnings
    sam_is_group_center = self%typ==0
@@ -261,57 +238,43 @@ logical function sam_is_group_center(self)
    ! and set "make_groups = 0" in the parameter file
 end function sam_is_group_center
 
-! For instances of the user-defined sky-types to be saved, objects of the class type_sky must have the following subroutine
-! Normally, this subroutine does not to be changed for different SAMs.
 
-subroutine sky_write_to_file(self,fileID)
-   class(type_sky) :: self
-   integer*4,intent(in) :: fileID
-   select type (self)
-   type is (type_sky_galaxy); write(fileID) self
-   type is (type_sky_group); write(fileID) self
-   class default
-   call error('Unknown class for I/O.')
-   end select
-end subroutine sky_write_to_file
-
-! ==============================================================================================================
+! **********************************************************************************************************************************
 ! CONVERSION BETWEEN INTRINSIC AND APPARENT GALAXY PROPERTIES
-! ==============================================================================================================
+! **********************************************************************************************************************************
 
 subroutine make_sky_object(sky_object,sam,base,groupid)
+
+   implicit none
 
    class(type_sky),intent(out)            :: sky_object
    type(type_sam),intent(in)              :: sam
    type(type_base),intent(in)             :: base                 ! basic properties of the position of this galaxy in the sky
-   integer*8,intent(in)                   :: groupid              ! unique group in sky index
-   real*4                                 :: vector_rotation(3,3) ! rotation matrix for vectors
+   integer*8,intent(in)                   :: groupid              ! unique group index in sky
    real*4                                 :: pos(3)               ! [simulation length units] position vector of galaxy
    real*4                                 :: elos(3)              ! unit vector pointing from the observer to the object in comoving space
    
    call nil(sky_object,sam,base,groupid) ! dummy statement to avoid compiler warnings
 
-   ! sky coordinates
-   sky_object%dc  = base%dc*para%box_side  ! [Mpc/h]
-   sky_object%ra  = base%ra         ! [rad]
-   sky_object%dec = base%dec        ! [rad]
-   
-   ! make redshift, provided the galaxy position [simulation units] galaxy-velocity [km/s]
-   call sph2car(sky_object%dc,sky_object%ra,sky_object%dec,pos)
-   elos = pos/norm(pos) ! line-of-sight vector
-   call make_redshift(pos*(para%length_unit/Mpc),sam%velocity,&
-   &zobs=sky_object%zobs,zcmb=sky_object%zcmb,zcos=sky_object%zcos)
-   
-   ! make IDs
-   sky_object%tile          = base%tile
+   ! indices
    sky_object%snapshot      = sam%snapshot
    sky_object%subvolume     = sam%subvolume
+   sky_object%tile          = base%tile
    sky_object%id_halo_sam   = sam%id_halo
-   sky_object%id_group_sky  = groupid         ! unique group id
+   sky_object%id_group_sky  = groupid
+   
+   ! sky coordinates
+   sky_object%dc  = base%pos%dc*para%box_side    ! [simulation length unit = Mpc/h]
+   sky_object%ra  = base%pos%ra                  ! [rad]
+   sky_object%dec = base%pos%dec                 ! [rad]
+   
+   ! redshifts from the position and velocity of the object
+   call sph2car(sky_object%dc,sky_object%ra,sky_object%dec,pos,astro=.true.)
+   elos = pos/norm(pos) ! line-of-sight vector
+   call make_redshift(pos*(para%length_unit/unit%Mpc),sam%velocity,zobs=sky_object%zobs,zcmb=sky_object%zcmb,zcos=sky_object%zcos)
    
    ! peculiar velocity
-   vector_rotation      = tile(base%tile)%Rvector
-   sky_object%vpec      = rotate(vector_rotation,sam%velocity)
+   sky_object%vpec      = convert_vector(sam%velocity,tileindex=base%tile,ispseudovector=.false.)
    sky_object%vpecrad   = sum(sky_object%vpec*elos)
    
 end subroutine make_sky_object
@@ -324,11 +287,16 @@ subroutine make_sky_galaxy(sky_galaxy,sam,base,groupid,galaxyid)
    type(type_base),intent(in)          :: base                 ! basic properties of the position of this galaxy in the sky
    integer*8,intent(in)                :: groupid              ! unique group in sky index
    integer*8,intent(in)                :: galaxyid             ! (only for galaxy types) unique galaxy in sky index
-   real*4                              :: pseudo_rotation(3,3) ! rotation matrix for pseudo-vectors (axial vectors)
+   
    real*4                              :: pos(3)               ! [simulation length units] position vector of galaxy
    real*4                              :: dl                   ! [simulation length units] luminosity distance to observer
    real*4                              :: elos(3)              ! unit vector pointing from the observer to the object in comoving space
    real*4                              :: mstars,mHI,mH2,LCO
+   
+   real*4,parameter        :: L2MHI = 6.27e-9 ! (LHI/Lsun)/(MHI/Msun)
+   real*4,parameter        :: sigma_gas = 10.0 ! [km/s] standard velocity dispersion of cold gas
+   real*4,parameter        :: X_CO = 2.12 ! [1e20/(K km/s cm^2)] H2-CO(1-0) conversion factor of the MW (alpha=3.4)
+   
    
    call nil(sky_galaxy,sam,base,groupid,galaxyid) ! dummy statement to avoid compiler warnings
    
@@ -366,12 +334,10 @@ subroutine make_sky_galaxy(sky_galaxy,sam,base,groupid,galaxyid)
    sky_galaxy%sfr_burst       = sam%sfr_burst
 
    ! intrinsic angular momentum
-   pseudo_rotation   = tile(base%tile)%Rpseudo
-   sky_galaxy%J      = rotate(pseudo_rotation,sam%J)
+   sky_galaxy%J      = convert_vector(sam%J,tileindex=base%tile,ispseudovector=.true.)
    sky_galaxy%jbulge = sam%jbulge
    sky_galaxy%jdisk  = sam%jdisk
 
-       
    ! intrinsic radii
    sky_galaxy%rstar_disk_intrinsic = sam%rstar_disk ! [cMpc/h]
    sky_galaxy%rstar_bulge_intrinsic = sam%rstar_bulge ! [cMpc/h]
@@ -397,15 +363,15 @@ subroutine make_sky_galaxy(sky_galaxy,sam,base,groupid,galaxyid)
    ! APPARENT PROPERTIES
    
    ! inclination and position angle
-   call sph2car(sky_galaxy%dc,sky_galaxy%ra,sky_galaxy%dec,pos)
+   call sph2car(sky_galaxy%dc,sky_galaxy%ra,sky_galaxy%dec,pos,astro=.true.)
    elos = pos/norm(pos) ! position vector
    call make_inclination_and_pa(pos,sky_galaxy%J,inclination=sky_galaxy%inclination,pa=sky_galaxy%pa)
    
    ! apparent radii (note division by comoving distance, because intrinsic radii given in comoving units)
-   sky_galaxy%rstar_disk_apparent = sam%rstar_disk/sky_galaxy%dc/degree*3600.0 ! [arcsec]
-   sky_galaxy%rstar_bulge_apparent = sam%rstar_bulge/sky_galaxy%dc/degree*3600.0 ! [arcsec]
-   sky_galaxy%rgas_disk_apparent = sam%rgas_disk/sky_galaxy%dc/degree*3600.0 ! [arcsec]
-   sky_galaxy%rgas_bulge_apparent = sam%rgas_bulge/sky_galaxy%dc/degree*3600.0 ! [arcsec]
+   sky_galaxy%rstar_disk_apparent = sam%rstar_disk/sky_galaxy%dc/unit%arcsec ! [arcsec]
+   sky_galaxy%rstar_bulge_apparent = sam%rstar_bulge/sky_galaxy%dc/unit%arcsec ! [arcsec]
+   sky_galaxy%rgas_disk_apparent = sam%rgas_disk/sky_galaxy%dc/unit%arcsec ! [arcsec]
+   sky_galaxy%rgas_bulge_apparent = sam%rgas_bulge/sky_galaxy%dc/unit%arcsec ! [arcsec]
    
    ! rough generic optical magnitude
    dl = sky_galaxy%dc*(1+sky_galaxy%zobs) ! [Mpc/h]
@@ -415,7 +381,7 @@ subroutine make_sky_galaxy(sky_galaxy,sam,base,groupid,galaxyid)
    ! cold gas emission lines
    mHI = (sam%matom_disk+sam%matom_bulge)/1.35 ! [Msun/h] HI mass  
    mH2 = ((sam%mgas_disk+sam%mgas_bulge)-(sam%matom_disk+sam%matom_bulge))/1.35 ! [Msun/h] H2 mass
-   sky_galaxy%hiline_flux_int = real(convert_luminosity2flux(real(mHI/para%h,8)*real(L2MHI,8)*Lsun,dl/para%h),4) ! [W/m^2]
+   sky_galaxy%hiline_flux_int = real(convert_luminosity2flux(real(mHI/para%h,8)*real(L2MHI,8)*unit%Lsun,dl/para%h),4) ! [W/m^2]
    sky_galaxy%hiline_flux_int_vel = convert_intflux2velintflux(sky_galaxy%hiline_flux_int,0.21106114,sky_galaxy%zobs)
    LCO = mH2/para%h/(313*X_CO) ! [Jy km/s Mpc^2] CO(1-0) luminosity (note this equation has a J^2 dependence)
    sky_galaxy%coline_flux_int = LCO/(4.0*pi*(dl/para%h)**2)/0.00260075761e23 ! [W/m^2] integrated flux
@@ -427,10 +393,10 @@ contains
    subroutine make_line_profiles
    
       implicit none
-      type(type_lineinput)                :: line_input
-      type(type_line)                     :: line(4)
+      type(type_line_input)               :: line_input
+      type(type_line_shape)               :: line_shape(2)
       real*4                              :: a,c_halo,cMpch2pkpc,rvir
-      real,parameter                      :: G = 4.3022682e-6     ! [(km/s)^2 kpc/Msun] gravitational constant
+      real,parameter                      :: G = 4.30241e-6     ! [(km/s)^2 kpc/Msun] gravitational constant
       
       ! scale factor for comoving-physical conversion
       a = 1.0/(1.0+snapshot(sam%snapshot)%redshift) ! scale factor at redshift os snapshot
@@ -471,7 +437,7 @@ contains
       line_input%mhalo      = max(0.0,line_input%mhalo-line_input%mdisk-line_input%mbulg) 
    
       ! gas
-      line_input%mHI        = mHI ! [Msun/h] HI mass  
+      line_input%mHI        = mHI ! [Msun/h] HI mass
       line_input%mH2        = mH2 ! [Msun/h] H2 mass
       line_input%rgas       = (sam%mgas_disk*sam%rgas_disk+sam%mgas_bulge*sam%rgas_bulge)/(sam%mgas_disk+sam%mgas_bulge)*cMpch2pkpc ! [pkpc] half-mass radius of cold gas (CHECK)
       !line_input%rgas       = sam%rgas_disk*cMpch2pkpc
@@ -484,59 +450,18 @@ contains
       line_input%Dc         = sky_galaxy%dc     ! [Mpc/h] comoving distance
 
       ! make line profile
-      if ((line_input%mHI>0.0).or.(line_input%mH2>0.0)) call line_profile(line_input,para%h,line)
+      if ((line_input%mHI>0.0).or.(line_input%mH2>0.0)) call make_emission_line(line_input,line_shape)
    
       ! save line parameters
       if (line_input%mHI>0.0) then
-         sky_galaxy%hiline_flux_peak_eo = line(1)%speak
-         sky_galaxy%hiline_flux_central_eo = line(1)%scentral
-         sky_galaxy%hiline_width_peak_eo = line(1)%wpeak
-         sky_galaxy%hiline_width_50_eo = line(1)%w50
-         sky_galaxy%hiline_width_20_eo = line(1)%w20
-      
-         sky_galaxy%hiline_flux_peak = line(2)%speak
-         sky_galaxy%hiline_flux_central = line(2)%scentral
-         sky_galaxy%hiline_width_peak = line(2)%wpeak
-         sky_galaxy%hiline_width_50 = line(2)%w50
-         sky_galaxy%hiline_width_20 = line(2)%w20
+         sky_galaxy%hiline_shape = line_shape(1)
       else
-         sky_galaxy%hiline_flux_peak_eo = 0
-         sky_galaxy%hiline_flux_central_eo = 0
-         sky_galaxy%hiline_width_peak_eo = 0
-         sky_galaxy%hiline_width_50_eo = 0
-         sky_galaxy%hiline_width_20_eo = 0
-      
-         sky_galaxy%hiline_flux_peak = 0
-         sky_galaxy%hiline_flux_central = 0
-         sky_galaxy%hiline_width_peak = 0
-         sky_galaxy%hiline_width_50 = 0
-         sky_galaxy%hiline_width_20 = 0
+         sky_galaxy%hiline_shape = empty_line_shape
       end if
-   
       if (line_input%mH2>0.0) then
-         sky_galaxy%coline_flux_peak_eo = line(3)%speak
-         sky_galaxy%coline_flux_central_eo = line(3)%scentral
-         sky_galaxy%coline_width_peak_eo = line(3)%wpeak
-         sky_galaxy%coline_width_50_eo = line(3)%w50
-         sky_galaxy%coline_width_20_eo = line(3)%w20
-      
-         sky_galaxy%coline_flux_peak = line(4)%speak
-         sky_galaxy%coline_flux_central = line(4)%scentral
-         sky_galaxy%coline_width_peak = line(4)%wpeak
-         sky_galaxy%coline_width_50 = line(4)%w50
-         sky_galaxy%coline_width_20 = line(4)%w20
+         sky_galaxy%coline_shape = line_shape(2)
       else
-         sky_galaxy%coline_flux_peak_eo = 0
-         sky_galaxy%coline_flux_central_eo = 0
-         sky_galaxy%coline_width_peak_eo = 0
-         sky_galaxy%coline_width_50_eo = 0
-         sky_galaxy%coline_width_20_eo = 0
-      
-         sky_galaxy%coline_flux_peak = 0
-         sky_galaxy%coline_flux_central = 0
-         sky_galaxy%coline_width_peak = 0
-         sky_galaxy%coline_width_50 = 0
-         sky_galaxy%coline_width_20 = 0
+         sky_galaxy%coline_shape = empty_line_shape
       end if
          
    end subroutine make_line_profiles
@@ -552,7 +477,7 @@ subroutine make_sky_group(sky_group,sam,sky_galaxy,selected,base,groupid,group_n
    class(type_sky_group),intent(out)   :: sky_group
    type(type_sam),intent(in)           :: sam(:)
    type(type_sky_galaxy),intent(in)    :: sky_galaxy(:)
-   logical,intent(in)                  :: selected(:)
+   logical*4,intent(in)                :: selected(:)
    type(type_base),intent(in)          :: base                 ! basic properties of the position of this galaxy in the sky
    integer*8,intent(in)                :: groupid              ! unique group in sky index
    integer*4,intent(in)                :: group_nselected   
@@ -612,9 +537,29 @@ subroutine make_sky_group(sky_group,sam,sky_galaxy,selected,base,groupid,group_n
 end subroutine make_sky_group
 
 
-! ==============================================================================================================
-! IO routines
-! ==============================================================================================================
+! **********************************************************************************************************************************
+! I/O routines
+! **********************************************************************************************************************************
+
+! Function returns filename of the SAM galaxies, given a snapshot and subvolume index
+
+function filename_sam(isnapshot,isubvolume,set) result(fn)
+   
+   implicit none
+   integer*4,intent(in)       :: isnapshot,isubvolume
+   integer*4,intent(in)       :: set
+   character(:),allocatable   :: fn
+   
+   if (set==1) then
+      fn = dir(para%path_input,isnapshot,isubvolume,'galaxies.hdf5')
+   else if (set==2) then
+      fn = dir(para%path_input,isnapshot,isubvolume,'CO_SLED.hdf5')
+   else
+      call deverror('unknown set')
+   end if
+   
+end function filename_sam
+
 
 ! Set parameters automatically (e.g. from information provided with the snapshot files).
 ! These automatic parameters are only adopted if the values in the parameter files are set to 'auto'.
@@ -632,31 +577,26 @@ subroutine make_automatic_parameters
    
    ! find minimal snapshot, assuming that the first subvolume exists
    isnapshot = -1
-   filename = ''
-   do while (.not.exists(filename,.true.).and.(isnapshot<10000))
+   do while (.not.exists(filename_sam(isnapshot,0,1)).and.(isnapshot<limit%n_snapshots_max))
       isnapshot = isnapshot+1
-      write(filename,'(A,I0,A)') trim(para%path_input),isnapshot,'/0/galaxies.hdf5'
    end do
-   if (isnapshot==10000) call error('No snapshots found in '//trim(para%path_input))
+   if (isnapshot==limit%n_snapshots_max) call error('no snapshots found in '//trim(para%path_input))
    para%snapshot_min = isnapshot
    
    ! find maximal snapshot, assuming that the first subvolume exists
-   do while (exists(filename,.true.))
+   do while (exists(filename_sam(isnapshot,0,1)))
       isnapshot = isnapshot+1
-      write(filename,'(A,I0,A)') trim(para%path_input),isnapshot,'/0/galaxies.hdf5'
    end do
    para%snapshot_max = isnapshot-1
    
    ! find maximal subvolume, assuming that the last snapshot is representative
    isubvolume = 0
-   write(filename,'(A,I0,A,I0,A)') trim(para%path_input),para%snapshot_max,'/',isubvolume,'/galaxies.hdf5'
-   do while (exists(filename,.true.))
+   do while (exists(filename_sam(para%snapshot_max,isubvolume,1)))
       isubvolume = isubvolume+1
-      write(filename,'(A,I0,A,I0,A)') trim(para%path_input),para%snapshot_max,'/',isubvolume,'/galaxies.hdf5'
    end do
    para%subvolume_max = isubvolume-1
    
-   write(filename,'(A,I0,A)') trim(para%path_input),para%snapshot_min,'/0/galaxies.hdf5'
+   filename = filename_sam(para%snapshot_min,0,1)
    call out('File of automatic parameters: '//trim(filename))
    call hdf5_open(filename)
    call hdf5_read_data('/cosmology/h',para%h)
@@ -664,7 +604,7 @@ subroutine make_automatic_parameters
    call hdf5_read_data('/cosmology/omega_m',para%omega_m)
    call hdf5_read_data('/cosmology/omega_b',para%omega_b)
    call hdf5_read_data('/run_info/lbox',para%box_side)
-   para%length_unit = Mpc/para%h
+   para%length_unit = unit%Mpc/para%h ! [m] length unit expressed in SI
    call hdf5_close()
    
 end subroutine make_automatic_parameters
@@ -692,20 +632,21 @@ end subroutine make_redshifts
 
 ! load SAM snapshot file
 
-subroutine load_sam_snapshot(index,subindex,sam)
+subroutine load_sam_snapshot(isnapshot,isubvolume,sam)
 
    ! variable declaration
    implicit none
-   integer*4,intent(in)                            :: index             ! snapshot index
-   integer*4,intent(in)                            :: subindex          ! subindex, if the snapshot is split into several files
-   type(type_sam),allocatable,intent(out)          :: sam(:)            ! derived type of all the relevant SAM properties
-   character(len=255)                              :: filename
-   integer*8                                       :: n
+   integer*4,intent(in)                            :: isnapshot         ! snapshot index
+   integer*4,intent(in)                            :: isubvolume        ! subvolume index
+   type(type_sam),allocatable,intent(out)          :: sam(:)            ! class of SAM properties
+   integer*8                                       :: n                 ! number of galaxies
    character(*),parameter                          :: g = '/galaxies/'  ! group name
+   !integer*8,allocatable                           :: id_check(:)
+   
+   ! read main galaxy properties
    
    ! open file
-   write(filename,'(A,I0,A,I0,A)') trim(para%path_input),index,'/',subindex,'/galaxies.hdf5'
-   call hdf5_open(filename) ! NB: this routine also checks if the file exists
+   call hdf5_open(filename_sam(isnapshot,isubvolume,1)) ! NB: this routine also checks if the file exists
    
    ! determine number of galaxies in this (sub)snapshot
    n = hdf5_dataset_size(g//'id_galaxy')
@@ -755,159 +696,134 @@ subroutine load_sam_snapshot(index,subindex,sam)
    call hdf5_read_data(g//'vmax_subhalo',sam%vmax_subhalo)
    call hdf5_read_data(g//'vvir_hosthalo',sam%vvir_hosthalo)
    
-   ! assign other properties
-   sam%snapshot = index
-   sam%subvolume = subindex
-   
    ! close file
    call hdf5_close()
    
+   !! open file
+   !call hdf5_open(filename_sam(isnapshot,isubvolume,2)) ! NB: this routine also checks if the file exists
+   !
+   !! check number of galaxies
+   !if (hdf5_dataset_size(g//'id_galaxy').ne.n) call error('wrong number of galaxies in CO file')
+   !
+   !! read file
+   !call hdf5_read_data(g//'LCO_bulge',sam%lco_bulge)
+   !call hdf5_read_data(g//'LCO_disk',sam%lco_disk)
+   !
+   !! close file
+   !call hdf5_close()
+   
+   ! assign other properties
+   sam%snapshot = isnapshot
+   sam%subvolume = isubvolume
+   
 end subroutine load_sam_snapshot
 
-! convert binary files into HDF5
+! write sky_galaxy(:) and sky_group(:) into a HDF5 file
 
-subroutine make_hdf5
+subroutine make_hdf5(filename_hdf5,sky_galaxy,sky_group,total_stats,subvolume_stats,isubvolume)
    
    implicit none
-   character(len=255)                  :: filename_bin
-   character(len=255)                  :: filename_hdf5
-   type(type_sky_galaxy),allocatable   :: sky_galaxy(:)
-   type(type_sky_group),allocatable    :: sky_group(:)
-   integer*8                           :: n,i,n_galaxies,n_groups
-   character(len=255)                  :: name,seedstr
-   character(len=255)                  :: filename
-   character(len=255)                  :: shark_version,shark_git_revision,shark_timestamp
-   real*4                              :: n_replica_mean
-   integer*4                           :: n_replica_max
-   integer*4                           :: i4
-   integer*8                           :: i8
+   character(*),intent(in)                      :: filename_hdf5  ! output filename
+   type(type_sky_galaxy),intent(in),allocatable :: sky_galaxy(:)
+   type(type_sky_group),intent(in),allocatable  :: sky_group(:)
+   type(type_skystats),intent(in)               :: total_stats
+   type(type_skystats),intent(in),optional      :: subvolume_stats ! only provided if the sky corresponds to a subvolume
+   integer*4,intent(in),optional                :: isubvolume
+   character(:),allocatable                     :: name
+   character(len=255)                           :: shark_version,shark_git_revision,shark_timestamp
+   integer*4                                    :: i,j
    
-   call tic
-   call out('CONVERT BINARY FILES TO HDF5')
-   
-   ! load auxilary data
-   call load_parameters
-   call load_tile_list
-   call load_snapshot_list
+   allocate(character(1)::name) ! empty allocation to avoid compiler flags
    
    ! load auxilary data from shark output
-   write(filename,'(A,I0,A)') trim(para%path_input),para%snapshot_max,'/0/galaxies.hdf5'
-   call hdf5_open(filename)
+   call hdf5_open(filename_sam(para%snapshot_min,0,1))
    call hdf5_read_data('/run_info/shark_version',shark_version)
    call hdf5_read_data('/run_info/shark_git_revision',shark_git_revision)
    call hdf5_read_data('/run_info/timestamp',shark_timestamp)
    call hdf5_close()
    
-   ! create HDF5 file
-   write(seedstr,'(I0)') para%seed
-   filename_hdf5 = trim(para%path_output)//'mocksky_'//trim(para%survey)//'_'//trim(seedstr)//'.hdf5'
+   ! create and open HDF5 file
    call hdf5_create(filename_hdf5)
-   
-   ! open HDF5 file
    call hdf5_open(filename_hdf5,.true.)
    
-   ! Group "Parameters"
-   call hdf5_add_group('parameters')
-   call hdf5_write_data('parameters/survey',para%survey,'name of simulated survey')
-   call hdf5_write_data('parameters/path_output',para%path_output)
-   call hdf5_write_data('parameters/path_input',para%path_input)
-   call hdf5_write_data('parameters/box_side',para%box_side, &
+   ! write group "parameters"
+   name = 'parameters'
+   call hdf5_add_group(name)
+   call hdf5_write_data(name//'/survey',para%survey,'name of simulated survey')
+   call hdf5_write_data(name//'/path_output',para%path_output)
+   call hdf5_write_data(name//'/path_input',para%path_input)
+   call hdf5_write_data(name//'/box_side',para%box_side, &
    & '[length_unit] comoving side-length of simulation box in multiples of length_unit')
-   call hdf5_write_data('parameters/length_unit',para%length_unit,'[m] SI-value of comoving length unit')
-   call hdf5_write_data('parameters/snapshot_min',para%snapshot_min, &
-   & 'index of earliest snapshot used for the mock sky')
-   call hdf5_write_data('parameters/snapshot_max',para%snapshot_max, &
-   & 'index of latest snapshot used for the mock sky')
-   call hdf5_write_data('parameters/subvolume_min',para%subvolume_min, &
-   & 'index of first subvolume used for the mock sky')
-   call hdf5_write_data('parameters/subvolume_max',para%subvolume_max, &
-   & 'index of last subvolume used for the mock sky')
-   call hdf5_write_data('parameters/h',para%h,'[-] Hubble parameter H0=h*100 km/s/Mpc')
-   call hdf5_write_data('parameters/omega_l',para%omega_l, &
-   & 'energy density of dark energy relative to closure density')
-   call hdf5_write_data('parameters/omega_m',para%omega_m, &
-   & 'energy density of all matter relative to closure density')
-   call hdf5_write_data('parameters/omega_b',para%omega_b, &
-   & 'energy density of baryonic matter relative to closure density')
-   call hdf5_write_data('parameters/dc_min',para%dc_min, &
-   & '[length_unit] minimal comoving distance of mock sky')
-   call hdf5_write_data('parameters/dc_max',para%dc_max, &
-   & '[length_unit] maximal comoving distance of mock sky')
-   call hdf5_write_data('parameters/ra_min',para%ra_min/degree, &
-   & '[deg] min right ascension of mock sky')
-   call hdf5_write_data('parameters/ra_max',para%ra_max/degree, &
-   & '[deg] max right ascension of mock sky')
-   call hdf5_write_data('parameters/dec_min',para%dec_min/degree, &
-   & '[deg] min declination of mock sky')
-   call hdf5_write_data('parameters/dec_max',para%dec_max/degree, &
-   & '[deg] max declination of mock sky')
-   call hdf5_write_data('parameters/zaxis_ra',para%zaxis_ra/degree, &
+   call hdf5_write_data(name//'/length_unit',para%length_unit,'[m] SI-value of comoving length unit')
+   call hdf5_write_data(name//'/snapshot_min',para%snapshot_min,'index of earliest snapshot used for the mock sky')
+   call hdf5_write_data(name//'/snapshot_max',para%snapshot_max,'index of latest snapshot used for the mock sky')
+   call hdf5_write_data(name//'/subvolume_min',para%subvolume_min,'index of first subvolume used for the mock sky')
+   call hdf5_write_data(name//'/subvolume_max',para%subvolume_max,'index of last subvolume used for the mock sky')
+   call hdf5_write_data(name//'/h',para%h,'[-] Hubble parameter H0=h*100 km/s/Mpc')
+   call hdf5_write_data(name//'/omega_l',para%omega_l,'energy density of dark energy relative to closure density')
+   call hdf5_write_data(name//'/omega_m',para%omega_m,'energy density of all matter relative to closure density')
+   call hdf5_write_data(name//'/omega_b',para%omega_b,'energy density of baryonic matter relative to closure density')
+   call hdf5_write_data(name//'/dc_min',para%dc_min,'[length_unit] minimal comoving distance of mock sky')
+   call hdf5_write_data(name//'/dc_max',para%dc_max,'[length_unit] maximal comoving distance of mock sky')
+   call hdf5_write_data(name//'/ra_min',para%ra_min/unit%degree,'[deg] min right ascension of mock sky')
+   call hdf5_write_data(name//'/ra_max',para%ra_max/unit%degree,'[deg] max right ascension of mock sky')
+   call hdf5_write_data(name//'/dec_min',para%dec_min/unit%degree,'[deg] min declination of mock sky')
+   call hdf5_write_data(name//'/dec_max',para%dec_max/unit%degree,'[deg] max declination of mock sky')
+   call hdf5_write_data(name//'/zaxis_ra',para%zaxis_ra/unit%degree, &
    & '[deg] RA coordinate of the SAM z-axis in spherical survey coordinates')
-   call hdf5_write_data('parameters/zaxis_dec',para%zaxis_dec/degree, &
+   call hdf5_write_data(name//'/zaxis_dec',para%zaxis_dec/unit%degree, &
    & '[deg] Dec coordinate the SAM z-axis in spherical survey coordinates')
-   call hdf5_write_data('parameters/xy_angle',para%xy_angle/degree, &
-   & '[deg] Rotation of the SAM (x,y)-plane on the sky')
-   call hdf5_write_data('parameters/seed',para%seed, &
-   & 'seed for the random number generator of symmetry operations')
-   call hdf5_write_data('parameters/translate',para%translate, &
+   call hdf5_write_data(name//'/xy_angle',para%xy_angle/unit%degree,'[deg] Rotation of the SAM (x,y)-plane on the sky')
+   call hdf5_write_data(name//'/seed',para%seed,'seed for the random number generator of symmetry operations')
+   call hdf5_write_data(name//'/translate',para%translate, &
    & 'logical flag specifying if random translations are applied (0=false, 1=true)')
-   call hdf5_write_data('parameters/rotate',para%rotate, &
+   call hdf5_write_data(name//'/rotate',para%rotate, &
    & 'logical flag specifying if random rotations are applied (0=false, 1=true)')
-   call hdf5_write_data('parameters/invert',para%invert, &
+   call hdf5_write_data(name//'/invert',para%invert, &
    & 'logical flag specifying if random inversions are applied (0=false, 1=true)')
-   call hdf5_write_data('parameters/velocity_norm',para%velocity_norm, &
+   call hdf5_write_data(name//'/velocity_norm',para%velocity_norm, &
    & '[km/s] observer velocity relative to CMB rest-frame')
-   call hdf5_write_data('parameters/velocity_ra',para%velocity_ra, &
+   call hdf5_write_data(name//'/velocity_ra',para%velocity_ra, &
    & '[deg] RA coordinate to which the observer is moving relative to CMB rest-frame')
-   call hdf5_write_data('parameters/velocity_dec',para%velocity_dec, &
+   call hdf5_write_data(name//'/velocity_dec',para%velocity_dec, &
    & '[deg] Dec coordinate to which the observer is moving relative to CMB rest-frame')
-   call hdf5_write_data('parameters/search_angle',para%search_angle, &
+   call hdf5_write_data(name//'/search_angle',para%search_angle, &
    & '[deg] typical angle in which overlaps between survey volume and tiling grid are searched')
-   call hdf5_write_data('parameters/volume_search_level',para%volume_search_level, &
+   call hdf5_write_data(name//'/volume_search_level',para%volume_search_level, &
    & 'specifies the number of search points (2^#)^3 inside each tile')
-   call hdf5_write_data('parameters/line_parameters',para%line_parameters, &
+   call hdf5_write_data(name//'/line_parameters',para%line_parameters, &
    & 'logical flag specifying if global emission line parameters are saved (0=false, 1=true)')
-   call hdf5_write_data('parameters/keep_binaries',para%keep_binaries, &
+   call hdf5_write_data(name//'/keep_binaries',para%keep_binaries, &
    & 'logical flag specifying if binary output files are kept in additino to this HDF5 (0=false, 1=true)')
-   call hdf5_write_data('parameters/keep_log',para%keep_binaries, &
+   call hdf5_write_data(name//'/keep_log',para%keep_binaries, &
    & 'logical flag specifying if the logfile is kept after successful runs (0=false, 1=true)')
-   call hdf5_write_data('parameters/skyrotation',para%sky_rotation, &
+   call hdf5_write_data(name//'/skyrotation',para%sky_rotation, &
    & 'Rotation matrix to map xyz-coordinates of the tiling structure onto sky coordinates.')
    
-   ! Group "galaxies"
+   ! write group "galaxies"
    name = 'galaxies'
-   filename_bin = trim(para%path_output)//fn_galaxies
-   open(1,file=trim(filename_bin),action='read',form='unformatted',access='stream')
-   read(1) n,n_replica_mean,n_replica_max
-   n_galaxies = n
-   allocate(sky_galaxy(n))
-   read(1) sky_galaxy
-   close(1)
-   call hdf5_add_group(trim(name))
-   call hdf5_write_data(trim(name)//'/snapshot',sky_galaxy%snapshot,'snapshot index')
-   call hdf5_write_data(trim(name)//'/subvolume',sky_galaxy%subvolume,'subvolume index')
-   call hdf5_write_data(trim(name)//'/tile',sky_galaxy%tile,'tile index in tiling array')
-   call hdf5_write_data(trim(name)//'/zobs',sky_galaxy%zobs,'redshift in observer-frame')
-   call hdf5_write_data(trim(name)//'/zcmb',sky_galaxy%zcmb,'redshift in CMB frame')
-   call hdf5_write_data(trim(name)//'/zcos',sky_galaxy%zcos,'cosmological redshift without peculiar motions')
-   call hdf5_write_data(trim(name)//'/dc',sky_galaxy%dc,'[Mpc/h] comoving distance')
-   call hdf5_write_data(trim(name)//'/ra',sky_galaxy%ra/degree,'[deg] right ascension')
-   call hdf5_write_data(trim(name)//'/dec',sky_galaxy%dec/degree,'[deg] declination')
-   if (n<=huge(i4)) then
-      call hdf5_write_data(trim(name)//'/id_galaxy_sky',(/(i4,i4=1,int(n,4))/),'unique galaxy ID in mock sky, from 1 to n')
-   else
-      call hdf5_write_data(trim(name)//'/id_galaxy_sky',(/(i8,i8=1,n)/),'unique galaxy ID in mock sky, from 1 to n')
-   end if
-   call hdf5_write_data(trim(name)//'/id_galaxy_sky_smart',sky_galaxy%id_galaxy_sky,'unique galaxy ID in mock sky, smart format')
-   if (para%make_groups==1) call hdf5_write_data(trim(name)//'/id_group_sky',sky_galaxy%id_group_sky, &
+   call hdf5_add_group(name)
+   call hdf5_write_data(name//'/snapshot',sky_galaxy%snapshot,'snapshot index')
+   call hdf5_write_data(name//'/subvolume',sky_galaxy%subvolume,'subvolume index')
+   call hdf5_write_data(name//'/tile',sky_galaxy%tile,'tile index in tiling array')
+   call hdf5_write_data(name//'/zobs',sky_galaxy%zobs,'redshift in observer-frame')
+   call hdf5_write_data(name//'/zcmb',sky_galaxy%zcmb,'redshift in CMB frame')
+   call hdf5_write_data(name//'/zcos',sky_galaxy%zcos,'cosmological redshift without peculiar motions')
+   call hdf5_write_data(name//'/dc',sky_galaxy%dc,'[Mpc/h] comoving distance')
+   call hdf5_write_data(name//'/ra',sky_galaxy%ra/unit%degree,'[deg] right ascension')
+   call hdf5_write_data(name//'/dec',sky_galaxy%dec/unit%degree,'[deg] declination')
+   call hdf5_write_data(name//'/id_galaxy_sky',(/(i,i=lbound(sky_galaxy,1),ubound(sky_galaxy,1))/), &
+   & 'unique galaxy ID in mock sky, from 1 to n')
+   call hdf5_write_data(name//'/id_galaxy_sky_smart',sky_galaxy%id_galaxy_sky,'unique galaxy ID in mock sky, smart format')
+   if (para%make_groups==1) call hdf5_write_data(name//'/id_group_sky',sky_galaxy%id_group_sky, &
    & 'unique group ID if galaxy is in a group, -1 otherwise')
-   call hdf5_write_data(trim(name)//'/id_galaxy_sam',sky_galaxy%id_galaxy_sam,'galaxy ID in SAM')
-   call hdf5_write_data(trim(name)//'/id_halo_sam',sky_galaxy%id_halo_sam,'host halo ID in SAM')
-   call hdf5_write_data(trim(name)//'/type',sky_galaxy%typ,'galaxy type (0=central, 1=satellite in halo, 2=orphan)')
-   call hdf5_write_data(trim(name)//'/inclination',sky_galaxy%inclination/degree, &
+   call hdf5_write_data(name//'/id_galaxy_sam',sky_galaxy%id_galaxy_sam,'galaxy ID in SAM')
+   call hdf5_write_data(name//'/id_halo_sam',sky_galaxy%id_halo_sam,'host halo ID in SAM')
+   call hdf5_write_data(name//'/type',sky_galaxy%typ,'galaxy type (0=central, 1=satellite in halo, 2=orphan)')
+   call hdf5_write_data(name//'/inclination',sky_galaxy%inclination/unit%degree, &
    & '[deg] inclination = angle between line-of-sight and spin axis')
-   call hdf5_write_data(trim(name)//'/pa',sky_galaxy%pa/degree,'[deg] position angle from north to east')
-   call hdf5_write_data(trim(name)//'/mag',sky_galaxy%mag, &
+   call hdf5_write_data(name//'/pa',sky_galaxy%pa/unit%degree,'[deg] position angle from north to east')
+   call hdf5_write_data(name//'/mag',sky_galaxy%mag, &
    & 'apparent magnitude (generic: M/L ratio of 1, no k-correction)')
    call hdf5_write_data(trim(name)//'/vpec_x',sky_galaxy%vpec(1),'[proper km/s] x-component of peculiar velocity')
    call hdf5_write_data(trim(name)//'/vpec_y',sky_galaxy%vpec(2),'[proper km/s] y-component of peculiar velocity')
@@ -943,164 +859,176 @@ subroutine make_hdf5
 
    call hdf5_write_data(trim(name)//'/rstar_disk_apparent',sky_galaxy%rstar_disk_apparent,&
    &'[arcsec] apparent semi-major axis of half-mass ellipse of stellar disk')
-   call hdf5_write_data(trim(name)//'/rstar_bulge_apparent',sky_galaxy%rstar_bulge_apparent,&
+   call hdf5_write_data(name//'/rstar_bulge_apparent',sky_galaxy%rstar_bulge_apparent,&
    &'[arcsec] apparent semi-major axis of half-mass ellipse of stellar bulge')
-   call hdf5_write_data(trim(name)//'/rgas_disk_apparent',sky_galaxy%rgas_disk_apparent,&
+   call hdf5_write_data(name//'/rgas_disk_apparent',sky_galaxy%rgas_disk_apparent,&
    &'[arcsec] apparent semi-major axis of half-mass ellipse of gas disk')
-   call hdf5_write_data(trim(name)//'/rgas_bulge_apparent',sky_galaxy%rgas_bulge_apparent,&
+   call hdf5_write_data(name//'/rgas_bulge_apparent',sky_galaxy%rgas_bulge_apparent,&
    &'[arcsec] apparent semi-major axis of half-mass ellipse of gas bulge')
-   call hdf5_write_data(trim(name)//'/rstar_disk_intrinsic',sky_galaxy%rstar_disk_intrinsic,&
+   call hdf5_write_data(name//'/rstar_disk_intrinsic',sky_galaxy%rstar_disk_intrinsic,&
    &'[cMpc/h] intrinsic half-mass radius of stellar disk')
-   call hdf5_write_data(trim(name)//'/rstar_bulge_intrinsic',sky_galaxy%rstar_bulge_intrinsic,&
+   call hdf5_write_data(name//'/rstar_bulge_intrinsic',sky_galaxy%rstar_bulge_intrinsic,&
    &'[cMpc/h] intrinsic half-mass radius of stellar bulge')
-   call hdf5_write_data(trim(name)//'/rgas_disk_intrinsic',sky_galaxy%rgas_disk_intrinsic,&
+   call hdf5_write_data(name//'/rgas_disk_intrinsic',sky_galaxy%rgas_disk_intrinsic,&
    &'[cMpc/h] intrinsic half-mass radius of gas disk')
-   call hdf5_write_data(trim(name)//'/rgas_bulge_intrinsic',sky_galaxy%rgas_bulge_intrinsic,&
+   call hdf5_write_data(name//'/rgas_bulge_intrinsic',sky_galaxy%rgas_bulge_intrinsic,&
    &'[cMpc/h] intrinsic half-mass radius of gas bulge')
-   call hdf5_write_data(trim(name)//'/hiline_flux_int',sky_galaxy%hiline_flux_int,'[W/m^2] integrated HI line flux')
-   call hdf5_write_data(trim(name)//'/hiline_flux_int_vel',sky_galaxy%hiline_flux_int_vel, &
+   call hdf5_write_data(name//'/hiline_flux_int',sky_galaxy%hiline_flux_int,'[W/m^2] integrated HI line flux')
+   call hdf5_write_data(name//'/hiline_flux_int_vel',sky_galaxy%hiline_flux_int_vel, &
    & '[Jy km/s] velocity-integrated HI line flux')
-   call hdf5_write_data(trim(name)//'/coline_flux_int',sky_galaxy%coline_flux_int,'[W/m^2] integrated CO(1-0) line flux')
-   call hdf5_write_data(trim(name)//'/coline_flux_int_vel',sky_galaxy%coline_flux_int_vel, &
-   & '[Jy km/s] velocity-integrated CO(1-0) line flux')
+   do j = 1,10 ! CO transition
+      call hdf5_write_data(name//'/coline_flux_int_'//val2str(j),sky_galaxy%coline_flux_int(j),&
+      &'[W/m^2] integrated CO('//val2str(j)//'-'//val2str(j-1)//') line flux')
+      call hdf5_write_data(name//'/coline_flux_int_vel_'//val2str(j),sky_galaxy%coline_flux_int_vel(j),&
+      &'[Jy km/s] velocity-integrated CO('//val2str(j)//'-'//val2str(j-1)//') line flux')
+   end do
    
    if (para%line_parameters==1) then
    
-      call hdf5_write_data(trim(name)//'/hiline_flux_peak',sky_galaxy%hiline_flux_peak, &
+      call hdf5_write_data(name//'/hiline_flux_peak',sky_galaxy%hiline_shape%speak, &
       & '[s/km] normalised peak HI line flux density of inclined galaxy (multiply by hiline_flux_int_vel to get Jy values)')
-      call hdf5_write_data(trim(name)//'/hiline_flux_central',sky_galaxy%hiline_flux_central, &
+      call hdf5_write_data(name//'/hiline_flux_central',sky_galaxy%hiline_shape%scentral, &
       & '[s/km] normalised central HI line flux density of inclined galaxy (multiply by hiline_flux_int_vel to get Jy values)')
-      call hdf5_write_data(trim(name)//'/hiline_width_peak',sky_galaxy%hiline_width_peak, &
+      call hdf5_write_data(name//'/hiline_width_peak',sky_galaxy%hiline_shape%wpeak, &
       & '[km/s] HI line-width between flux peaks of inclined galaxy in rest-frame velocity units')
-      call hdf5_write_data(trim(name)//'/hiline_width_50',sky_galaxy%hiline_width_50, &
+      call hdf5_write_data(name//'/hiline_width_50',sky_galaxy%hiline_shape%w50, &
       & '[km/s] HI line-width at 50% of the peak flux of inclined galaxy in rest-frame velocity units')
-      call hdf5_write_data(trim(name)//'/hiline_width_20',sky_galaxy%hiline_width_20, &
+      call hdf5_write_data(name//'/hiline_width_20',sky_galaxy%hiline_shape%w20, &
       & '[km/s] HI line-width at 20% of the peak flux of inclined galaxy in rest-frame velocity units')
       
-      call hdf5_write_data(trim(name)//'/hiline_flux_peak_eo',sky_galaxy%hiline_flux_peak_eo, &
+      call hdf5_write_data(name//'/hiline_flux_peak_eo',sky_galaxy%hiline_shape%speak_eo, &
       & '[s/km] normalised peak HI line flux density of edge-on galaxy (multiply by hiline_flux_int_vel to get Jy values)')
-      call hdf5_write_data(trim(name)//'/hiline_flux_central_eo',sky_galaxy%hiline_flux_central_eo, &
+      call hdf5_write_data(name//'/hiline_flux_central_eo',sky_galaxy%hiline_shape%scentral_eo, &
       & '[s/km] normalised central HI line flux density of edge-on galaxy (multiply by hiline_flux_int_vel to get Jy values)')
-      call hdf5_write_data(trim(name)//'/hiline_width_peak_eo',sky_galaxy%hiline_width_peak_eo, &
+      call hdf5_write_data(name//'/hiline_width_peak_eo',sky_galaxy%hiline_shape%wpeak_eo, &
       & '[km/s] HI line-width between flux peaks of edge-on galaxy in rest-frame velocity units')
-      call hdf5_write_data(trim(name)//'/hiline_width_50_eo',sky_galaxy%hiline_width_50_eo, &
+      call hdf5_write_data(name//'/hiline_width_50_eo',sky_galaxy%hiline_shape%w50_eo, &
       & '[km/s] HI line-width at 50% of the peak flux of edge-on galaxy in rest-frame velocity units')
-      call hdf5_write_data(trim(name)//'/hiline_width_20_eo',sky_galaxy%hiline_width_20_eo, &
+      call hdf5_write_data(name//'/hiline_width_20_eo',sky_galaxy%hiline_shape%w20_eo, &
       & '[km/s] HI line-width at 20% of the peak flux of edge-on galaxy in rest-frame velocity units')
       
-      call hdf5_write_data(trim(name)//'/coline_flux_peak',sky_galaxy%coline_flux_peak, &
+      call hdf5_write_data(name//'/coline_flux_peak',sky_galaxy%coline_shape%speak, &
       & '[s/km] normalised peak CO line flux density of inclined galaxy (multiply by coline_flux_int_vel to get Jy values)')
-      call hdf5_write_data(trim(name)//'/coline_flux_central',sky_galaxy%coline_flux_central, &
+      call hdf5_write_data(name//'/coline_flux_central',sky_galaxy%coline_shape%scentral, &
       & '[s/km] normalised central CO line flux density of inclined galaxy (multiply by coline_flux_int_vel to get Jy values)')
-      call hdf5_write_data(trim(name)//'/coline_width_peak',sky_galaxy%coline_width_peak, &
+      call hdf5_write_data(name//'/coline_width_peak',sky_galaxy%coline_shape%wpeak, &
       & '[km/s] CO line-width between flux peaks of inclined galaxy in rest-frame velocity units')
-      call hdf5_write_data(trim(name)//'/coline_width_50',sky_galaxy%coline_width_50, &
+      call hdf5_write_data(name//'/coline_width_50',sky_galaxy%coline_shape%w50, &
       & '[km/s] CO line-width at 50% of the peak flux of inclined galaxy in rest-frame velocity units')
-      call hdf5_write_data(trim(name)//'/coline_width_20',sky_galaxy%coline_width_20, &
+      call hdf5_write_data(name//'/coline_width_20',sky_galaxy%coline_shape%w20, &
       & '[km/s] CO line-width at 20% of the peak flux of inclined galaxy in rest-frame velocity units')
       
-      call hdf5_write_data(trim(name)//'/coline_flux_peak_eo',sky_galaxy%coline_flux_peak_eo, &
+      call hdf5_write_data(name//'/coline_flux_peak_eo',sky_galaxy%coline_shape%speak_eo, &
       & '[s/km] normalised peak CO line flux density of edge-on galaxy (multiply by coline_flux_int_vel to get Jy values)')
-      call hdf5_write_data(trim(name)//'/coline_flux_central_eo',sky_galaxy%coline_flux_central_eo, &
+      call hdf5_write_data(name//'/coline_flux_central_eo',sky_galaxy%coline_shape%scentral_eo, &
       & '[s/km] normalised central CO line flux density of edge-on galaxy (multiply by coline_flux_int_vel to get Jy values)')
-      call hdf5_write_data(trim(name)//'/coline_width_peak_eo',sky_galaxy%coline_width_peak_eo, &
+      call hdf5_write_data(name//'/coline_width_peak_eo',sky_galaxy%coline_shape%wpeak_eo, &
       & '[km/s] CO line-width between flux peaks of edge-on galaxy in rest-frame velocity units')
-      call hdf5_write_data(trim(name)//'/coline_width_50_eo',sky_galaxy%coline_width_50_eo, &
+      call hdf5_write_data(name//'/coline_width_50_eo',sky_galaxy%coline_shape%w50_eo, &
       & '[km/s] CO line-width at 50% of the peak flux of edge-on galaxy in rest-frame velocity units')
-      call hdf5_write_data(trim(name)//'/coline_width_20_eo',sky_galaxy%coline_width_20_eo, &
+      call hdf5_write_data(name//'/coline_width_20_eo',sky_galaxy%coline_shape%w20_eo, &
       & '[km/s] CO line-width at 20% of the peak flux of edge-on galaxy in rest-frame velocity units')
       
    end if
-   
-   deallocate(sky_galaxy)
    
    ! Group "groups"
    if (para%make_groups==1) then
    
       name = 'groups'
-      filename_bin = trim(para%path_output)//fn_groups
-      open(1,file=trim(filename_bin),action='read',form='unformatted',access='stream')
-      read(1) n
-      n_groups = n
-      allocate(sky_group(n))
-      read(1) sky_group
-      close(1)
-      call hdf5_add_group(trim(name))
-      call hdf5_write_data(trim(name)//'/snapshot',sky_group%snapshot,'snapshot index')
-      call hdf5_write_data(trim(name)//'/subvolume',sky_group%subvolume,'subvolume index')
-      call hdf5_write_data(trim(name)//'/tile',sky_group%tile,'tile index in tiling array')
-      call hdf5_write_data(trim(name)//'/zobs',sky_group%zobs,'redshift in observer-frame')
-      call hdf5_write_data(trim(name)//'/zcmb',sky_group%zcmb,'redshift in CMB frame')
-      call hdf5_write_data(trim(name)//'/zcos',sky_group%zcos,'cosmological redshift without peculiar motions')
-      call hdf5_write_data(trim(name)//'/dc',sky_group%dc,'[Mpc/h] comoving distance')
-      call hdf5_write_data(trim(name)//'/ra',sky_group%ra/degree,'[deg] right ascension')
-      call hdf5_write_data(trim(name)//'/dec',sky_group%dec/degree,'[deg] declination')
-      call hdf5_write_data(trim(name)//'/vpec_x',sky_group%vpec(1),'[proper km/s] x-component of peculiar velocity')
-      call hdf5_write_data(trim(name)//'/vpec_y',sky_group%vpec(2),'[proper km/s] y-component of peculiar velocity')
-      call hdf5_write_data(trim(name)//'/vpec_z',sky_group%vpec(3),'[proper km/s] z-component of peculiar velocity')
-      call hdf5_write_data(trim(name)//'/vpec_r',sky_group%vpecrad,'[proper km/s] line-of-sight peculiar velocity')
-      call hdf5_write_data(trim(name)//'/sigma_3d_all',sky_group%sigma_3d_all,&
+      call hdf5_add_group(name)
+      call hdf5_write_data(name//'/snapshot',sky_group%snapshot,'snapshot index')
+      call hdf5_write_data(name//'/subvolume',sky_group%subvolume,'subvolume index')
+      call hdf5_write_data(name//'/tile',sky_group%tile,'tile index in tiling array')
+      call hdf5_write_data(name//'/zobs',sky_group%zobs,'redshift in observer-frame')
+      call hdf5_write_data(name//'/zcmb',sky_group%zcmb,'redshift in CMB frame')
+      call hdf5_write_data(name//'/zcos',sky_group%zcos,'cosmological redshift without peculiar motions')
+      call hdf5_write_data(name//'/dc',sky_group%dc,'[Mpc/h] comoving distance')
+      call hdf5_write_data(name//'/ra',sky_group%ra/unit%degree,'[deg] right ascension')
+      call hdf5_write_data(name//'/dec',sky_group%dec/unit%degree,'[deg] declination')
+      call hdf5_write_data(name//'/vpec_x',sky_group%vpec(1),'[proper km/s] x-component of peculiar velocity')
+      call hdf5_write_data(name//'/vpec_y',sky_group%vpec(2),'[proper km/s] y-component of peculiar velocity')
+      call hdf5_write_data(name//'/vpec_z',sky_group%vpec(3),'[proper km/s] z-component of peculiar velocity')
+      call hdf5_write_data(name//'/vpec_r',sky_group%vpecrad,'[proper km/s] line-of-sight peculiar velocity')
+      call hdf5_write_data(name//'/sigma_3d_all',sky_group%sigma_3d_all,&
       &'[proper km/s] 3D peculiar velocity dispersion of ALL group members, including non-detections')
-      call hdf5_write_data(trim(name)//'/sigma_los_detected',sky_group%sigma_los_detected,&
+      call hdf5_write_data(name//'/sigma_los_detected',sky_group%sigma_los_detected,&
       &'[proper km/s] line-of-sight peculiar velocity dispersion of detected group members')
-      call hdf5_write_data(trim(name)//'/id_group_sky',sky_group%id_group_sky,'unique parent halo ID in mock sky')
-      call hdf5_write_data(trim(name)//'/id_halo_sam',sky_group%id_halo_sam,'parent halo ID in SAM')
-      call hdf5_write_data(trim(name)//'/mvir',sky_group%mvir,'[Msun/h] virial mass')
-      call hdf5_write_data(trim(name)//'/n_galaxies_total',sky_group%group_ntot, &
+      call hdf5_write_data(name//'/id_group_sky',sky_group%id_group_sky,'unique parent halo ID in mock sky')
+      call hdf5_write_data(name//'/id_halo_sam',sky_group%id_halo_sam,'parent halo ID in SAM')
+      call hdf5_write_data(name//'/mvir',sky_group%mvir,'[Msun/h] virial mass')
+      call hdf5_write_data(name//'/n_galaxies_total',sky_group%group_ntot, &
       & 'total number of galaxies that live in the same group (host halo)')
-      call hdf5_write_data(trim(name)//'/n_galaxies_selected',sky_group%group_nsel, &
+      call hdf5_write_data(name//'/n_galaxies_selected',sky_group%group_nsel, &
       & 'number of galaxies that live in the same group (host halo) and are present in the mock sky')
-      call hdf5_write_data(trim(name)//'/flag',sky_group%group_flag, &
+      call hdf5_write_data(name//'/flag',sky_group%group_flag, &
       & 'group flag (0 if group complete, >0 if truncated by survey edge (+1), snapshot limit (+2), tile edge (+4))')
-      deallocate(sky_group)
       
    end if
    
-   ! Group "Tiling"
-   call hdf5_add_group('tiling')
-   call hdf5_write_data('tiling/tile_id',(/(i,i=1,size(tile),1)/),'unique index of cubic tile')
-   call hdf5_write_data('tiling/center_x',tile%ix(1),'x-coordinate of box-centre in units of box side length')
-   call hdf5_write_data('tiling/center_y',tile%ix(2),'y-coordinate of box-centre in units of box side length')
-   call hdf5_write_data('tiling/center_z',tile%ix(3),'z-coordinate of box-centre in units of box side length')
-   call hdf5_write_data('tiling/dc_min',tile%dmin,'minimum comoving distance in units of box side length')
-   call hdf5_write_data('tiling/dc_max',tile%dmax,'maximum comoving distance in units of box side length')
-   call hdf5_write_data('tiling/rotation',tile%rotation, & 
+   ! write group "tiling"
+   name = 'tiling'
+   call hdf5_add_group(name)
+   call hdf5_write_data(name//'/tile_id',(/(i,i=1,size(tile),1)/),'unique index of cubic tile')
+   call hdf5_write_data(name//'/center_x',tile%ix(1),'x-coordinate of box-centre in units of box side length')
+   call hdf5_write_data(name//'/center_y',tile%ix(2),'y-coordinate of box-centre in units of box side length')
+   call hdf5_write_data(name//'/center_z',tile%ix(3),'z-coordinate of box-centre in units of box side length')
+   call hdf5_write_data(name//'/dc_min',tile%dmin,'minimum comoving distance in units of box side length')
+   call hdf5_write_data(name//'/dc_max',tile%dmax,'maximum comoving distance in units of box side length')
+   call hdf5_write_data(name//'/rotation',tile%rotation, & 
    & 'index [1,...,6] of rotation, where 1 is the identity (negative if inversion)')
-   call hdf5_write_data('tiling/translation_x',tile%translation(1), & 
+   call hdf5_write_data(name//'/translation_x',tile%translation(1), & 
    & 'x-component of translation vector in units of box side length')
-   call hdf5_write_data('tiling/translation_y',tile%translation(2), & 
+   call hdf5_write_data(name//'/translation_y',tile%translation(2), & 
    & 'y-component of translation vector in units of box side length')
-   call hdf5_write_data('tiling/translation_z',tile%translation(3), & 
+   call hdf5_write_data(name//'/translation_z',tile%translation(3), & 
    & 'z-component of translation vector in units of box side length')
    
-   ! Group "runInfo"
-   call hdf5_add_group('run_info')
-   call hdf5_write_data('run_info/stingray_version',version,'Version of Stingray used to produce this mock sky')
-   call hdf5_write_data('run_info/shark_version',trim(shark_version),'Version of Shark used to produce this mock sky')
-   call hdf5_write_data('run_info/shark_git_revision',trim(shark_git_revision),'Git revision of shark used to produce this data')
-   call hdf5_write_data('run_info/shark_timestamp',trim(shark_timestamp),'Time at which this shark execution started')
-   call hdf5_write_data('run_info/n_replica_mean',n_replica_mean,'Mean number a galaxy was replicated in the mock sky)')
-   call hdf5_write_data('run_info/n_replica_max',n_replica_max,'Maximum number a galaxy was replicated in the mock sky')
-   call hdf5_write_data('run_info/n_galaxies',n_galaxies,'Total number of galaxies in the mock sky')
-   call hdf5_write_data('run_info/n_groups',n_groups,'Total number of groups in the mock sky')
+   ! write group "run_info"
+   name = 'run_info'
+   call hdf5_add_group(name)
+   call hdf5_write_data(name//'/stingray_version',version,'Version of Stingray used to produce this mock sky')
+   call hdf5_write_data(name//'/shark_version',trim(shark_version),'Version of Shark used to produce this mock sky')
+   call hdf5_write_data(name//'/shark_git_revision',trim(shark_git_revision),'Git revision of shark used to produce this data')
+   call hdf5_write_data(name//'/shark_timestamp',trim(shark_timestamp),'Time at which this shark execution started')
    
-   ! Group "Snapshots"
-   call hdf5_add_group('snapshots')
-   call hdf5_write_data('snapshots/id',(/(i,i=para%snapshot_min,para%snapshot_max,1)/), &
+   ! write group "sky"
+   name = 'sky'
+   call hdf5_add_group(name)
+   call hdf5_write_data(name//'/n_galaxies',total_stats%n_galaxies,'Number of galaxies')
+   call hdf5_write_data(name//'/n_groups',total_stats%n_groups,'Number of groups')
+   call hdf5_write_data(name//'/n_replica_mean',real(total_stats%n_distinct,4)/total_stats%n_galaxies,&
+   & 'Mean number a galaxy was replicated)')
+   call hdf5_write_data(name//'/n_replica_max',total_stats%n_replica_max,'Maximum number a galaxy was replicated')
+   
+   ! write group "subvolume"
+   if (present(subvolume_stats).and.present(isubvolume)) then
+      name = 'subvolume'
+      call hdf5_add_group(name)
+      call hdf5_write_data(name//'/subvolume_index',isubvolume,'Index of the SAM subvolume used in this file')
+      call hdf5_write_data(name//'/n_galaxies',total_stats%n_galaxies,'Number of galaxies in this subvolume')
+      call hdf5_write_data(name//'/n_groups',total_stats%n_groups,'Number of groups in this subvolume')
+      call hdf5_write_data(name//'/n_replica_mean',real(total_stats%n_distinct,4)/total_stats%n_galaxies,&
+      & 'Mean number a galaxy was replicated in this subvolume)')
+      call hdf5_write_data(name//'/n_replica_max',total_stats%n_replica_max,&
+      &'Maximum number a galaxy was replicated in this subvolume')   
+   end if
+   
+   ! write group "snapshots"
+   name = 'snapshots'
+   call hdf5_add_group(name)
+   call hdf5_write_data(name//'/id',(/(i,i=para%snapshot_min,para%snapshot_max)/), &
    & 'snapshot number')
-   call hdf5_write_data('snapshots/z',snapshot%redshift, &
+   call hdf5_write_data(name//'/z',snapshot%redshift, &
    & 'redshift corresponding to the cosmic time of this snapshot')
-   call hdf5_write_data('snapshots/dc_min',snapshot%dmin*para%box_side, &
+   call hdf5_write_data(name//'/dc_min',snapshot%dmin*para%box_side, &
    & '[Mpc/h] minimal comoving distance at which this snapshot is used')
-   call hdf5_write_data('snapshots/dc_max',snapshot%dmax*para%box_side, &
+   call hdf5_write_data(name//'/dc_max',snapshot%dmax*para%box_side, &
    & '[Mpc/h] maximal comoving distance at which this snapshot is used')
-   call hdf5_write_data('snapshots/n_tiles',snapshot%n_tiles, &
+   call hdf5_write_data(name//'/n_tiles',snapshot%n_tiles, &
    & 'Number of tiles this snapshot has been considered for, irrespective of whether a galaxy was selected')
    
    ! close HDF5 file
    call hdf5_close()
-   
-   call toc
 
 end subroutine make_hdf5
 

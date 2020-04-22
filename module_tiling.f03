@@ -1,16 +1,16 @@
 module module_tiling
 
-   use module_constants
-   use module_system
-   use module_types
-   use module_io
-   use module_linalg
+   use shared_module_core
+   use shared_module_parameters
+   use shared_module_maths
+   use shared_module_constants
+   use module_global
+   use module_interface
    use module_user_selection
-   use module_parameters
+   
+   public   :: make_tiling
    
    private
-   public   :: make_tiling, is_in_fov
-   
    integer*4,allocatable   :: intersection(:,:,:)   ! ==  0 : not checked
                                                     ! == -1 : does not intersect
                                                     ! >= +1 : id of intersecting tile
@@ -26,23 +26,22 @@ subroutine make_tiling
    call tic
    call out('MAKE 3D TILING')
    
-   call load_parameters
    call set_seed(para%seed)
+   
    ntile = 0
    counter = 0
    imax = ceiling(para%dc_max/para%box_side)
-   if (imax>100) call error('Maximum comoving distance too large for this box side length.')
+   if (imax>limit%n_tiles_on_a_line_max) call error('maximum comoving distance too large for this box side length')
    allocate(intersection(-imax:imax,-imax:imax,-imax:imax))
    intersection = 0
    ntile = 0
    call make_starting_point(starting_point)
    call check_tile(starting_point)
    call make_tile_list
-   call save_tile_list
    
-   call out('Number of tiles = ',size(tile)*1_8)
-   call out('Number of points checked = ',counter*1_8)
-   if (allocated(tile)) deallocate(tile)
+   call out('Number of tiles = ',size(tile))
+   call out('Number of points checked = ',counter)
+   
    call toc
 
 end subroutine make_tiling
@@ -65,7 +64,7 @@ subroutine make_starting_point(ix)
       end do
    end do
       
-   call error('Maximum comoving distance too large for this box side length.')
+   call error('maximum comoving distance too large for this box side length')
    
 end subroutine make_starting_point
 
@@ -84,6 +83,7 @@ recursive subroutine check_tile(ix)
       if (is_tile_in_survey(ix,.true.)) then
          ! tile also intersects with survey volume specified by user file
          ntile = ntile+1
+         if (ntile>limit%n_tiles_max) call error ('number of required tiles exceeds ',limit%n_tiles_max)
          intersection(ix(1),ix(2),ix(3)) = ntile
       else
          ! tile does not intersect with survey volume specified by user file
@@ -109,14 +109,16 @@ end subroutine check_tile
 
 subroutine make_tile_list
 
+   ! NB: random_number() uses a better prng than rand(), but depends on the system and fortran version
+   !     we therefore chose to use rand()
+
    implicit none
-   real*4                     :: rand,dmin,dmax
+   real*4                     :: dmin,dmax
    integer*4                  :: i,j,k,ntile,itile
    
    ntile = count(intersection>0)
-   if (ntile==0) call error('No galaxy passes the selection criterion.')
+   if (ntile==0) call error('no galaxy passes the selection criterion.')
    
-   if (allocated(tile)) deallocate(tile)
    allocate(tile(ntile))
    do i = -imax,imax
       do j = -imax,imax
@@ -135,8 +137,8 @@ subroutine make_tile_list
                
                ! choose random proper rotation
                if (para%rotate==1) then
-                  call random_number(rand)
-                  tile(itile)%rotation = max(1,min(6,ceiling(rand*6.0)))
+                  !call random_number(rnd)
+                  tile(itile)%rotation = max(1,min(6,ceiling(rand()*6.0)))
                else
                   tile(itile)%rotation = 1
                end if
@@ -144,14 +146,15 @@ subroutine make_tile_list
 
                ! choose random inversion
                if (para%invert==1) then
-                  call random_number(rand)
-                  if (rand<0.5) tile(itile)%rotation = -tile(itile)%rotation
+                  !call random_number(rnd)
+                  if (rand()<0.5) tile(itile)%rotation = -tile(itile)%rotation
                end if
                tile(itile)%Rpseudo = matmul(para%sky_rotation,rot(:,:,tile(itile)%rotation))
 
                ! choose random translation
                if (para%translate==1) then
-                  call random_number(tile(itile)%translation)
+                  !call random_number(tile(itile)%translation)
+                  tile(itile)%translation = rand()
                else
                   tile(itile)%translation = (/0,0,0/)
                end if
@@ -219,10 +222,11 @@ function get_min_distance_to_square(p,e1,e2) result(dmin)
    if ((min(abs(p1),abs(p2))<=0.5).and.(max(abs(p1),abs(p2))>0.5)) then
       if (abs(p1)>0.5) then
          dmin = get_min_distance_to_line(p-s1*e1/2,e2)
+         return
       else if (abs(p2)>0.5) then
          dmin = get_min_distance_to_line(p-s2*e2/2,e1)
+         return
       end if
-      return
    end if
    
    ! handle the situation where the closest point is a corner
@@ -230,9 +234,12 @@ function get_min_distance_to_square(p,e1,e2) result(dmin)
       dmin = norm(p-s1*e1/2-s2*e2/2)
       return
    else
-      write(*,*) 'Error in get_min_distance_to_square'
-      stop
+      call deverror('unknown erro in get_min_distance_to_square')
    end if
+   
+   ! code never gets here, this is just to avoid compiler warning of uninitialised variable
+   dmin = 0.0 
+   return
    
 end function get_min_distance_to_square
 
@@ -303,21 +310,26 @@ end function is_tile_in_survey
 logical function is_point_in_survey(x,user)
 
    ! Check if the point x lies inside the selected survey volume. If user = true, this is the survey volume
-   ! specified by the user function pos_selection, otherwise it is the survey volume specified in the
+   ! specified by the user function selection_function, otherwise it is the survey volume specified in the
    ! parameter file.
 
+   implicit none
    real*4,intent(in)    :: x(3)     ! [simulation unit] position of point in tiling coordinates
    logical,intent(in)   :: user
    real*4               :: ra,dec   ! [rad] sky coordinates
    real*4               :: dc       ! [simulation unit] comoving distance
+   type(type_pos)       :: pos
    
    counter = counter+1
    
-   call car2sph(x,dc,ra,dec)
+   call car2sph(x,dc,ra,dec,astro=.true.)
    
    if (user) then
    
-      is_point_in_survey = pos_selection(dc,ra/degree,dec/degree)
+      pos%dc = dc
+      pos%ra = ra/unit%degree
+      pos%dec = dec/unit%degree
+      is_point_in_survey = selection_function(pos=pos)
       
    else
    
@@ -325,19 +337,13 @@ logical function is_point_in_survey(x,user)
          is_point_in_survey = (para%dc_min<=0)
          return
       end if
-      is_point_in_survey = is_in_fov(dc,ra,dec)
+      pos%dc = dc
+      pos%ra = ra
+      pos%dec = dec
+      is_point_in_survey = is_in_fov(pos)
       
    end if
    
-end function is_point_in_survey
-
-logical function is_in_fov(dc,ra,dec)
-   implicit none
-   real*4,intent(in) :: dc       ! [simulation units]
-   real*4,intent(in) :: ra,dec   ! [rad]
-   is_in_fov = (dc>=para%dc_min).and.(dc<=para%dc_max).and. &
-             & (ra>=para%ra_min).and.(ra<=para%ra_max).and. &
-             & (dec>=para%dec_min).and.(dec<=para%dec_max)
-end function is_in_fov           
+end function is_point_in_survey       
              
 end module module_tiling

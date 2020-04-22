@@ -23,7 +23,6 @@ else
    mode = standard
 endif
 
-
 # custom flags to load the HDF5 library
 hdfflags = empty
 ifeq ($(system),ems) # private laptop of developer Obreschkow
@@ -62,34 +61,38 @@ PROGRAMS = stingray
 # "make" builds all
 all: $(PROGRAMS)
 
-stingray.o:    module_constants.o \
-               module_types.o \
-               module_system.o \
-               module_io.o \
-               module_linalg.o \
-               module_cosmology.o \
-               module_sort.o \
+stingray.o:    shared_module_core.o \
+               shared_module_arguments.o \
+               shared_module_parameters.o \
+               shared_module_hdf5.o \
+               shared_module_cosmology.o \
+               shared_module_maths.o \
+               shared_module_constants.o \
+               shared_module_sort.o \
+               module_global.o \
                module_conversion.o \
+               module_interface.o \
                module_emission_lines.o \
-               module_hdf5.o \
                module_user_routines_$(sam).o \
-               module_user_selections_$(sam).o \
+               module_user_selection_$(sam).o \
                module_parameters.o \
                module_tiling.o \
                module_sky.o
                
-stingray: 	   module_constants.o \
-               module_types.o \
-               module_system.o \
-               module_io.o \
-               module_linalg.o \
-               module_sort.o \
-               module_cosmology.o \
+stingray: 	   shared_module_core.o \
+               shared_module_arguments.o \
+               shared_module_parameters.o \
+               shared_module_hdf5.o \
+               shared_module_cosmology.o \
+               shared_module_maths.o \
+               shared_module_constants.o \
+               shared_module_sort.o \
+               module_global.o \
                module_conversion.o \
+               module_interface.o \
                module_emission_lines.o \
-               module_hdf5.o \
                module_user_routines_$(sam).o \
-               module_user_selections_$(sam).o \
+               module_user_selection_$(sam).o \
                module_parameters.o \
                module_tiling.o \
                module_sky.o
