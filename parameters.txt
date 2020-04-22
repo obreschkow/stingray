@@ -12,13 +12,13 @@
 # that the text following the parameter values in the same line is ignored and can be used to describe the parameter.
 
 # Name of mock survey
-survey                    deep-optical
+survey                    test
 
 # Paths
 #path_output             /Users/do/Data/SURFS/stingray/shark/output/
-path_output             /mnt/su3ctm/clagos/Stingray/output/medi-SURFS/Shark-Lagos18-final/deep-optical/
+path_output             /mnt/su3ctm/clagos/Stingray/output/medi-SURFS/Shark-Lagos18-final/test/
 #path_input              /Users/do/Data/SURFS/stingray/shark/input/
-path_input              /mnt/su3ctm/clagos/SHARK_Out/medi-SURFS/Shark-Lagos18-final/
+path_input              /mnt/su3ctm/clagos/SHARK_Out/medi-SURFS/Shark-TreeFixed-ReincPSO-kappa0p002/
 
 # Snapshot parameters
 box_side                auto           [length_unit] comoving side-length of simulation box in multiples of length_unit
