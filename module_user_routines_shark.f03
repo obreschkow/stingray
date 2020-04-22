@@ -48,7 +48,7 @@ private
 
 type type_sam
 
-   integer*4   :: id_galaxy      ! unique galaxy ID
+   integer*8   :: id_galaxy      ! unique galaxy ID
    integer*8   :: id_halo        ! unique ID of parent halo
    integer*4   :: snapshot       ! snapshot ID
    integer*4   :: subvolume      ! subvolume index
@@ -121,7 +121,7 @@ end type type_sky
 type,extends(type_sky) :: type_sky_galaxy ! must exist
 
    integer*8   :: id_galaxy_sky           ! unique ID in the mock sky
-   integer*4   :: id_galaxy_sam           ! galaxy ID in the SAM
+   integer*8   :: id_galaxy_sam           ! galaxy ID in the SAM
    integer*4   :: typ                     ! galaxy type (0=central, 1=satellite, 2=orphan)
    
    real*4      :: inclination             ! [rad] inclination
