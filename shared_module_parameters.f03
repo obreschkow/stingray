@@ -34,8 +34,7 @@
 ! e.g. the parameters between the lines 'parameterset abc' and 'end', as well as the parameters outside any parameterset, e.g.
 ! those listed at the end under '# default parameters' are read. If a parameter appears in the parameterset *and* outside, the value
 ! in the parameterset is used. Multiple parametersets of the same name are allowed, as long as they do not repeat parameters.
-! If the variable parameterset is not specified, i.e. parameterset='', the effect is as if this variable is set to the first set,
-! e.g. parameterset='abc'.
+! If the variable parameterset is not specified, parameters in parametersets are ignored.
 ! **********************************************************************************************************************************
 
 module shared_module_parameters
@@ -152,15 +151,13 @@ subroutine handle_parameters
                end if
             end do
             
-            if (isempty(value)) call error('parameterfile: the parameter "'//trim(name)//'" is empty')
-            
             if (trim(name)=='parameterset') then
             
                if (inside_set) call error('parameterfile: a new parameterset appears before the parameterset '// &
                & trim(current_set)//' has been terminated with "end".')
+               if (isempty(value)) call error('parameterfile: each parameterset must have a name')
                inside_set = .true.
                current_set = trim(value)
-               if (isempty(parameterset)) parameterset = trim(current_set)
                reading = (trim(current_set)==trim(parameterset))
                if (reading) set_found = .true.
                
@@ -176,11 +173,11 @@ subroutine handle_parameters
                   end if
                   
                   if (inside_set) then
-                     if (parameter_in_set(i)) call error('parameterfile: the parameter '//trim(name)//' appears more '//&
+                     if (parameter_in_set(i)) call error('parameterfile: the parameter "'//trim(name)//'" appears more '//&
                      &'than once in the set '//trim(current_set))
                      parameter_in_set(i) = .true.
                   else
-                     if (parameter_in_default(i)) call error('parameterfile: the parameter '//trim(name)//' appears more '//&
+                     if (parameter_in_default(i)) call error('parameterfile: the parameter "'//trim(name)//'" appears more '//&
                      &'than once (outside parametersets)')
                      parameter_in_default(i) = .true.
                   end if
@@ -242,18 +239,19 @@ function parameter_index(name,required) result(index)
    end do
    
    if (present(required)) then
-      if (required.and.(index==0)) call error('parameter '//trim(name)//' is required in parameterfile')
+      if (required.and.(index==0)) call error('parameter "'//trim(name)//'" is required in parameterfile')
    end if
 
 end function parameter_index
 
-subroutine get_parameter_value_string(value,name,preset,auto,allowmultiuse)
+subroutine get_parameter_value_string(value,name,preset,auto,allowmultiuse,min,max)
    implicit none
    character(*),intent(inout)          :: value    ! value of parameter, must be initialised to an impossible value
    character(*),intent(in)             :: name     ! name of parameter
    character(*),intent(in),optional    :: preset   ! default value, if parameter name not found; if not given, parameter is required
    character(*),intent(in),optional    :: auto     ! value assigned, if parameter is identical to autostring, set via set_autostring
    logical*4,intent(in),optional       :: allowmultiuse ! if set to true, the same name can be queried multiple times
+   integer*4,intent(in),optional       :: min,max  ! optional values defining the min and max length of the trimmed value
    integer*4                           :: i
    call check_multiuse(name,allowmultiuse)
    i = parameter_index(name,required=.not.present(preset))
@@ -262,15 +260,21 @@ subroutine get_parameter_value_string(value,name,preset,auto,allowmultiuse)
    else
       if ((.not.isempty(autostring)).and.(trim(parameter_value(i))==trim(autostring))) then
          if (present(auto)) then
-            if (value==auto) call error('parameter '//trim(name)//' has not been set automatically')
+            if (value==auto) call error('parameter "'//trim(name)//'" has not been set automatically')
             value = auto
          else
-            call error('parameter '//trim(name)//' cannot be set automatically')
+            call error('parameter "'//trim(name)//'" cannot be set automatically')
          end if
       else
          value = parameter_value(i)
       end if
       parameter_used(i) = .true.
+   end if
+   if (present(min)) then
+      if (len(trim(value))<min) call error('parameter "'//trim(name)//'" must have at least '//val2str(min)//' characters')
+   end if
+   if (present(max)) then
+      if (len(trim(value))>max) call error('parameter "'//trim(name)//'" must have at most '//val2str(max)//' characters')
    end if
 end subroutine get_parameter_value_string
 
@@ -290,10 +294,10 @@ subroutine get_parameter_value_int4(value,name,preset,auto,allowmultiuse,min,max
    else
       if ((.not.isempty(autostring)).and.(trim(parameter_value(i))==trim(autostring))) then
          if (present(auto)) then
-            if (value==auto) call error('parameter '//trim(name)//' has not been set automatically')
+            if (value==auto) call error('parameter "'//trim(name)//'" has not been set automatically')
             value = auto
          else
-            call error('parameter '//trim(name)//' cannot be set automatically')
+            call error('parameter "'//trim(name)//'" cannot be set automatically')
          end if
       else
          read(parameter_value(i),*,iostat=status) value
@@ -302,10 +306,10 @@ subroutine get_parameter_value_int4(value,name,preset,auto,allowmultiuse,min,max
       parameter_used(i) = .true.
    end if
    if (present(min)) then
-      if (value<min) call error('parameter '//trim(name)//' cannot be smaller than '//val2str(min))
+      if (value<min) call error('parameter "'//trim(name)//'" cannot be smaller than '//val2str(min))
    end if
    if (present(max)) then
-      if (value>max) call error('parameter '//trim(name)//' cannot be larger than '//val2str(max))
+      if (value>max) call error('parameter "'//trim(name)//'" cannot be larger than '//val2str(max))
    end if
 end subroutine get_parameter_value_int4
 
@@ -325,10 +329,10 @@ subroutine get_parameter_value_int8(value,name,preset,auto,allowmultiuse,min,max
    else
       if ((.not.isempty(autostring)).and.(trim(parameter_value(i))==trim(autostring))) then
          if (present(auto)) then
-            if (value==auto) call error('parameter '//trim(name)//' has not been set automatically')
+            if (value==auto) call error('parameter "'//trim(name)//'" has not been set automatically')
             value = auto
          else
-            call error('parameter '//trim(name)//' cannot be set automatically')
+            call error('parameter "'//trim(name)//'" cannot be set automatically')
          end if
       else
          read(parameter_value(i),*,iostat=status) value
@@ -337,10 +341,10 @@ subroutine get_parameter_value_int8(value,name,preset,auto,allowmultiuse,min,max
       parameter_used(i) = .true.
    end if
    if (present(min)) then
-      if (value<min) call error('parameter '//trim(name)//' cannot be smaller than '//val2str(min))
+      if (value<min) call error('parameter "'//trim(name)//'" cannot be smaller than '//val2str(min))
    end if
    if (present(max)) then
-      if (value>max) call error('parameter '//trim(name)//' cannot be larger than '//val2str(max))
+      if (value>max) call error('parameter "'//trim(name)//'" cannot be larger than '//val2str(max))
    end if
 end subroutine get_parameter_value_int8
 
@@ -360,10 +364,10 @@ subroutine get_parameter_value_real4(value,name,preset,auto,allowmultiuse,min,ma
    else
       if ((.not.isempty(autostring)).and.(trim(parameter_value(i))==trim(autostring))) then
          if (present(auto)) then
-            if (value==auto) call error('parameter '//trim(name)//' has not been set automatically')
+            if (value==auto) call error('parameter "'//trim(name)//'" has not been set automatically')
             value = auto
          else
-            call error('parameter '//trim(name)//' cannot be set automatically')
+            call error('parameter "'//trim(name)//'" cannot be set automatically')
          end if
       else
          read(parameter_value(i),*,iostat=status) value
@@ -372,10 +376,10 @@ subroutine get_parameter_value_real4(value,name,preset,auto,allowmultiuse,min,ma
       parameter_used(i) = .true.
    end if
    if (present(min)) then
-      if (value<min) call error('parameter '//trim(name)//' cannot be smaller than '//val2str(min))
+      if (value<min) call error('parameter "'//trim(name)//'" cannot be smaller than '//val2str(min))
    end if
    if (present(max)) then
-      if (value>max) call error('parameter '//trim(name)//' cannot be larger than '//val2str(max))
+      if (value>max) call error('parameter "'//trim(name)//'" cannot be larger than '//val2str(max))
    end if
 end subroutine get_parameter_value_real4
 
@@ -395,10 +399,10 @@ subroutine get_parameter_value_real8(value,name,preset,auto,allowmultiuse,min,ma
    else
       if ((.not.isempty(autostring)).and.(trim(parameter_value(i))==trim(autostring))) then
          if (present(auto)) then
-            if (value==auto) call error('parameter '//trim(name)//' has not been set automatically')
+            if (value==auto) call error('parameter "'//trim(name)//'" has not been set automatically')
             value = auto
          else
-            call error('parameter '//trim(name)//' cannot be set automatically')
+            call error('parameter "'//trim(name)//'" cannot be set automatically')
          end if
       else
          read(parameter_value(i),*,iostat=status) value
@@ -407,10 +411,10 @@ subroutine get_parameter_value_real8(value,name,preset,auto,allowmultiuse,min,ma
       parameter_used(i) = .true.
    end if
    if (present(min)) then
-      if (value<min) call error('parameter '//trim(name)//' cannot be smaller than '//val2str(min))
+      if (value<min) call error('parameter "'//trim(name)//'" cannot be smaller than '//val2str(min))
    end if
    if (present(max)) then
-      if (value>max) call error('parameter '//trim(name)//' cannot be larger than '//val2str(max))
+      if (value>max) call error('parameter "'//trim(name)//'" cannot be larger than '//val2str(max))
    end if
 end subroutine get_parameter_value_real8
 
@@ -429,10 +433,10 @@ subroutine get_parameter_value_logical(value,name,preset,auto,allowmultiuse)
    else
       if ((.not.isempty(autostring)).and.(trim(parameter_value(i))==trim(autostring))) then
          if (present(auto)) then
-            if (value.eqv.auto) call error('parameter '//trim(name)//' has not been set automatically')
+            if (value.eqv.auto) call error('parameter "'//trim(name)//'" has not been set automatically')
             value = auto
          else
-            call error('parameter '//trim(name)//' cannot be set automatically')
+            call error('parameter "'//trim(name)//'" cannot be set automatically')
          end if
       else
          if (any(trim(parameter_value(i))==(/'0','F','f','N','n'/))) then
@@ -440,7 +444,7 @@ subroutine get_parameter_value_logical(value,name,preset,auto,allowmultiuse)
          else if (any(trim(parameter_value(i))==(/'1','T','t','Y','y'/))) then
             value = .true.
          else
-            call error('parameter '//trim(name)//' only takes logical arguments (0/f/F/n/N and 1/t/T/y/Y).')
+            call error('parameter "'//trim(name)//'" only takes logical arguments (0/f/F/n/N and 1/t/T/y/Y).')
          end if
       end if
       parameter_used(i) = .true.
