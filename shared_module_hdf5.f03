@@ -9,8 +9,8 @@
    
 module shared_module_hdf5
 
-   use shared_module_core
    use hdf5
+   use shared_module_core
    
    private
    
