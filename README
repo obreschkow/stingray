@@ -23,6 +23,7 @@ v0.20 20/04/2020: Significant restructuring of the code, inclusion of shared mod
 v0.21 21/04/2020: Use of system-independent pseudo-random number generator
 v0.22 21/04/2020: Completely revised layout of module "module_user_selection"; only one function per survey needed
 v0.23 23/04/2020: Implementation of parameter sets; new parameter "options"; added CO lines to shark module
+v0.24 23/04/2020: Many additional galaxy properties, including all those added to stingray by Claudia Lagos
 
 Developed by Danail Obreschkow (danail.obreschkow@icrar.org)
 

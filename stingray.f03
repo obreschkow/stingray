@@ -15,7 +15,7 @@ program stingray
    implicit none
    
    ! start user interface
-   call set_version('0.23')
+   call set_version('0.24')
    call handle_arguments(require_task=.false.)
    call start_output
    
