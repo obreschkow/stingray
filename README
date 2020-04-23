@@ -104,6 +104,10 @@ Optional arguments:
 
 -parameterfile (default parameters.txt): path+filename of parameter-file
 
+-parameterset: specifies the set of parameters read from the in the parameterfile.
+ If the -parameterset option is specified, the parameters listed under this particular tag are given priority.
+ Otherwise only parameters outside any set are used.
+
 -logfile (default none) optional filename of an ascii-file for the screen output
 
 -verbose (default n if logfile given, otherwise y): logical flag (y or n) specifying whether the log should be
