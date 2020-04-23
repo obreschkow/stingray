@@ -118,6 +118,9 @@ stingray: 	   shared_module_core.o \
 
 %.o: %.f03
 	$(FC) $(FCFLAGS) -c $<
+	
+%.o: %.f08
+	$(FC) $(FCFLAGS) -c $<
 
 # Utility targets
 .PHONY: clean veryclean
