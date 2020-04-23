@@ -1,6 +1,8 @@
 ! **********************************************************************************************************************************
 ! This module specifies selection functions of different galaxy surveys
 !
+! For an illustration with comments of how a selection function is coded, please look at the subroutine selection_example().
+!
 ! To add a new selection function, follow these steps:
 ! 1) Copy the function selection_example() to the bottom of the code
 ! 2) Change the function name to the name your survey: selection_[survey name]()
@@ -98,9 +100,9 @@ subroutine selection_example(pos,sam,sky,range,selected)
    select case (selection_type(pos,sam,sky,range,selected))
    case (return_position_range)
    
-      ! here enter the individual maximal ranges of distance, right ascension and declination covered by the survey,
+      ! here enter the individual maximal ranges of comoving distance, right ascension and declination covered by the survey,
       ! as restrictive as possible; these ranges are mandatory
-      range%dc = (/0.0,200.0/)      ! [simulation length units, here Mpc/h] distance range
+      range%dc = (/0.0,200.0/)      ! [simulation length units, here Mpc/h] comoving distance range
       range%ra = (/150.0,210.0/)    ! [deg] range of right ascensions, bound to 0 to 360
       range%dec = (/-10.0,10.0/)    ! [deg] range of declinations, bound to -90 to +90
       
