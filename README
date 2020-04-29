@@ -25,6 +25,7 @@ v0.22 21/04/2020: Completely revised layout of module "module_user_selection"; o
 v0.23 23/04/2020: Implementation of parameter sets; new parameter "options"; added CO lines to shark module
 v0.24 23/04/2020: Many additional galaxy properties, including all those added to stingray by Claudia Lagos
 v0.25 23/04/2020: All in Fortran 2008 standard
+v0.26 24/04/2020: Default parameterset via "parameterset*"
 
 Developed by Danail Obreschkow (danail.obreschkow@icrar.org)
 
@@ -104,9 +105,11 @@ Optional arguments:
 
 -parameterfile (default parameters.txt): path+filename of parameter-file
 
--parameterset: specifies the set of parameters read from the in the parameterfile.
- If the -parameterset option is specified, the parameters listed under this particular tag are given priority.
- Otherwise only parameters outside any set are used.
+-parameterset: if this option is specified, e.g. "-parameterset abc", the parameters listed in this parameterset, e.g. between
+ the lines "parameterset abc" and "end" overwrite the default parameters specified outside the parameterset. The user can mark at
+ most one parameterset in the parameterfile as the default parameterset using an asterix: "parameterset* abc". This parameterset
+ is taken as the default, if the option "-parameterset" is not provided. If no parameterset is marked as default and if no
+ parameterset is selected via "-parameterset", all parameters in parametersets are ignored.
 
 -logfile (default none) optional filename of an ascii-file for the screen output
 

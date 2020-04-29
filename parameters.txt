@@ -82,7 +82,7 @@ keep_log                1              logical flag specifying if the logfile is
 
 # PARAMETER SETS
 
-parameterset developer
+parameterset dev
 path_input              /Users/do/Data/SURFS/L210_N1536/shark/shark_co/
 options                 luminosities,line_shapes
 end

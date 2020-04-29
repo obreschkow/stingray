@@ -428,7 +428,7 @@ contains
       real,parameter          :: G = 4.30241e-6     ! [(km/s)^2 kpc/Msun] gravitational constant
       
       ! scale factor for comoving-physical conversion
-      a = 1.0/(1.0+snapshot(sam%snapshot)%redshift) ! scale factor at redshift os snapshot
+      a = 1.0/(1.0+snapshot(sam%snapshot)%redshift) ! scale factor at redshift of snapshot
       cMpch2pkpc = 1e3*a/para%h
    
       ! halo

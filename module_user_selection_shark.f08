@@ -84,16 +84,16 @@ end subroutine assign_selection_function
 ! CUSTOM SELECTION FUNCTIONS (private, only accessible via the public pointer "selection_function")
 ! **********************************************************************************************************************************
 
-! Default example (do not edit, but use as template for new selection functions)
+! Default example (do not edit this example, but use it as a template for new selection functions)
 
 subroutine selection_example(pos,sam,sky,range,selected)
 
    ! do not edit
    implicit none
-   type(type_pos),intent(in),optional           :: pos
-   type(type_sam),intent(in),optional           :: sam
-   class(type_sky_galaxy),intent(in),optional   :: sky
-   type(type_range),intent(inout),optional      :: range
+   type(type_pos),intent(in),optional           :: pos      ! has components dc [length unit of parameterfile], ra [deg], dec [deg] 
+   type(type_sam),intent(in),optional           :: sam      ! has components as defined in the "module_user_routines_..."
+   class(type_sky_galaxy),intent(in),optional   :: sky      ! has components as defined in the "module_user_routines_..."
+   type(type_range),intent(inout),optional      :: range    ! has components dc(2) [length unit], ra(2) [deg], dec(2) [deg]
    logical,intent(inout),optional               :: selected
    ! end do not edit
    

@@ -30,11 +30,12 @@
 ! parameter3_name    parameter3_value
 ! parameter4_name    parameter4_value
 ! ----------------------------------------------------------------------
-! If the protected variable parameterset is specified, e.g. parameterset='abc', only the parameters listed in this parameterset,
-! e.g. the parameters between the lines 'parameterset abc' and 'end', as well as the parameters outside any parameterset, e.g.
-! those listed at the end under '# default parameters' are read. If a parameter appears in the parameterset *and* outside, the value
-! in the parameterset is used. Multiple parametersets of the same name are allowed, as long as they do not repeat parameters.
-! If the variable parameterset is not specified, parameters in parametersets are ignored.
+! If the protected variable parameterset is non-empty, e.g. parameterset='abc', the parameters listed in this parameterset, e.g.
+! between the lines "parameterset abc" and "end" overwrite the default parameters specified outside the parameterset. The user can
+! mark at most one parameterset in the parameterfile as the default parameterset using an asterix: "parameterset* abc". This
+! parameterset is taken as the default, if the variable parameterset is empty. If no parameterset is marked as default and if the
+! variable parameterset is empty, all parameters in parametersets are ignored. Multiple parametersets of the same name are allowed,
+! as long as they do not repeat parameters.
 ! **********************************************************************************************************************************
 
 module shared_module_parameters
@@ -49,9 +50,9 @@ module shared_module_parameters
    public   :: get_parameter_value
    public   :: require_no_parameters_left
    public   :: parameterfile ! read-only
-   public   :: parameterset ! read-only
-   public   :: n_parameters ! read-only
-   public   :: set_autostring
+   public   :: parameterset ! read-only, optional name of the user-selected parameterset, set via set_parameterset() or "*"
+   public   :: n_parameters ! read-only, number of read parameters, accessible once handle_parameters has been called
+   public   :: set_autostring ! routine to set a default parameter value, e.g. "auto", for parameters specified elsewhere
    
    ! handling arguments
    character(len=255),protected  :: parameterfile = ''
@@ -112,6 +113,7 @@ subroutine handle_parameters
    logical           :: inside_set = .false.
    character(255)    :: current_set = ''
    logical           :: set_found = .false.
+   logical           :: default_parameterset_found = .false.
    logical           :: parameter_in_default(n_parameters_max)
    logical           :: parameter_in_set(n_parameters_max)
    
@@ -151,15 +153,25 @@ subroutine handle_parameters
                end if
             end do
             
-            if (trim(name)=='parameterset') then
+            if ((trim(name)=='parameterset').or.(trim(name)=='parameterset*')) then
             
                if (inside_set) call error('parameterfile: a new parameterset appears before the parameterset '// &
                & trim(current_set)//' has been terminated with "end".')
                if (isempty(value)) call error('parameterfile: each parameterset must have a name')
+               if (trim(name)=='parameterset*') then
+                  if (default_parameterset_found) call error('parameterfile: several parametersets have been '//&
+                  &'specified as default using "*"')
+                  default_parameterset_found = .true.
+                  if (isempty(parameterset)) parameterset = trim(value)
+               end if
                inside_set = .true.
                current_set = trim(value)
-               reading = (trim(current_set)==trim(parameterset))
-               if (reading) set_found = .true.
+               if (trim(value)==trim(parameterset)) then
+                  reading = .true.
+                  set_found = .true.
+               else
+                  reading = .false.
+               end if
                
             else
             
