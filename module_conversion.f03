@@ -77,7 +77,7 @@ subroutine make_inclination_and_pa(x,J,inclination,pa)
    real*4                           :: eMajor(3)      ! unit vector pointing along the major axis (orthogonal to LOS)
    real*4                           :: eNorth(3)      ! unit vector pointing north (or south) (orthoconal to LOS)
    real*4                           :: eEast(3)       ! unit vector pointing east (or west) (orthoconal to LOS)
-   real*4                           :: normx,normJ
+   real*4                           :: normx,normJ,sumangle
    real*4                           :: rand(2)
    
    normx = norm(x)
@@ -95,8 +95,11 @@ subroutine make_inclination_and_pa(x,J,inclination,pa)
    
       eLOS = x/normx
       eJ = J/normJ
-   
-      inclination = acos(sum(eLOS*eJ))
+      sumangle = sum(eLOS*eJ)
+      if(sumangle > 1) sumangle = 1 
+      if(sumangle < -1) sumangle = -1 
+      inclination = acos(sumangle)
+
       if (inclination>pi/2.0) inclination = pi-inclination
    
       eMajor = cross_product(eLOS,eJ)

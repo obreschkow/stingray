@@ -64,6 +64,7 @@ subroutine assign_selection_function
    case('all');               selection_function => selection_all
    case('example');           selection_function => selection_example
    case('gama');              selection_function => selection_gama
+   case('deep-optical');      selection_function => selection_deep_optical
    case('wallaby-micro');     selection_function => selection_wallaby_micro
    case('wallaby-medi');      selection_function => selection_wallaby_medi
    case default
@@ -113,6 +114,46 @@ logical function selection_example(pos,sam,sky) result(selected)
    end select
    
 end function
+! **********************************************************************************************************************************
+
+! Deep optical
+! This function defines the lightcone that was ued in Lagos et al. (2019; MNRAS.489.4196).
+
+logical function selection_deep_optical(pos,sam,sky) result(selected)
+
+   implicit none
+   type(type_pos),intent(in),optional           :: pos
+   type(type_sam),intent(in),optional           :: sam
+   class(type_sky_galaxy),intent(in),optional   :: sky
+   
+   ! computation variables
+   real*4            :: mstars ! [Msun] stellar mass
+   real*4            :: dl ! [Mpc] comoving distance
+   real*4            :: mag ! generic apparent magnitude assuming M/L=1
+   real*4,parameter  :: dmag = 4.0 ! magnitude tolerance
+   
+   ! selection function
+   select case (selection_type(pos,sam,sky))
+   case (select_by_pos)
+      selected = ((pos%ra>=211.500).and.(pos%ra<=223.500).and.(pos%dec>= -4.5).and.(pos%dec<= +4.5))
+   case (select_by_sam)
+      selected = (sam%mstars_disk + sam%mstars_bulge)/para%h>1e6
+   case (select_by_pos_and_sam)
+      ! note: The selection below is based on a rough estimate of a generic apparent magnitude mag.
+      !       This same magnitude is computed later and stored in sky%mag, hence one could also use sky%mag directly under the
+      !       case clause 'select_by_all'. The point of pre-computing the magnitude here, using the comoving distance as an
+      !       inferior limit for the luminosity distance, is just to accelerate the computation by avoiding time-consuming
+      !       computations of many apparent galaxy properties
+      mstars = (sam%mstars_disk+sam%mstars_bulge)/para%h ! [Msun]
+      dl = pos%dc/para%h ! [Mph] comoving distance as an inferior limit for the luminosity distance, which would require sky%zobs
+      mag = convert_absmag2appmag(convert_stellarmass2absmag(mstars,1.0),dl)
+      selected = (mag<=28.0 + dmag)
+   case (select_by_all)
+      selected = .true.
+   end select
+   
+end function
+
 
 ! **********************************************************************************************************************************
 
