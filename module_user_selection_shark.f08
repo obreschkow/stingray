@@ -284,7 +284,7 @@ subroutine selection_deep_optical(pos,sam,sky,range,selected)
    ! selection function
    select case (selection_type(pos,sam,sky,range,selected))
    case (return_position_range)
-      range%dc = (/0.0,8943.21/) ! [simulation length units, here Mpc/h]
+      range%dc = (/0.0,6200.0/) ! [simulation length units, here Mpc/h]
       range%ra = (/211.500,223.500/) ! [deg]
       range%dec = (/-4.5,4.5/) ! [deg]
    case (select_by_pos)
@@ -316,7 +316,7 @@ subroutine selection_deep_optical_narrow(pos,sam,sky,range,selected)
    ! selection function
    select case (selection_type(pos,sam,sky,range,selected))
    case (return_position_range)
-      range%dc = (/0.0,5719.62834/) ! [simulation length units, here Mpc/h]
+      range%dc = (/0.0,6200.0/) ! [simulation length units, here Mpc/h]
       range%ra = (/211.500,223.500/) ! [deg]
       range%dec = (/-2.5,2.5/) ! [deg]
    case (select_by_pos)
