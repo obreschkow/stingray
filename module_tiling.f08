@@ -5,10 +5,10 @@ module module_tiling
    use shared_module_maths
    use shared_module_constants
    use module_global
-   use module_interface
    use module_user_selection
    
    public   :: make_tiling
+   public   :: is_in_fov
    
    private
    integer*4,allocatable   :: intersection(:,:,:)   ! ==  0 : not checked
@@ -27,16 +27,17 @@ subroutine make_tiling
    call out('MAKE 3D TILING')
    
    call set_seed(para%seed)
+   call get_position_range
    
    ntile = 0
    counter = 0
    imax = ceiling(para%dc_max/para%box_side)
-   if (imax>limit%n_tiles_on_a_line_max) call error('maximum comoving distance too large for this box side length')
+   if (abs(imax)>limit%n_tiles_max) call error('maximum comoving distance too large for this box side length')
    allocate(intersection(-imax:imax,-imax:imax,-imax:imax))
    intersection = 0
    ntile = 0
    call make_starting_point(starting_point)
-   call check_tile(starting_point)
+   call check_tile(starting_point,0)
    call make_tile_list
    
    call out('Number of tiles = ',size(tile))
@@ -45,6 +46,66 @@ subroutine make_tiling
    call toc
 
 end subroutine make_tiling
+
+logical function is_in_fov(pos)
+
+   implicit none
+   
+   type(type_pos),intent(in)  :: pos
+   
+   is_in_fov = (pos%dc>=para%dc_min).and.(pos%dc<=para%dc_max).and. &
+             & (pos%ra>=para%ra_min).and.(pos%ra<=para%ra_max).and. &
+             & (pos%dec>=para%dec_min).and.(pos%dec<=para%dec_max)
+             
+end function is_in_fov
+
+subroutine get_position_range
+
+   implicit none
+   type(type_range)  :: range
+   real*4,parameter  :: x = huge(0.0_4)
+   
+   ! set default values
+   range%dc = x
+   range%ra = x
+   range%dec = x
+   
+   ! extract ranges from selection function
+   call selection_function(range=range)
+   
+   ! check initialization
+   if (any(range%dc==x)) call error('range of comoving distances (range%dc) not provided in selection function')
+   if (any(range%ra==x)) call error('range of right ascension (range%ra) not provided in selection function')
+   if (any(range%dec==x)) call error('range of declination (range%dec) not provided in selection function')
+   
+   ! cast into parameters
+   para%dc_min = range%dc(1)
+   para%dc_max = range%dc(2)
+   para%ra_min = range%ra(1)
+   para%ra_max = range%ra(2)
+   para%dec_min = range%dec(1)
+   para%dec_max = range%dec(2)
+   
+   ! check values
+   if (para%dc_min<0.0) call error('dc_min must be >=0')
+   if (para%dc_max<=0.0) call error('dc_max must be >0')
+   if (para%dc_max<=para%dc_min) call error('dc_min must be smaller than dc_max')
+   
+   if (para%ra_min<0.0) call error('ra_min must be >=0')
+   if (para%ra_max>360.0) call error('ra_max must be <=360')
+   if (para%ra_min>=para%ra_max) call error('ra_max must be larger than ra_min')
+   
+   if (para%dec_min<-90.0) call error('ra_min must be >=-90')
+   if (para%dec_max>+90.0) call error('ra_max must be <=90')
+   if (para%dec_min>=para%dec_max) call error('dec_max must be larger than dec_min')
+   
+   ! convert degrees to radian
+   para%ra_min = para%ra_min*unit%degree
+   para%ra_max = para%ra_max*unit%degree
+   para%dec_min = para%dec_min*unit%degree
+   para%dec_max = para%dec_max*unit%degree
+
+end subroutine get_position_range
 
 subroutine make_starting_point(ix)
 
@@ -68,10 +129,12 @@ subroutine make_starting_point(ix)
    
 end subroutine make_starting_point
 
-recursive subroutine check_tile(ix)
+recursive subroutine check_tile(ix,nrecursion)
 
    implicit none
-   integer,intent(in) :: ix(3)
+   integer,intent(in) :: ix(3),nrecursion
+   
+   if (nrecursion>1e4) call error('too many recursions in tiling; please restrict the ranges of dc, ra, dec in selection_function')
    
    if (maxval(abs(ix))>imax) return
    if (intersection(ix(1),ix(2),ix(3)).ne.0) return
@@ -89,14 +152,14 @@ recursive subroutine check_tile(ix)
          ! tile does not intersect with survey volume specified by user file
          intersection(ix(1),ix(2),ix(3)) = -1
       end if
-   
+      
       ! check neighboring tiles
-      call check_tile(ix+(/+1,0,0/))
-      call check_tile(ix+(/-1,0,0/))
-      call check_tile(ix+(/0,+1,0/))
-      call check_tile(ix+(/0,-1,0/))
-      call check_tile(ix+(/0,0,+1/))
-      call check_tile(ix+(/0,0,-1/))
+      call check_tile(ix+(/+1,0,0/),nrecursion+1)
+      call check_tile(ix+(/-1,0,0/),nrecursion+1)
+      call check_tile(ix+(/0,+1,0/),nrecursion+1)
+      call check_tile(ix+(/0,-1,0/),nrecursion+1)
+      call check_tile(ix+(/0,0,+1/),nrecursion+1)
+      call check_tile(ix+(/0,0,-1/),nrecursion+1)
       
    else
    
@@ -329,8 +392,9 @@ logical function is_point_in_survey(x,user)
       pos%dc = dc
       pos%ra = ra/unit%degree
       pos%dec = dec/unit%degree
-      is_point_in_survey = selection_function(pos=pos)
-      
+      is_point_in_survey = .true.
+      call selection_function(pos=pos,selected=is_point_in_survey)
+
    else
    
       if (dc<=epsilon(dc)) then

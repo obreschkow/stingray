@@ -270,14 +270,13 @@ subroutine require_no_options_left
    
 end subroutine require_no_options_left
 
-subroutine get_option_value_string(value,name,preset,required)
+subroutine get_option_value_string(value,name,preset)
    implicit none
    character(*),intent(out)         :: value
    character(*),intent(in)          :: name     ! name of option
    character(*),intent(in),optional :: preset   ! default value
-   logical*4,intent(in),optional    :: required ! if given and true, the option must be given by the user
    integer*4                        :: i
-   i = option_index(name,required)
+   i = option_index(name,required=.not.present(preset))
    if (i==0) then
       if (present(preset)) value = preset
    else
@@ -285,16 +284,15 @@ subroutine get_option_value_string(value,name,preset,required)
    end if
 end subroutine get_option_value_string
 
-subroutine get_option_value_int4(value,name,preset,min,max,required)
+subroutine get_option_value_int4(value,name,preset,min,max)
    implicit none
    integer*4,intent(out)         :: value
    character(*),intent(in)       :: name     ! name of option
    integer*4,intent(in),optional :: preset   ! default value
    integer*4,intent(in),optional :: min,max  ! optional range required for value
-   logical*4,intent(in),optional :: required ! if given and true, the option must be given by the user
    integer*4                     :: i
    integer*4                     :: status
-   i = option_index(name,required)
+   i = option_index(name,required=.not.present(preset))
    if (i==0) then
       if (present(preset)) value = preset
    else
@@ -309,16 +307,15 @@ subroutine get_option_value_int4(value,name,preset,min,max,required)
    end if
 end subroutine get_option_value_int4
 
-subroutine get_option_value_int8(value,name,preset,min,max,required)
+subroutine get_option_value_int8(value,name,preset,min,max)
    implicit none
    integer*8,intent(out)         :: value
    character(*),intent(in)       :: name     ! name of option
    integer*8,intent(in),optional :: preset   ! default value
    integer*8,intent(in),optional :: min,max  ! optional range required for value
-   logical*4,intent(in),optional :: required ! if given and true, the option must be given by the user
    integer*4                     :: i
    integer*4                     :: status
-   i = option_index(name,required)
+   i = option_index(name,required=.not.present(preset))
    if (i==0) then
       if (present(preset)) value = preset
    else
@@ -333,16 +330,15 @@ subroutine get_option_value_int8(value,name,preset,min,max,required)
    end if
 end subroutine get_option_value_int8
 
-subroutine get_option_value_real4(value,name,preset,min,max,required)
+subroutine get_option_value_real4(value,name,preset,min,max)
    implicit none
    real*4,intent(out)            :: value
    character(*),intent(in)       :: name     ! name of option
    real*4,intent(in),optional    :: preset   ! default value
    real*4,intent(in),optional    :: min,max  ! optional range required for value
-   logical*4,intent(in),optional :: required ! if given and true, the option must be given by the user
    integer*4                     :: i
    integer*4                     :: status
-   i = option_index(name,required)
+   i = option_index(name,required=.not.present(preset))
    if (i==0) then
       if (present(preset)) value = preset
    else
@@ -357,16 +353,15 @@ subroutine get_option_value_real4(value,name,preset,min,max,required)
    end if
 end subroutine get_option_value_real4
 
-subroutine get_option_value_real8(value,name,preset,min,max,required)
+subroutine get_option_value_real8(value,name,preset,min,max)
    implicit none
    real*8,intent(out)            :: value
    character(*),intent(in)       :: name     ! name of option
    real*8,intent(in),optional    :: preset   ! default value
    real*8,intent(in),optional    :: min,max  ! optional range required for value
-   logical*4,intent(in),optional :: required ! if given and true, the option must be given by the user
    integer*4                     :: i
    integer*4                     :: status
-   i = option_index(name,required)
+   i = option_index(name,required=.not.present(preset))
    if (i==0) then
       if (present(preset)) value = preset
    else
@@ -381,14 +376,13 @@ subroutine get_option_value_real8(value,name,preset,min,max,required)
    end if
 end subroutine get_option_value_real8
 
-subroutine get_option_value_logical(value,name,preset,required)
+subroutine get_option_value_logical(value,name,preset)
    implicit none
    logical,intent(out)           :: value
    character(*),intent(in)       :: name     ! name of option
    logical*4,intent(in),optional :: preset   ! default value
-   logical*4,intent(in),optional :: required ! if given and true, the option must be given by the user
    integer*4                     :: i
-   i = option_index(name,required)
+   i = option_index(name,required=.not.present(preset))
    if (i==0) then
       if (present(preset)) value = preset
    else

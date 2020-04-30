@@ -7,6 +7,13 @@
 # If parameters are set in the user model *and* given a numerical value in this parameter
 # file, the parameter file takes priority over the automatic assignment.
 #
+# Parameter sets:
+# Stingray allows the definition of sets of different parameters listed in a single parameter file.
+# A parameter set starts with a line 'parameterset [name]' end ends with a line 'end'. By default, only parameters listed outside
+# a parameter set are used. To use the parameters of a specific set, stingray must be called with the option "-parameterset [name]".
+# In this case, the parameters listed inside a parameter set take priority over those listed outside the parameter set.
+# Parameters not specified in a parameter set are set to their default value given outside the parameter set.
+#
 # Comments:
 # Arbitrary comment lines, starting with '#' can be added to this parameter file. Also note
 # that the text following the parameter values in the same line is ignored and can be used to describe the parameter.
@@ -37,15 +44,6 @@ omega_l                 auto           energy density of dark energy relative to
 omega_m                 auto           energy density of all matter relative to closure density
 omega_b                 auto           energy density of baryonic matter relative to closure density
 
-# Considered distance range and field-of-view. Additional, more complex positional selection criteria can
-# be coded in the user module function "pos_selection".
-dc_min                  0              [length_unit] minimal comoving distance of mock sky (>=0)
-dc_max                  200            [length_unit] maximal comoving distance of mock sky (>=0)
-ra_min                  0              [deg] min right ascension of mock sky (from 0 to 360)
-ra_max                  360            [deg] max right ascension of mock sky (from 0 to 360)
-dec_min                 -90            [deg] min declination of mock sky (from -90 to 90)
-dec_max                 90             [deg] max declination of mock sky (from -90 to 90)
-
 # Mapping of SAM-coordinates on to survey-coordinates
 zaxis_ra                0              [deg] RA coordinate of the SAM z-axis in spherical survey coordinates
 zaxis_dec               0              [deg] Dec coordinate the SAM z-axis in spherical survey coordinates
@@ -57,7 +55,7 @@ translate               1              logical flag specifying if random transla
 rotate                  1              logical flag specifying if random rotations are applied (0=false, 1=true)
 invert                  0              logical flag specifying if random inversions are applied (0=false, 1=true)
 
-# Observer velocity relative to CMB (from WMAP in J2000 coordinates, arxiv 0803.0732)
+# Observer velocity relative to CMB (default values are based on the WMAP dipole in J2000 coordinates, arxiv 0803.0732)
 velocity_norm           369.0          [km/s] observer velocity relative to CMB rest-frame
 velocity_ra             167.93         [deg] RA coordinate to which the observer is moving relative to CMB rest-frame
 velocity_dec            -6.9269        [deg] Dec coordinate to which the observer is moving relative to CMB rest-frame
@@ -66,11 +64,61 @@ velocity_dec            -6.9269        [deg] Dec coordinate to which the observe
 search_angle            0.5            [deg] typical angle in which overlaps between survey volume and tiling grid are searched
 volume_search_level     0              [-] value >=0, giving the number of search points (2^#)^3 inside each tile
 
-# Galaxy options
+# Processing level
+# The parameter "options" consists of a comma-separated list of keywords *without* spaces. These keywords are
+# interpreted in the custom module "module_user_routines_..." using the logical function option(string), which is TRUE, iff
+# the keyword exists in the "options" parameter. The "options" can be left empty.
+# For the semi-analytic model shark, the currently available keywords are:
+# line_shapes: generate shape-parameters for atomic and molecular emission lines
+# luminosities: generate CO and AGN luminosities (requires the files CO_SLED.hdf5) with the shark outputs
+options                 
 make_groups             1              logical flag specifying if groups are produced (0=false, 1=true)
-line_parameters         1              logical flag specifying if global emission line parameters are saved (0=false, 1=true)
 
 # Output file options
 merge_output            1              logical flag specifying whether the output file should be merged, or left split by subvolume
 keep_binaries           0              logical flag specifying if the binary output files are kept, if run was successful
 keep_log                1              logical flag specifying if the logfile is kept, if run was successful
+
+
+# PARAMETER SETS
+
+parameterset dev
+path_input              /Users/do/Data/SURFS/L210_N1536/shark/shark_co/
+options                 luminosities,line_shapes
+end
+
+parameterset wallaby-micro-mac
+survey                  wallaby-micro
+path_input              /Users/do/Data/SURFS/L40_N512/shark/shark_v1p2p1/
+path_output             /Users/do/Data/SURFS/L40_N512/stingray/
+end
+
+parameterset wallaby-medi-mac
+survey                  wallaby-medi
+path_input              /Users/do/Data/SURFS/L210_N1536/shark/shark_v1p2p1/
+path_output             /Users/do/Data/SURFS/L210_N1536/stingray/
+end
+
+parameterset waves-g23-hyades
+survey                  waves-g23
+path_output             /mnt/su3ctm/clagos/Stingray/output/medi-SURFS/Shark-TreeFixed-ReincPSO-kappa0p002/waves-g23/
+path_input              /mnt/su3ctm/clagos/SHARK_Out/medi-SURFS/Shark-TreeFixed-ReincPSO-kappa0p002/
+end
+
+parameterset gama-hyades
+survey                  gama
+path_output             /mnt/su3ctm/clagos/Stingray/output/medi-SURFS/Shark-TreeFixed-ReincPSO-kappa0p002/gama/
+path_input              /mnt/su3ctm/clagos/SHARK_Out/medi-SURFS/Shark-TreeFixed-ReincPSO-kappa0p002/
+end
+
+parameterset deep-optical-hyades
+survey                  deep-optical
+path_output             /mnt/su3ctm/clagos/Stingray/output/medi-SURFS/Shark-TreeFixed-ReincPSO-kappa0p002/deep-optical/
+path_input              /mnt/su3ctm/clagos/SHARK_Out/medi-SURFS/Shark-TreeFixed-ReincPSO-kappa0p002/
+end
+
+parameterset deep-optical-narrow-hyades
+survey                  deep-optical-narrow
+path_output             /mnt/su3ctm/clagos/Stingray/output/medi-SURFS/Shark-TreeFixed-ReincPSO-kappa0p002/deep-optical-narrow/
+path_input              /mnt/su3ctm/clagos/SHARK_Out/medi-SURFS/Shark-TreeFixed-ReincPSO-kappa0p002/
+end

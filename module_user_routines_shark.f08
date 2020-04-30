@@ -20,6 +20,7 @@ use shared_module_hdf5
 use shared_module_maths
 use shared_module_cosmology
 use module_global
+use module_interface
 use module_conversion
 use module_emission_lines
 
@@ -46,47 +47,63 @@ private
 ! get_groupid: returns the group id of the galaxy
 ! is_group_center: logical function specifying if the galaxy is the group_center
 
+integer*4,parameter  :: nco = 10 ! number of rotational CO lines
+
 type type_sam
 
-   integer*8   :: id_galaxy      ! unique galaxy ID
-   integer*8   :: id_halo        ! unique ID of parent halo
-   integer*4   :: snapshot       ! snapshot ID
-   integer*4   :: subvolume      ! subvolume index
-   integer*4   :: typ            ! galaxy type (0=central, 1=satellite in halo, 2=orphan)
-   real*4      :: position(3)    ! [Mpc/h] position of galaxy centre in simulation box
-   real*4      :: velocity(3)    ! [proper km/s] peculiar velocity
-   real*4      :: J(3)           ! [proper Msun/h pMpc/h km/s] angular momentum
-   real*4      :: mstars_disk    ! [Msun/h] stellar mass disk
-   real*4      :: mstars_bulge   ! [Msun/h] stellar mass bulge
-   real*4      :: mgas_disk      ! [Msun/h] gas mass disk
-   real*4      :: mgas_bulge     ! [Msun/h] gas mass bulge
-   real*4      :: matom_disk     ! [Msun/h] atomic gas mass disk
-   real*4      :: matom_bulge    ! [Msun/h] atomic gas mass bulge
-   real*4      :: mmol_disk      ! [Msun/h] molecular gas mass disk
-   real*4      :: mmol_bulge     ! [Msun/h] molecular gas mass bulge
-   real*4      :: rstar_disk     ! [cMpc/h] half-mass radius of stars in the disk
-   real*4      :: rstar_bulge    ! [cMpc/h] half-mass radius of stars in the bulge
-   real*4      :: rgas_disk      ! [cMpc/h] half-mass radius of gas in the disk
-   real*4      :: rgas_bulge     ! [cMpc/h] half-mass radius of gas in the bulge
-   real*4      :: jbulge         ! [km/s * cMpc/h] specific angular momentum of the bulge.
-   real*4      :: jdisk          ! [km/s * cMpc/h] specific angular momentum of the disk.
-   real*4      :: sfr_disk       ! [Msun/Gyr/h] star formation rate in the disk
-   real*4      :: sfr_burst      ! [Msun/Gyr/h] star formation rate in the bulge
+   ! header properties
+   integer*4   :: id_galaxy         ! unique galaxy ID
+   integer*8   :: id_halo           ! unique ID of parent halo
+   integer*4   :: snapshot          ! snapshot ID
+   integer*4   :: subvolume         ! subvolume index
+   integer*4   :: typ               ! galaxy type (0=central, 1=satellite in halo, 2=orphan)
+   
+   ! properties of 1st generation halo (host halo)
+   real*4      :: mvir_hosthalo     ! [Msun/h]
+   real*4      :: vvir_hosthalo     ! [km/s]	virial velocity of hosthalo
+   
+   ! properties of subhalo associated with the particular galaxy
+   real*4      :: mvir_subhalo      ! [Msun/h]
+   real*4      :: cnfw_subhalo      ! [-] concentration of NFW fit to subhalo
+   real*4      :: vvir_subhalo      ! [km/s]	virial velocity of subhalo
+   real*4      :: vmax_subhalo      ! [km/s]	maximum circular velocity of subhalo
+      
+   ! dynamical properties   
+   real*4      :: position(3)       ! [Mpc/h] position of galaxy centre in simulation box
+   real*4      :: velocity(3)       ! [proper km/s] peculiar velocity
+   real*4      :: J(3)              ! [proper Msun/h pMpc/h km/s] angular momentum
+   real*4      :: jbulge            ! [cMpc/h km/s] specific angular momentum of the bulge
+   real*4      :: jdisk             ! [cMpc/h km/s] specific angular momentum of the disk
+   
+   ! stellar properties
+   real*4      :: mstars_disk       ! [Msun/h] stellar mass disk
+   real*4      :: mstars_bulge      ! [Msun/h] stellar mass bulge
+   real*4      :: rstar_disk        ! [cMpc/h] half-mass radius of stars in the disk
+   real*4      :: rstar_bulge       ! [cMpc/h] half-mass radius of stars in the bulge
+   real*4      :: sfr_disk          ! [Msun/h/Gyr] star formation rate in the disk
+   real*4      :: sfr_burst         ! [Msun/h/Gyr] star formation rate in the bulge
+   
+   ! gas properties
+   real*4      :: mgas_disk         ! [Msun/h] gas mass disk
+   real*4      :: mgas_bulge        ! [Msun/h] gas mass bulge
+   real*4      :: matom_disk        ! [Msun/h] atomic gas mass disk
+   real*4      :: matom_bulge       ! [Msun/h] atomic gas mass bulge
+   real*4      :: mmol_disk         ! [Msun/h] molecular gas mass disk
+   real*4      :: mmol_bulge        ! [Msun/h] molecular gas mass bulge
+   real*4      :: rgas_disk         ! [cMpc/h] half-mass radius of gas in the disk
+   real*4      :: rgas_bulge        ! [cMpc/h] half-mass radius of gas in the bulge
    real*4      :: mgas_metals_disk  ! [Msun/h] mass of metals locked up in the disk
    real*4      :: mgas_metals_bulge ! [Msun/h] mass of metals locked up in the bulge
-   real*4      :: mvir_hosthalo  ! [Msun/h]
-   real*4      :: mvir_subhalo   ! [Msun/h]
-   real*4      :: cnfw_subhalo   ! [-] concentration of NFW fit to subhalo
-   real*4      :: vvir_hosthalo  ! [km/s]	virial velocity of hosthalo
-   real*4      :: vvir_subhalo   ! [km/s]	virial velocity of subhalo
-   real*4      :: vmax_subhalo   ! [km/s]	maximum circular velocity of subhalo
-   real*4      :: zgas_disk      ! metallicity of the gas in the disk
-   real*4      :: zgas_bulge     ! metallicity of the gas in the bulge
-   real*4      :: mbh            ! [Msun/h] black hole mass
-   real*4      :: mbh_acc_hh     ! [Msun/Gyr/h] accretion rate in hot-halo mode
-   real*4      :: mbh_acc_sb     ! [Msun/Gyr/h] accretion rate in starburst mode
-   real*4      :: lco_disk
-   real*4      :: lco_bulge
+   
+   ! black hole properties
+   real*4      :: mbh               ! [Msun/h] black hole mass
+   real*4      :: mbh_acc_hh        ! [Msun/h/Gyr] accretion rate in hot-halo mode
+   real*4      :: mbh_acc_sb        ! [Msun/h/Gyr] accretion rate in starburst mode
+   
+   ! luminosities (loaded from additional file, if option "luminosities" selected)
+   real*4      :: lco_disk(nco)     ! [Jy km/s Mpc^2] luminosities of the first nco transitions of CO (12/16) in the disk
+   real*4      :: lco_bulge(nco)    ! [Jy km/s Mpc^2] luminosities of the first nco transitions of CO (12/16) in the bulge
+   real*4      :: lum_agn_hx        ! [1e40 erg/s] hard x-ray luminosity of the AGN
    
 contains
 
@@ -115,73 +132,64 @@ type type_sky
    real*4      :: vpecrad        ! [proper km/s] radial peculiar velocity
    integer*8   :: id_halo_sam    ! galaxy parent halo ID in the SAM
    integer*8   :: id_group_sky   ! unique group ID in the mock sky
-   
+     
 end type type_sky
 
 type,extends(type_sky) :: type_sky_galaxy ! must exist
 
-   integer*8   :: id_galaxy_sky           ! unique ID in the mock sky
-   integer*8   :: id_galaxy_sam           ! galaxy ID in the SAM
-   integer*4   :: typ                     ! galaxy type (0=central, 1=satellite, 2=orphan)
-   
-   real*4      :: inclination             ! [rad] inclination
-   real*4      :: pa                      ! [rad] position angle from North to East
-   real*4      :: mag                     ! apparent magnitude (generic: M/L ratio of 1, no k-correction)
-   
-   real*4      :: mstars_disk             ! [Msun/h] stellar mass of the disk
-   real*4      :: mstars_bulge            ! [Msun/h] stellar mass of the bulge
-   real*4      :: mgas_disk               ! [Msun/h] gas mass of the disk
-   real*4      :: mgas_bulge              ! [Msun/h] gas mass of the bulge
-   real*4      :: matom_disk              ! [Msun/h] atomic gas mass of the disk
-   real*4      :: matom_bulge             ! [Msun/h] atomic gas mass of the bulge
-   real*4      :: mmol_disk               ! [Msun/h] molecular gas mass of the disk
-   real*4      :: mmol_bulge              ! [Msun/h] molecular gas mass of the bulge
-   real*4      :: jbulge                  ! [km/s * cMpc/h] specific angular momentum of the bulge.
-   real*4      :: jdisk                   ! [km/s * cMpc/h] specific angular momentum of the disk. 
- 
-   real*4      :: J(3)                    ! [Msun pMpc km/s] total angular momentum
-   
-   real*4      :: mvir_hosthalo           ! [Msun/h] mass of 1st generation halo (i.e. direct host of type 0 galaxies)
-   real*4      :: mvir_subhalo            ! [Msun/h] halo mass
-   
-   real*4      :: rstar_disk_apparent     ! [arcsec] apparent semi-major axis of half-mass ellipse of stars in the disk
-   real*4      :: rstar_bulge_apparent    ! [arcsec] apparent semi-major axis of half-mass ellipse of stars in the bulge
-   real*4      :: rgas_disk_apparent      ! [arcsec] apparent semi-major axis of half-mass ellipse of gas in the disk
-   real*4      :: rgas_bulge_apparent     ! [arcsec] apparent semi-major axis of half-mass ellipse of gas in the bulge
-   
-   real*4      :: rstar_disk_intrinsic    ! [cMpc/h] intrinsic half-mass radius of stars in the disk
-   real*4      :: rstar_bulge_intrinsic   ! [cMpc/h] intrinsic half-mass radius of stars in the bulge
-   real*4      :: rgas_disk_intrinsic     ! [cMpc/h] intrinsic half-mass radius of gas in the disk
-   real*4      :: rgas_bulge_intrinsic    ! [cMpc/h] intrinsic half-mass radius of gas in the bulge
-   
-   real*4      :: zgas_disk      ! metallicity of the gas in the disk
-   real*4      :: zgas_bulge     ! metallicity of the gas in the disk
+   ! intrinsic properties copied directly from SAM
+   integer*4   :: id_galaxy_sam              ! galaxy ID in the SAM
+   integer*4   :: typ                        ! galaxy type (0=central, 1=satellite, 2=orphan)
+   real*4      :: mstars_disk                ! [Msun/h] stellar mass of the disk
+   real*4      :: mstars_bulge               ! [Msun/h] stellar mass of the bulge
+   real*4      :: mgas_disk                  ! [Msun/h] gas mass of the disk
+   real*4      :: mgas_bulge                 ! [Msun/h] gas mass of the bulge
+   real*4      :: matom_disk                 ! [Msun/h] atomic gas mass of the disk
+   real*4      :: matom_bulge                ! [Msun/h] atomic gas mass of the bulge
+   real*4      :: mmol_disk                  ! [Msun/h] molecular gas mass of the disk
+   real*4      :: mmol_bulge                 ! [Msun/h] molecular gas mass of the bulge
+   real*4      :: jbulge                     ! [cMpc/h km/s] specific angular momentum of the bulge
+   real*4      :: jdisk                      ! [cMpc/h km/s] specific angular momentum of the disk
+   real*4      :: J(3)                       ! [Msun pMpc km/s] total angular momentum
+   real*4      :: rstar_disk_intrinsic       ! [cMpc/h] intrinsic half-mass radius of stars in the disk
+   real*4      :: rstar_bulge_intrinsic      ! [cMpc/h] intrinsic half-mass radius of stars in the bulge
+   real*4      :: rgas_disk_intrinsic        ! [cMpc/h] intrinsic half-mass radius of gas in the disk
+   real*4      :: rgas_bulge_intrinsic       ! [cMpc/h] intrinsic half-mass radius of gas in the bulge
+   real*4      :: mvir_hosthalo              ! [Msun/h] mass of 1st generation halo (i.e. direct host of type 0 galaxies)
+   real*4      :: mvir_subhalo               ! [Msun/h] subhalo mass
+   real*4      :: vvir_hosthalo              ! [km/s]	virial velocity of hosthalo
+   real*4      :: vvir_subhalo               ! [km/s]	virial velocity of subhalo
+   real*4      :: vmax_subhalo               ! [km/s]	maximum circular velocity of subhalo
+   real*4      :: cnfw_subhalo               ! [-] concentration of NFW fit to subhalo
+   real*4      :: sfr_disk                   ! [Msun/Gyr/h] star formation rate in the disk
+   real*4      :: sfr_burst                  ! [Msun/Gyr/h] star formation rate in the bulge
+   real*4      :: mbh                        ! [Msun/h] black hole mass
+   real*4      :: mbh_acc_hh                 ! [Msun/Gyr/h] accretion rate in hot-halo mode
+   real*4      :: mbh_acc_sb                 ! [Msun/Gyr/h] accretion rate in starburst mode
 
-   real*4      :: sfr_disk       ! [Msun/Gyr/h] star formation rate in the disk
-   real*4      :: sfr_burst      ! [Msun/Gyr/h] star formation rate in the bulge
-
-   real*4      :: mbh            ! [Msun/h] black hole mass
-   real*4      :: mbh_acc_hh     ! [Msun/Gyr/h] accretion rate in hot-halo mode
-   real*4      :: mbh_acc_sb     ! [Msun/Gyr/h] accretion rate in starburst mode
-
-   !group_disp_part	?	real*4	km/s	i		?	ASGR: Intrinsic 3D dispersion of the group halo (VR output)
-   !group_disp_sat_los	-	real*4	km/s	a			ASGR: Measured line-of-site dispersion of the group satellites (close to what we would measure in real life)
-
-   real*4      :: vvir_hosthalo           ! [km/s]	virial velocity of hosthalo
-   real*4      :: vvir_subhalo            ! [km/s]	virial velocity of subhalo
-   real*4      :: vmax_subhalo            ! [km/s]	maximum circular velocity of subhalo
-   real*4      :: cnfw_subhalo            ! [-] concentration of NFW fit to subhalo
-   
-   ! HI line   
+   ! newly computed apparent properties
+   integer*8   :: id_galaxy_sky              ! unique ID in the mock sky
+   real*4      :: inclination                ! [rad] inclination
+   real*4      :: pa                         ! [rad] position angle from North to East
+   real*4      :: mag                        ! apparent magnitude (generic: M/L ratio of 1, no k-correction)
+   real*4      :: rstar_disk_apparent        ! [arcsec] apparent semi-major axis of half-mass ellipse of stars in the disk
+   real*4      :: rstar_bulge_apparent       ! [arcsec] apparent semi-major axis of half-mass ellipse of stars in the bulge
+   real*4      :: rgas_disk_apparent         ! [arcsec] apparent semi-major axis of half-mass ellipse of gas in the disk
+   real*4      :: rgas_bulge_apparent        ! [arcsec] apparent semi-major axis of half-mass ellipse of gas in the bulge
+   real*4      :: zgas_disk                  ! metallicity of the gas in the disk
+   real*4      :: zgas_bulge                 ! metallicity of the gas in the disk
    real*4      :: hiline_flux_int            ! [W/m^2] integrated HI line flux
    real*4      :: hiline_flux_int_vel        ! [Jy km/s] velocity-integrated HI line flux
+   
+   ! properties only computed if option "luminosities"
+   real*4      :: lum_agn_hx                 ! [1e40 erg/s] hard x-ray luminosity of the AGN
+   real*4      :: coline_flux_int(nco)       ! [W/m^2] integrated line fluxes of CO(1-0), C(2-1), ... transition
+   real*4      :: coline_flux_int_vel(nco)   ! [Jy km/s] velocity-integrated line fluxes of CO(1-0), C(2-1), ... transition
+   
+   ! properties only computed if option "line_shapes" is selected
    type(type_line_shape) :: hiline_shape     ! shape-parameters of HI emission line (see module module_emission_lines)
-      
-   ! CO lines
-   real*4      :: coline_flux_int(10)        ! [W/m^2] integrated line fluxes of CO(1-0), C(2-1), ..., C(10-9) transition
-   real*4      :: coline_flux_int_vel(10)    ! [Jy km/s] velocity-integrated line fluxes of CO(1-0), C(2-1), ..., C(10-9) transition
-   type(type_line_shape) :: coline_shape     ! shape-parameters of CO emission lines (see module module_emission_lines)
-
+   type(type_line_shape) :: h2line_shape     ! shape-parameters of molecular emission lines (see module module_emission_lines)
+   
    contains
    
    procedure   :: make_from_sam  => make_sky_galaxy   ! required subroutine
@@ -198,7 +206,7 @@ type,extends(type_sky) :: type_sky_group ! must exist
    integer*4   :: group_nsel           ! number of selected galaxies in group
    integer*4   :: group_flag           ! 0=group complete, >0 group truncated
    real*4      :: sigma_los_detected   ! [km/s] line-of-sight velocity dispersion of selected galaxies
-   real*4      :: sigma_3D_all         ! [km/s] 3D velocity dispersion of all galaxies in group
+   real*4      :: sigma_3D_all         ! [km/s] intrinsic 3D velocity dispersion of all galaxies in group (VR output)
    
    contains
    
@@ -281,24 +289,29 @@ end subroutine make_sky_object
 
 subroutine make_sky_galaxy(sky_galaxy,sam,base,groupid,galaxyid)
 
+   ! interface, do not edit
    implicit none
    class(type_sky_galaxy),intent(out)  :: sky_galaxy
    type(type_sam),intent(in)           :: sam
    type(type_base),intent(in)          :: base                 ! basic properties of the position of this galaxy in the sky
    integer*8,intent(in)                :: groupid              ! unique group in sky index
    integer*8,intent(in)                :: galaxyid             ! (only for galaxy types) unique galaxy in sky index
+   ! end interface
    
    real*4                              :: pos(3)               ! [simulation length units] position vector of galaxy
    real*4                              :: dl                   ! [simulation length units] luminosity distance to observer
    real*4                              :: elos(3)              ! unit vector pointing from the observer to the object in comoving space
-   real*4                              :: mstars,mHI,mH2,LCO
+   real*4                              :: mstars               ! [Msun] total stellar mass
+   real*4                              :: mHI                  ! [Msun/h] total HI mass
+   real*4                              :: LCO                  ! [Jy km/s Mpc^2] total velocity-integrated flux of CO lines
+   real*4                              :: wavelength           ! [m]
+   integer*4                           :: j
    
-   real*4,parameter        :: L2MHI = 6.27e-9 ! (LHI/Lsun)/(MHI/Msun)
-   real*4,parameter        :: sigma_gas = 10.0 ! [km/s] standard velocity dispersion of cold gas
-   real*4,parameter        :: X_CO = 2.12 ! [1e20/(K km/s cm^2)] H2-CO(1-0) conversion factor of the MW (alpha=3.4)
+   real*4,parameter                    :: L2MHI = 6.27e-9      ! (LHI/Lsun)/(MHI/Msun)
+   real*4,parameter                    :: sigma_gas = 10.0     ! [km/s] standard velocity dispersion of cold gas
+   real*4,parameter                    :: fCO = 115.2712018    ! [GHz] rest-frame frequency of CO(1-0) transition
    
-   
-   call nil(sky_galaxy,sam,base,groupid,galaxyid) ! dummy statement to avoid compiler warnings
+   call nil(sky_galaxy,sam,base,groupid,galaxyid) ! dummy statement to avoid compiler warnings, do not edit
    
    ! basics
    call make_sky_object(sky_galaxy,sam,base,groupid)
@@ -306,44 +319,43 @@ subroutine make_sky_galaxy(sky_galaxy,sam,base,groupid,galaxyid)
    
    ! INTRINSIC PROPERTIES
    
-   ! make IDs
+   ! header properties
    sky_galaxy%id_galaxy_sam   = sam%id_galaxy   ! copy other properties
    sky_galaxy%id_galaxy_sky   = galaxyid        ! unique galaxy id
-      
-   ! basic properties
    sky_galaxy%typ             = sam%typ
    
-   ! intrinsic halo properties
+   ! properties of 1st generation halo (host halo)
    sky_galaxy%mvir_hosthalo   = sam%mvir_hosthalo
-   sky_galaxy%mvir_subhalo    = sam%mvir_subhalo
    sky_galaxy%vvir_hosthalo   = sam%vvir_hosthalo
+   
+   ! properties of subhalo associated with the particular galaxy
+   sky_galaxy%mvir_subhalo    = sam%mvir_subhalo
+   sky_galaxy%cnfw_subhalo    = sam%cnfw_subhalo
    sky_galaxy%vvir_subhalo    = sam%vvir_subhalo
    sky_galaxy%vmax_subhalo    = sam%vmax_subhalo
-   sky_galaxy%cnfw_subhalo    = sam%cnfw_subhalo
    
-   ! intrinsic masses
-   sky_galaxy%mstars_disk     = sam%mstars_disk
-   sky_galaxy%mstars_bulge    = sam%mstars_bulge
-   sky_galaxy%mgas_disk       = sam%mgas_disk   
-   sky_galaxy%mgas_bulge      = sam%mgas_bulge  
-   sky_galaxy%matom_disk      = sam%matom_disk  
-   sky_galaxy%matom_bulge     = sam%matom_bulge 
-   sky_galaxy%mmol_disk       = sam%mmol_disk   
-   sky_galaxy%mmol_bulge      = sam%mmol_bulge  
-   sky_galaxy%sfr_disk        = sam%sfr_disk
-   sky_galaxy%sfr_burst       = sam%sfr_burst
-
    ! intrinsic angular momentum
    sky_galaxy%J      = convert_vector(sam%J,tileindex=base%tile,ispseudovector=.true.)
    sky_galaxy%jbulge = sam%jbulge
    sky_galaxy%jdisk  = sam%jdisk
-
-   ! intrinsic radii
-   sky_galaxy%rstar_disk_intrinsic = sam%rstar_disk ! [cMpc/h]
+   sky_galaxy%sfr_disk = sam%sfr_disk
+   sky_galaxy%sfr_burst = sam%sfr_burst
+   
+   ! stellar properties
+   sky_galaxy%mstars_disk     = sam%mstars_disk
+   sky_galaxy%mstars_bulge    = sam%mstars_bulge
+   sky_galaxy%rstar_disk_intrinsic = sam%rstar_disk   ! [cMpc/h]
    sky_galaxy%rstar_bulge_intrinsic = sam%rstar_bulge ! [cMpc/h]
-   sky_galaxy%rgas_disk_intrinsic = sam%rgas_disk ! [cMpc/h]
-   sky_galaxy%rgas_bulge_intrinsic = sam%rgas_bulge ! [cMpc/h]
- 
+   
+   ! gas properties
+   sky_galaxy%mgas_disk       = sam%mgas_disk
+   sky_galaxy%mgas_bulge      = sam%mgas_bulge
+   sky_galaxy%matom_disk      = sam%matom_disk
+   sky_galaxy%matom_bulge     = sam%matom_bulge
+   sky_galaxy%mmol_disk       = sam%mmol_disk
+   sky_galaxy%mmol_bulge      = sam%mmol_bulge
+   sky_galaxy%rgas_disk_intrinsic = sam%rgas_disk     ! [cMpc/h]
+   sky_galaxy%rgas_bulge_intrinsic = sam%rgas_bulge   ! [cMpc/h]
    if(sam%mgas_disk > 0) then 
       sky_galaxy%zgas_disk   = sam%mgas_metals_disk / sam%mgas_disk
    else 
@@ -354,7 +366,6 @@ subroutine make_sky_galaxy(sky_galaxy,sam,base,groupid,galaxyid)
    else 
       sky_galaxy%zgas_bulge  = 0
    end if
-   
 
    sky_galaxy%mbh = sam%mbh
    sky_galaxy%mbh_acc_sb = sam%mbh_acc_sb
@@ -374,32 +385,48 @@ subroutine make_sky_galaxy(sky_galaxy,sam,base,groupid,galaxyid)
    sky_galaxy%rgas_bulge_apparent = sam%rgas_bulge/sky_galaxy%dc/unit%arcsec ! [arcsec]
    
    ! rough generic optical magnitude
-   dl = sky_galaxy%dc*(1+sky_galaxy%zobs) ! [Mpc/h]
+   dl = sky_galaxy%dc*(1+sky_galaxy%zobs)/para%h ! [Mpc]
    mstars = (sam%mstars_disk+sam%mstars_bulge)/para%h ! [Msun]
-   sky_galaxy%mag = convert_absmag2appmag(convert_stellarmass2absmag(mstars,1.0),dl/para%h)
+   sky_galaxy%mag = convert_absmag2appmag(convert_stellarmass2absmag(mstars,1.0),dl)
       
-   ! cold gas emission lines
+   ! integrated 21cm flux
    mHI = (sam%matom_disk+sam%matom_bulge)/1.35 ! [Msun/h] HI mass  
-   mH2 = ((sam%mgas_disk+sam%mgas_bulge)-(sam%matom_disk+sam%matom_bulge))/1.35 ! [Msun/h] H2 mass
-   sky_galaxy%hiline_flux_int = real(convert_luminosity2flux(real(mHI/para%h,8)*real(L2MHI,8)*unit%Lsun,dl/para%h),4) ! [W/m^2]
+   sky_galaxy%hiline_flux_int = real(convert_luminosity2flux(real(mHI/para%h,8)*real(L2MHI,8)*unit%Lsun,dl),4) ! [W/m^2]
    sky_galaxy%hiline_flux_int_vel = convert_intflux2velintflux(sky_galaxy%hiline_flux_int,0.21106114,sky_galaxy%zobs)
-   LCO = mH2/para%h/(313*X_CO) ! [Jy km/s Mpc^2] CO(1-0) luminosity (note this equation has a J^2 dependence)
-   sky_galaxy%coline_flux_int = LCO/(4.0*pi*(dl/para%h)**2)/0.00260075761e23 ! [W/m^2] integrated flux
-   sky_galaxy%coline_flux_int_vel = convert_intflux2velintflux(sky_galaxy%hiline_flux_int,0.00260075761,sky_galaxy%zobs)
-   if (para%line_parameters==1) call make_line_profiles
+   
+   ! option "luminosities"
+   if (keyword('luminosities')) then
+   
+      ! x-rays
+      sky_galaxy%lum_agn_hx = sam%lum_agn_hx
+   
+      ! integrated fluxes of rotational CO transitions
+      do j = 1,nco
+         LCO = sam%lco_disk(j)+sam%lco_bulge(j) ! [Jy km/s Mpc^2] velocity-integrated luminosity of CO(j-[j-1]) transition
+         wavelength = const%c/(fCO*1e9)/j ! [m] rest-frame wavelength of CO(j-[j-1]) transition
+         sky_galaxy%coline_flux_int(j) = LCO/(4.0*pi*dl**2)*1e-23*wavelength ! [W/m^2] observed integrated flux
+         sky_galaxy%coline_flux_int_vel(j) = convert_intflux2velintflux(sky_galaxy%coline_flux_int(j),wavelength,sky_galaxy%zobs)
+      end do
+   end if
+   
+   ! option "line_shapes"
+   if (keyword('line_shapes')) then
+      ! shape parameters of atomic and molecular emission lines
+      call make_line_profiles 
+   end if
    
 contains
    
    subroutine make_line_profiles
    
       implicit none
-      type(type_line_input)               :: line_input
-      type(type_line_shape)               :: line_shape(2)
-      real*4                              :: a,c_halo,cMpch2pkpc,rvir
-      real,parameter                      :: G = 4.30241e-6     ! [(km/s)^2 kpc/Msun] gravitational constant
+      type(type_line_input)   :: line_input
+      type(type_line_shape)   :: line_shape(2)
+      real*4                  :: a,c_halo,cMpch2pkpc,rvir
+      real,parameter          :: G = 4.30241e-6     ! [(km/s)^2 kpc/Msun] gravitational constant
       
       ! scale factor for comoving-physical conversion
-      a = 1.0/(1.0+snapshot(sam%snapshot)%redshift) ! scale factor at redshift os snapshot
+      a = 1.0/(1.0+snapshot(sam%snapshot)%redshift) ! scale factor at redshift of snapshot
       cMpch2pkpc = 1e3*a/para%h
    
       ! halo
@@ -437,17 +464,16 @@ contains
       line_input%mhalo      = max(0.0,line_input%mhalo-line_input%mdisk-line_input%mbulg) 
    
       ! gas
-      line_input%mHI        = mHI ! [Msun/h] HI mass
-      line_input%mH2        = mH2 ! [Msun/h] H2 mass
-      line_input%rgas       = (sam%mgas_disk*sam%rgas_disk+sam%mgas_bulge*sam%rgas_bulge)/(sam%mgas_disk+sam%mgas_bulge)*cMpch2pkpc ! [pkpc] half-mass radius of cold gas (CHECK)
-      !line_input%rgas       = sam%rgas_disk*cMpch2pkpc
-      
-      ! other properties
+      line_input%mHI  = mHI ! [Msun/h] HI mass
+      line_input%mH2  = ((sam%mgas_disk+sam%mgas_bulge)-(sam%matom_disk+sam%matom_bulge))/1.35 ! [Msun/h] H2 mass !
+      line_input%rgas = (sam%mgas_disk*sam%rgas_disk+sam%mgas_bulge*sam%rgas_bulge)/(sam%mgas_disk+sam%mgas_bulge)*cMpch2pkpc ! [pkpc] half-mass radius of cold gas (CHECK)
       line_input%dispersionHI = sigma_gas ! [km/s] velocity dispersion of HI
       line_input%dispersionH2 = sigma_gas ! [km/s] velocity dispersion of H2
-      line_input%z          = sky_galaxy%zobs    ! [-] redshift
-      line_input%incl       = sky_galaxy%inclination    ! [rad] inclination (0 = face-on, pi/2 = edge-on)
-      line_input%Dc         = sky_galaxy%dc     ! [Mpc/h] comoving distance
+      
+      ! other properties
+      line_input%z      = sky_galaxy%zobs    ! [-] redshift
+      line_input%incl   = sky_galaxy%inclination    ! [rad] inclination (0 = face-on, pi/2 = edge-on)
+      line_input%Dc     = sky_galaxy%dc     ! [Mpc/h] comoving distance
 
       ! make line profile
       if ((line_input%mHI>0.0).or.(line_input%mH2>0.0)) call make_emission_line(line_input,line_shape)
@@ -459,9 +485,9 @@ contains
          sky_galaxy%hiline_shape = empty_line_shape
       end if
       if (line_input%mH2>0.0) then
-         sky_galaxy%coline_shape = line_shape(2)
+         sky_galaxy%h2line_shape = line_shape(2)
       else
-         sky_galaxy%coline_shape = empty_line_shape
+         sky_galaxy%h2line_shape = empty_line_shape
       end if
          
    end subroutine make_line_profiles
@@ -596,6 +622,7 @@ subroutine make_automatic_parameters
    end do
    para%subvolume_max = isubvolume-1
    
+   ! other parameters
    filename = filename_sam(para%snapshot_min,0,1)
    call out('File of automatic parameters: '//trim(filename))
    call hdf5_open(filename)
@@ -639,24 +666,26 @@ subroutine load_sam_snapshot(isnapshot,isubvolume,sam)
    integer*4,intent(in)                            :: isnapshot         ! snapshot index
    integer*4,intent(in)                            :: isubvolume        ! subvolume index
    type(type_sam),allocatable,intent(out)          :: sam(:)            ! class of SAM properties
-   integer*8                                       :: n                 ! number of galaxies
+   integer*4                                       :: n                 ! number of galaxies
    character(*),parameter                          :: g = '/galaxies/'  ! group name
-   !integer*8,allocatable                           :: id_check(:)
+   integer*4                                       :: i,j,k,nopt
+   type(type_sam),allocatable                      :: tmp(:)
+   real*4,allocatable                              :: array4(:,:)
    
    ! read main galaxy properties
    
    ! open file
-   call hdf5_open(filename_sam(isnapshot,isubvolume,1)) ! NB: this routine also checks if the file exists
+   call hdf5_open(filename_sam(isnapshot,isubvolume,1))
    
    ! determine number of galaxies in this (sub)snapshot
-   n = hdf5_dataset_size(g//'id_galaxy')
-
+   call hdf5_get_dataset_size(g//'id_galaxy',n_elements=n)
+   
    ! allocate array
    if (allocated(sam)) deallocate(sam)
    allocate(sam(n))
    
    ! read file
-   call hdf5_read_data(g//'id_galaxy',sam%id_galaxy,convert=.true.)
+   call hdf5_read_data(g//'id_galaxy',sam%id_galaxy)
    call hdf5_read_data(g//'id_halo',sam%id_halo)
    call hdf5_read_data(g//'type',sam%typ)
    call hdf5_read_data(g//'position_x',sam%position(1))
@@ -695,22 +724,66 @@ subroutine load_sam_snapshot(isnapshot,isubvolume,sam)
    call hdf5_read_data(g//'vvir_subhalo',sam%vvir_subhalo)
    call hdf5_read_data(g//'vmax_subhalo',sam%vmax_subhalo)
    call hdf5_read_data(g//'vvir_hosthalo',sam%vvir_hosthalo)
+   call hdf5_read_data(g//'m_bh',sam%mbh)
+   call hdf5_read_data(g//'bh_accretion_rate_hh',sam%mbh_acc_hh)
+   call hdf5_read_data(g//'bh_accretion_rate_sb',sam%mbh_acc_sb)
+   call hdf5_read_data(g//'specific_angular_momentum_disk_star',sam%jdisk)
+   call hdf5_read_data(g//'specific_angular_momentum_bulge_star',sam%jbulge)
+   call hdf5_read_data(g//'sfr_disk',sam%sfr_disk)
+   call hdf5_read_data(g//'sfr_burst',sam%sfr_burst)
+   call hdf5_read_data(g//'mgas_metals_disk',sam%mgas_metals_disk)
+   call hdf5_read_data(g//'mgas_metals_bulge',sam%mgas_metals_bulge)
    
    ! close file
    call hdf5_close()
    
-   !! open file
-   !call hdf5_open(filename_sam(isnapshot,isubvolume,2)) ! NB: this routine also checks if the file exists
-   !
-   !! check number of galaxies
-   !if (hdf5_dataset_size(g//'id_galaxy').ne.n) call error('wrong number of galaxies in CO file')
-   !
-   !! read file
-   !call hdf5_read_data(g//'LCO_bulge',sam%lco_bulge)
-   !call hdf5_read_data(g//'LCO_disk',sam%lco_disk)
-   !
-   !! close file
-   !call hdf5_close()
+   
+   ! read optional galaxy properties
+   
+   ! default values
+   do k = 1,nco
+      sam%lco_bulge(k)  = 0
+      sam%lco_disk(k)   = 0
+   end do
+   sam%lum_agn_hx = 0
+   
+   if (keyword('luminosities')) then
+   
+      ! open file
+      call hdf5_open(filename_sam(isnapshot,isubvolume,2)) ! NB: this routine also checks if the file exists
+   
+      ! check number of galaxies
+      call hdf5_get_dataset_size(g//'id_galaxy',n_elements=nopt)
+      if (nopt>n) call error('more galaxies in luminosity file than in main galaxy file')
+      
+      ! read galaxy data
+      allocate(tmp(nopt))
+      allocate(array4(nco,nopt))
+      call hdf5_read_data(g//'id_galaxy',tmp%id_galaxy,convert=.true.)
+      call hdf5_read_data(g//'LCO_bulge',array4,convert=.true.)
+      do k = 1,nco; tmp%lco_bulge(k) = array4(k,:); end do
+      call hdf5_read_data(g//'LCO_disk',array4,convert=.true.)
+      do k = 1,nco; tmp%lco_disk(k) = array4(k,:); end do
+      call hdf5_read_data(g//'Lum_AGN_HardXray',tmp%lum_agn_hx,convert=.true.)
+   
+      ! close file
+      call hdf5_close()
+
+      ! match IDs and write tmp => sam
+      j = 1
+      do i = 1,nopt
+         do while (sam(j)%id_galaxy.ne.tmp(i)%id_galaxy)
+            j = j+1
+            if (j>n) call error('galaxy IDs of luminosity data cannot be matched to main galaxy file')
+         end do
+         do k = 1,nco
+            sam(j)%lco_bulge(k)  = tmp(i)%lco_bulge(k)
+            sam(j)%lco_disk(k)   = tmp(i)%lco_disk(k)
+         end do
+         sam(j)%lum_agn_hx = tmp(i)%lum_agn_hx
+      end do
+      
+   end if
    
    ! assign other properties
    sam%snapshot = isnapshot
@@ -736,7 +809,7 @@ subroutine make_hdf5(filename_hdf5,sky_galaxy,sky_group,total_stats,subvolume_st
    allocate(character(1)::name) ! empty allocation to avoid compiler flags
    
    ! load auxilary data from shark output
-   call hdf5_open(filename_sam(para%snapshot_min,0,1))
+   call hdf5_open(filename_sam(para%snapshot_max,0,1))
    call hdf5_read_data('/run_info/shark_version',shark_version)
    call hdf5_read_data('/run_info/shark_git_revision',shark_git_revision)
    call hdf5_read_data('/run_info/timestamp',shark_timestamp)
@@ -791,8 +864,8 @@ subroutine make_hdf5(filename_hdf5,sky_galaxy,sky_group,total_stats,subvolume_st
    & '[deg] typical angle in which overlaps between survey volume and tiling grid are searched')
    call hdf5_write_data(name//'/volume_search_level',para%volume_search_level, &
    & 'specifies the number of search points (2^#)^3 inside each tile')
-   call hdf5_write_data(name//'/line_parameters',para%line_parameters, &
-   & 'logical flag specifying if global emission line parameters are saved (0=false, 1=true)')
+   call hdf5_write_data(name//'/options',para%options, &
+   & 'string of optional keywords specifying what properties are generated')
    call hdf5_write_data(name//'/keep_binaries',para%keep_binaries, &
    & 'logical flag specifying if binary output files are kept in additino to this HDF5 (0=false, 1=true)')
    call hdf5_write_data(name//'/keep_log',para%keep_binaries, &
@@ -825,39 +898,36 @@ subroutine make_hdf5(filename_hdf5,sky_galaxy,sky_group,total_stats,subvolume_st
    call hdf5_write_data(name//'/pa',sky_galaxy%pa/unit%degree,'[deg] position angle from north to east')
    call hdf5_write_data(name//'/mag',sky_galaxy%mag, &
    & 'apparent magnitude (generic: M/L ratio of 1, no k-correction)')
-   call hdf5_write_data(trim(name)//'/vpec_x',sky_galaxy%vpec(1),'[proper km/s] x-component of peculiar velocity')
-   call hdf5_write_data(trim(name)//'/vpec_y',sky_galaxy%vpec(2),'[proper km/s] y-component of peculiar velocity')
-   call hdf5_write_data(trim(name)//'/vpec_z',sky_galaxy%vpec(3),'[proper km/s] z-component of peculiar velocity')
-   call hdf5_write_data(trim(name)//'/vpec_r',sky_galaxy%vpecrad,'[proper km/s] line-of-sight peculiar velocity')
-   call hdf5_write_data(trim(name)//'/mstars_disk',sky_galaxy%mstars_disk,'[Msun/h] stellar mass in the disk')
-   call hdf5_write_data(trim(name)//'/mstars_bulge',sky_galaxy%mstars_bulge,'[Msun/h] stellar mass in the bulge')
-   call hdf5_write_data(trim(name)//'/mgas_disk',sky_galaxy%mgas_disk,'[Msun/h] gas mass in the disk')
-   call hdf5_write_data(trim(name)//'/mgas_bulge',sky_galaxy%mgas_bulge,'[Msun/h] gas mass in the bulge')
-   call hdf5_write_data(trim(name)//'/matom_disk',sky_galaxy%matom_disk,'[Msun/h] atomic gas mass in the disk')
-   call hdf5_write_data(trim(name)//'/matom_bulge',sky_galaxy%matom_bulge,'[Msun/h] atomic mass in the bulge')
-   call hdf5_write_data(trim(name)//'/mmol_disk',sky_galaxy%mmol_disk,'[Msun/h] molecular gas mass in the disk')
-   call hdf5_write_data(trim(name)//'/mmol_bulge',sky_galaxy%mmol_bulge,'[Msun/h] molecular gas mass in the bulge')
-   call hdf5_write_data(trim(name)//'/l_x',sky_galaxy%J(1),'[Msun pMpc km/s] x-component of total angular momentum')
-   call hdf5_write_data(trim(name)//'/l_y',sky_galaxy%J(2),'[Msun pMpc km/s] y-component of total angular momentum')
-   call hdf5_write_data(trim(name)//'/l_z',sky_galaxy%J(3),'[Msun pMpc km/s] z-component of total angular momentum')
-   call hdf5_write_data(trim(name)//'/jdisk',sky_galaxy%jdisk, '[km/s * cMpc/h] specific angular momentum of the disk')
-   call hdf5_write_data(trim(name)//'/jbulge',sky_galaxy%jbulge, '[km/s * cMpc/h] specific angular momentum of the bulge')
-   call hdf5_write_data(trim(name)//'/mvir_hosthalo',sky_galaxy%mvir_hosthalo,'[Msun/h] host halo mass')
-   call hdf5_write_data(trim(name)//'/mvir_subhalo',sky_galaxy%mvir_subhalo,'[Msun/h] subhalo mass')
-   call hdf5_write_data(trim(name)//'/zgas_disk',sky_galaxy%zgas_disk,'metallicity of the gas in the disk')
-   call hdf5_write_data(trim(name)//'/zgas_bulge',sky_galaxy%zgas_bulge,'metallicity of the gas in the bulge')
-   call hdf5_write_data(trim(name)//'/sfr_disk',sky_galaxy%sfr_disk,'star formation rate in the disk [Msun/Gyr/h]')
-   call hdf5_write_data(trim(name)//'/sfr_burst',sky_galaxy%sfr_burst,'star formation rate in the bulge [Msun/Gyr/h]')
-
-   call hdf5_write_data(trim(name)//'/mbh',sky_galaxy%mbh,'[Msun/h] black hole mass')
-   call hdf5_write_data(trim(name)//'/mbh_acc_hh',sky_galaxy%mbh_acc_hh,'[Msun/Gyr/h] black hole accretion rate in the hot halo mode')
-   call hdf5_write_data(trim(name)//'/mbh_acc_sb',sky_galaxy%mbh_acc_sb,'[Msun/Gyr/h] black hole accretion rate in the starburst mode')
-
+   call hdf5_write_data(name//'/vpec_x',sky_galaxy%vpec(1),'[proper km/s] x-component of peculiar velocity')
+   call hdf5_write_data(name//'/vpec_y',sky_galaxy%vpec(2),'[proper km/s] y-component of peculiar velocity')
+   call hdf5_write_data(name//'/vpec_z',sky_galaxy%vpec(3),'[proper km/s] z-component of peculiar velocity')
+   call hdf5_write_data(name//'/vpec_r',sky_galaxy%vpecrad,'[proper km/s] line-of-sight peculiar velocity')
+   call hdf5_write_data(name//'/mstars_disk',sky_galaxy%mstars_disk,'[Msun/h] stellar mass in the disk')
+   call hdf5_write_data(name//'/mstars_bulge',sky_galaxy%mstars_bulge,'[Msun/h] stellar mass in the bulge')
+   call hdf5_write_data(name//'/mgas_disk',sky_galaxy%mgas_disk,'[Msun/h] gas mass in the disk')
+   call hdf5_write_data(name//'/mgas_bulge',sky_galaxy%mgas_bulge,'[Msun/h] gas mass in the bulge')
+   call hdf5_write_data(name//'/matom_disk',sky_galaxy%matom_disk,'[Msun/h] atomic gas mass in the disk')
+   call hdf5_write_data(name//'/matom_bulge',sky_galaxy%matom_bulge,'[Msun/h] atomic mass in the bulge')
+   call hdf5_write_data(name//'/mmol_disk',sky_galaxy%mmol_disk,'[Msun/h] molecular gas mass in the disk')
+   call hdf5_write_data(name//'/mmol_bulge',sky_galaxy%mmol_bulge,'[Msun/h] molecular gas mass in the bulge')
+   call hdf5_write_data(name//'/l_x',sky_galaxy%J(1),'[Msun pMpc km/s] x-component of total angular momentum')
+   call hdf5_write_data(name//'/l_y',sky_galaxy%J(2),'[Msun pMpc km/s] y-component of total angular momentum')
+   call hdf5_write_data(name//'/l_z',sky_galaxy%J(3),'[Msun pMpc km/s] z-component of total angular momentum')
+   call hdf5_write_data(name//'/jdisk',sky_galaxy%jdisk, '[cMpc/h km/s] specific angular momentum of the disk')
+   call hdf5_write_data(name//'/jbulge',sky_galaxy%jbulge, '[cMpc/h km/s] specific angular momentum of the bulge')
+   call hdf5_write_data(name//'/mvir_hosthalo',sky_galaxy%mvir_hosthalo,'[Msun/h] host halo mass')
+   call hdf5_write_data(name//'/mvir_subhalo',sky_galaxy%mvir_subhalo,'[Msun/h] subhalo mass')
+   call hdf5_write_data(name//'/zgas_disk',sky_galaxy%zgas_disk,'metallicity of the gas in the disk')
+   call hdf5_write_data(name//'/zgas_bulge',sky_galaxy%zgas_bulge,'metallicity of the gas in the bulge')
+   call hdf5_write_data(name//'/sfr_disk',sky_galaxy%sfr_disk,'[Msun/h/Gyr] star formation rate in the disk')
+   call hdf5_write_data(name//'/sfr_burst',sky_galaxy%sfr_burst,'[Msun/h/Gyr] star formation rate in the bulge')
+   call hdf5_write_data(name//'/mbh',sky_galaxy%mbh,'[Msun/h] black hole mass')
+   call hdf5_write_data(name//'/mbh_acc_hh',sky_galaxy%mbh_acc_hh,'[Msun/h/Gyr] black hole accretion rate in the hot halo mode')
+   call hdf5_write_data(name//'/mbh_acc_sb',sky_galaxy%mbh_acc_sb,'[Msun/h/Gyr] black hole accretion rate in the starburst mode')
    call hdf5_write_data(trim(name)//'/vvir_hosthalo',sky_galaxy%vvir_hosthalo,'[km/s] host halo virial velocity')
-   call hdf5_write_data(trim(name)//'/vvir_subhalo',sky_galaxy%vvir_subhalo,'[Msun/h] subhalo virial velocity')
-   call hdf5_write_data(trim(name)//'/cnfw_subhalo',sky_galaxy%cnfw_subhalo,'narro-frenk-white concentration of subhalo')
-
-   call hdf5_write_data(trim(name)//'/rstar_disk_apparent',sky_galaxy%rstar_disk_apparent,&
+   call hdf5_write_data(trim(name)//'/vvir_subhalo',sky_galaxy%vvir_subhalo,'[km/s] subhalo virial velocity')
+   call hdf5_write_data(trim(name)//'/cnfw_subhalo',sky_galaxy%cnfw_subhalo,'NFW concentration parameter of subhalo')
+   call hdf5_write_data(name//'/rstar_disk_apparent',sky_galaxy%rstar_disk_apparent,&
    &'[arcsec] apparent semi-major axis of half-mass ellipse of stellar disk')
    call hdf5_write_data(name//'/rstar_bulge_apparent',sky_galaxy%rstar_bulge_apparent,&
    &'[arcsec] apparent semi-major axis of half-mass ellipse of stellar bulge')
@@ -876,14 +946,20 @@ subroutine make_hdf5(filename_hdf5,sky_galaxy,sky_group,total_stats,subvolume_st
    call hdf5_write_data(name//'/hiline_flux_int',sky_galaxy%hiline_flux_int,'[W/m^2] integrated HI line flux')
    call hdf5_write_data(name//'/hiline_flux_int_vel',sky_galaxy%hiline_flux_int_vel, &
    & '[Jy km/s] velocity-integrated HI line flux')
-   do j = 1,10 ! CO transition
-      call hdf5_write_data(name//'/coline_flux_int_'//val2str(j),sky_galaxy%coline_flux_int(j),&
-      &'[W/m^2] integrated CO('//val2str(j)//'-'//val2str(j-1)//') line flux')
-      call hdf5_write_data(name//'/coline_flux_int_vel_'//val2str(j),sky_galaxy%coline_flux_int_vel(j),&
-      &'[Jy km/s] velocity-integrated CO('//val2str(j)//'-'//val2str(j-1)//') line flux')
-   end do
    
-   if (para%line_parameters==1) then
+   if (keyword('luminosities')) then
+   
+      call hdf5_write_data(name//'/lum_agn_hx',sky_galaxy%lum_agn_hx,'[1e40 erg/s] hard x-ray luminosity of the AGN')
+      do j = 1,nco ! CO transition
+         call hdf5_write_data(name//'/coline_flux_int_'//val2str(j),sky_galaxy%coline_flux_int(j),&
+         &'[W/m^2] integrated CO('//val2str(j)//'-'//val2str(j-1)//') line flux')
+         call hdf5_write_data(name//'/coline_flux_int_vel_'//val2str(j),sky_galaxy%coline_flux_int_vel(j),&
+         &'[Jy km/s] velocity-integrated CO('//val2str(j)//'-'//val2str(j-1)//') line flux')
+      end do
+      
+   end if
+   
+   if (keyword('line_shapes')) then
    
       call hdf5_write_data(name//'/hiline_flux_peak',sky_galaxy%hiline_shape%speak, &
       & '[s/km] normalised peak HI line flux density of inclined galaxy (multiply by hiline_flux_int_vel to get Jy values)')
@@ -907,27 +983,27 @@ subroutine make_hdf5(filename_hdf5,sky_galaxy,sky_group,total_stats,subvolume_st
       call hdf5_write_data(name//'/hiline_width_20_eo',sky_galaxy%hiline_shape%w20_eo, &
       & '[km/s] HI line-width at 20% of the peak flux of edge-on galaxy in rest-frame velocity units')
       
-      call hdf5_write_data(name//'/coline_flux_peak',sky_galaxy%coline_shape%speak, &
-      & '[s/km] normalised peak CO line flux density of inclined galaxy (multiply by coline_flux_int_vel to get Jy values)')
-      call hdf5_write_data(name//'/coline_flux_central',sky_galaxy%coline_shape%scentral, &
-      & '[s/km] normalised central CO line flux density of inclined galaxy (multiply by coline_flux_int_vel to get Jy values)')
-      call hdf5_write_data(name//'/coline_width_peak',sky_galaxy%coline_shape%wpeak, &
-      & '[km/s] CO line-width between flux peaks of inclined galaxy in rest-frame velocity units')
-      call hdf5_write_data(name//'/coline_width_50',sky_galaxy%coline_shape%w50, &
-      & '[km/s] CO line-width at 50% of the peak flux of inclined galaxy in rest-frame velocity units')
-      call hdf5_write_data(name//'/coline_width_20',sky_galaxy%coline_shape%w20, &
-      & '[km/s] CO line-width at 20% of the peak flux of inclined galaxy in rest-frame velocity units')
+      call hdf5_write_data(name//'/h2line_flux_peak',sky_galaxy%h2line_shape%speak, &
+      & '[s/km] normalised peak molecular line flux density of inclined galaxy (multiply by velocity-integrated flux to get Jy)')
+      call hdf5_write_data(name//'/h2line_flux_central',sky_galaxy%h2line_shape%scentral, &
+      & '[s/km] normalised central molecular line flux density of inclined galaxy (multiply by velocity-integrated flux to get Jy)')
+      call hdf5_write_data(name//'/h2line_width_peak',sky_galaxy%h2line_shape%wpeak, &
+      & '[km/s] molecular line-width between flux peaks of inclined galaxy in rest-frame velocity units')
+      call hdf5_write_data(name//'/h2line_width_50',sky_galaxy%h2line_shape%w50, &
+      & '[km/s] molecular line-width at 50% of the peak flux of inclined galaxy in rest-frame velocity units')
+      call hdf5_write_data(name//'/h2line_width_20',sky_galaxy%h2line_shape%w20, &
+      & '[km/s] molecular line-width at 20% of the peak flux of inclined galaxy in rest-frame velocity units')
       
-      call hdf5_write_data(name//'/coline_flux_peak_eo',sky_galaxy%coline_shape%speak_eo, &
-      & '[s/km] normalised peak CO line flux density of edge-on galaxy (multiply by coline_flux_int_vel to get Jy values)')
-      call hdf5_write_data(name//'/coline_flux_central_eo',sky_galaxy%coline_shape%scentral_eo, &
-      & '[s/km] normalised central CO line flux density of edge-on galaxy (multiply by coline_flux_int_vel to get Jy values)')
-      call hdf5_write_data(name//'/coline_width_peak_eo',sky_galaxy%coline_shape%wpeak_eo, &
-      & '[km/s] CO line-width between flux peaks of edge-on galaxy in rest-frame velocity units')
-      call hdf5_write_data(name//'/coline_width_50_eo',sky_galaxy%coline_shape%w50_eo, &
-      & '[km/s] CO line-width at 50% of the peak flux of edge-on galaxy in rest-frame velocity units')
-      call hdf5_write_data(name//'/coline_width_20_eo',sky_galaxy%coline_shape%w20_eo, &
-      & '[km/s] CO line-width at 20% of the peak flux of edge-on galaxy in rest-frame velocity units')
+      call hdf5_write_data(name//'/h2line_flux_peak_eo',sky_galaxy%h2line_shape%speak_eo, &
+      & '[s/km] normalised peak molecular line flux density of edge-on galaxy (multiply by velocity-integrated flux to get Jy)')
+      call hdf5_write_data(name//'/h2line_flux_central_eo',sky_galaxy%h2line_shape%scentral_eo, &
+      & '[s/km] normalised central molecular line flux density of edge-on galaxy (multiply by velocity-integrated flux to get Jy)')
+      call hdf5_write_data(name//'/h2line_width_peak_eo',sky_galaxy%h2line_shape%wpeak_eo, &
+      & '[km/s] molecular line-width between flux peaks of edge-on galaxy in rest-frame velocity units')
+      call hdf5_write_data(name//'/h2line_width_50_eo',sky_galaxy%h2line_shape%w50_eo, &
+      & '[km/s] molecular line-width at 50% of the peak flux of edge-on galaxy in rest-frame velocity units')
+      call hdf5_write_data(name//'/h2line_width_20_eo',sky_galaxy%h2line_shape%w20_eo, &
+      & '[km/s] molecular line-width at 20% of the peak flux of edge-on galaxy in rest-frame velocity units')
       
    end if
    

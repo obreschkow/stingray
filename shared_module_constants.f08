@@ -11,6 +11,7 @@ module shared_module_constants
    public   :: unit     ! non-SI units expressed in SI units
    public   :: planck   ! planck units expressed in SI units
    public   :: pi,pi_8
+   public   :: example_constants ! subroutine giving some examples of using this module
    
    type type_const
    
@@ -96,5 +97,15 @@ module shared_module_constants
    type(type_planck),protected   :: planck
    real*4,parameter              :: pi = 3.14159265359
    real*8,parameter              :: pi_8 = 3.1415926535897932384626433
+   
+contains
+
+   subroutine example_constants
+      
+      write(*,*) 'Planck length = ',planck%length
+      write(*,*) 'Speed of light = ',const%c
+      write(*,*) 'Astronomical unit = ',unit%au
+      
+   end subroutine example_constants
 
 end module shared_module_constants

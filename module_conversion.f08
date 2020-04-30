@@ -77,7 +77,7 @@ subroutine make_inclination_and_pa(x,J,inclination,pa)
    real*4                           :: eMajor(3)      ! unit vector pointing along the major axis (orthogonal to LOS)
    real*4                           :: eNorth(3)      ! unit vector pointing north (or south) (orthoconal to LOS)
    real*4                           :: eEast(3)       ! unit vector pointing east (or west) (orthoconal to LOS)
-   real*4                           :: normx,normJ,sumangle
+   real*4                           :: normx,normJ
    real*4                           :: rand(2)
    
    normx = norm(x)
@@ -95,11 +95,8 @@ subroutine make_inclination_and_pa(x,J,inclination,pa)
    
       eLOS = x/normx
       eJ = J/normJ
-      sumangle = sum(eLOS*eJ)
-      if(sumangle > 1) sumangle = 1 
-      if(sumangle < -1) sumangle = -1 
-      inclination = acos(sumangle)
-
+  
+      inclination = acos(min(1.0,max(-1.0,sum(eLOS*eJ))))
       if (inclination>pi/2.0) inclination = pi-inclination
    
       eMajor = cross_product(eLOS,eJ)
@@ -169,10 +166,10 @@ end function convert_luminosity2flux
 function convert_intflux2velintflux(S,lambda,z) result(S_V)
 
    implicit none
-   real*4,intent(in) :: S           ! [W/m^2] Integrated flux density
+   real*4,intent(in) :: S           ! [W/m^2] integrated flux density
    real*4,intent(in) :: lambda      ! [m] rest-frame wave length
    real*4,intent(in) :: z           ! [-] observed redshift
-   real*4            :: S_V         ! [Jy km/s] Velocity-integrated flux density
+   real*4            :: S_V         ! [Jy km/s] velocity-integrated flux density
    
    S_V = 1e23*S*lambda*(1+z)
 

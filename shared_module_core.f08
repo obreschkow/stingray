@@ -474,10 +474,14 @@ subroutine check_file(filename,permission)
    character(*),intent(in)          :: filename ! path of file name
    character(*),intent(in),optional :: permission ! requested permission, e.g, 'r', 'w', 'rw', 'rwx'
    integer*4                        :: status
-   character(4)                     :: kind = 'file'
+   character(4)                     :: kind
    
    ! decide if filename is a file or a path
-   if (last_character(filename)==separator) kind = 'path'
+   if (last_character(filename)==separator) then
+      kind = 'path'
+   else
+      kind = 'file'
+   end if
    
    ! check existence
    if (.not.exists(filename)) call error(kind//' does not exist: '//trim(filename))

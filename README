@@ -1,7 +1,7 @@
 OVERVIEW
 ====================================================================================================================
 
-Stingray is a suite of Fortran routines to produce mock observing cones from semi-analytic models (SAMs).
+Stingray is a Fortran tool to produce mock observing cones from semi-analytic models (SAMs) of galaxy formation.
 
 V0.1  13/03/2018: First release
 V0.6  09/10/2018: Various bug fixes
@@ -21,9 +21,13 @@ v0.16 25/02/2020: Input argument check fixed
 v0.17 01/03/2020: Changed id_galaxy_sky in shark user module to better cope with Viperfish
 v0.20 20/04/2020: Significant restructuring of the code, inclusion of shared modules
 v0.21 21/04/2020: Use of system-independent pseudo-random number generator
-v0.22 22/04/2020: Completely revised layout of module "module_user_selection"; only one function per survey needed
+v0.22 21/04/2020: Completely revised layout of module "module_user_selection"; only one function per survey needed
+v0.23 23/04/2020: Implementation of parameter sets; new parameter "options"; added CO lines to shark module
+v0.24 23/04/2020: Many additional galaxy properties, including all those added to stingray by Claudia Lagos
+v0.25 23/04/2020: All in Fortran 2008 standard
+v0.26 24/04/2020: Default parameterset via "parameterset*"
 
-Copyright Danail Obreschkow (danail.obreschkow@icrar.org)
+Developed by Danail Obreschkow (danail.obreschkow@icrar.org)
 
 
 GETTING STARTED
@@ -78,7 +82,7 @@ GETTING STARTED
 QUICK START ON ICRAR-HYADES
 ====================================================================================================================
 
-# install and compile stingray in your home directory
+# to install and compile stingray in your home directory, copy the following lines into the hyades terminal:
 cd ~
 rm -rf stingray/ # remove previous surfsuite directory
 git clone https://github.com/obreschkow/stingray # install updated version
@@ -87,7 +91,7 @@ module load gfortran/6.3.0 hdf5/1.10.2 # load required modules
 make system=hyades # compile code
 ./stingray version # check version
 
-# run test mock
+# to run a quick test, producing 200 galaxies, execute the following line (still from within the stingray directory)
 ./stingray
 
 
@@ -100,6 +104,12 @@ Generally, Stingray is called as
 Optional arguments:
 
 -parameterfile (default parameters.txt): path+filename of parameter-file
+
+-parameterset: if this option is specified, e.g. "-parameterset abc", the parameters listed in this parameterset, e.g. between
+ the lines "parameterset abc" and "end" overwrite the default parameters specified outside the parameterset. The user can mark at
+ most one parameterset in the parameterfile as the default parameterset using an asterix: "parameterset* abc". This parameterset
+ is taken as the default, if the option "-parameterset" is not provided. If no parameterset is marked as default and if no
+ parameterset is selected via "-parameterset", all parameters in parametersets are ignored.
 
 -logfile (default none) optional filename of an ascii-file for the screen output
 

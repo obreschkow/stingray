@@ -39,6 +39,7 @@ subroutine make_sky
    type(type_sky_galaxy),allocatable   :: sky_galaxy(:)
    type(type_sky_group),allocatable    :: sky_group(:)
    character(255)                      :: strt = 'Thread 1/1'  ! default thread number, openmp not used
+   character(40)                       :: fmt
    character(255)                      :: str
    character(255)                      :: filename
    type(type_task),allocatable         :: task(:)
@@ -86,6 +87,9 @@ subroutine make_sky
    ! fill galaxies with intrinsic properties into sky
    allocate(substats(para%subvolume_min:para%subvolume_max))
    
+   fmt = '(A,A,I0.'//val2str(ceiling(log10(para%snapshot_max+1.0)))//',A,I0.'//val2str(ceiling(log10(para%subvolume_max+1.0)))// &
+       & ',A,I0.'//val2str(ceiling(log10(size(tile)+1.0)))//',A,I0,A,I0,A)'
+   
    !$ call OMP_set_nested(.true.) ! enables nested parallelism
    
    !$OMP PARALLEL PRIVATE(isnapshot,isubvolume,itile,sam,sam_sel,sam_replica)
@@ -129,7 +133,7 @@ subroutine make_sky
                
                ! progress update, one thread at a time
                !$ write(strt,'(A,I0,A,I0)') 'Thread ',OMP_GET_THREAD_NUM()+1,'/',OMP_GET_NUM_THREADS()
-               write(str,'(A,A,I0,A,I0,A,I0,A,I0,A,I0,A)') trim(strt),': Write snapshot ',isnapshot,', subvolume ', &
+               write(str,fmt) trim(strt),': Place snapshot ',isnapshot,', subvolume ', &
                   & isubvolume,' into tile ',itile,' (',size(sky_galaxy),'/',totstats%n_galaxies,' galaxies)'
                call out(trim(str))
                
@@ -241,6 +245,7 @@ subroutine preprocess_snapshot(sam,sam_sel)
    integer*4                                 :: n_galaxies_in_group
    logical*4                                 :: group_selected
    integer*4                                 :: n_keep
+   logical*4                                 :: selected
    
    n = size(sam)
    
@@ -250,7 +255,8 @@ subroutine preprocess_snapshot(sam,sam_sel)
       if (allocated(sam_sel)) deallocate(sam_sel)
       allocate(sam_sel(n))
       do i = 1,n
-         sam_sel(i) = selection_function(sam=sam(i))
+         sam_sel(i) = .true.
+         call selection_function(sam=sam(i),selected=sam_sel(i))
       end do
    
       ! order galaxies by group id, such that central galaxies come first
@@ -304,7 +310,9 @@ subroutine preprocess_snapshot(sam,sam_sel)
    
       n_keep = 0
       do i = 1,n
-         if (selection_function(sam=sam(i))) then
+         selected = .true.
+         call selection_function(sam=sam(i),selected=selected)
+         if (selected) then
             n_keep = n_keep+1
             sam(n_keep) = sam(i)
          end if
@@ -404,7 +412,7 @@ subroutine place_subvolume_into_tile(itile,isnapshot,isubvolume,sam,sam_sel,sam_
       if (position_selected) then
          pos%ra = pos%ra/unit%degree ! [deg]
          pos%dec = pos%dec/unit%degree ! [deg]
-         position_selected = position_selected.and.selection_function(pos=pos)
+         call selection_function(pos=pos,selected=position_selected)
       end if
       if (position_selected) then
          n_in_survey_volume = n_in_survey_volume+1
@@ -453,13 +461,14 @@ subroutine place_subvolume_into_tile(itile,isnapshot,isubvolume,sam,sam_sel,sam_
                      pos%dc = dc(j)*para%box_side
                      pos%ra = ra(j)/unit%degree
                      pos%dec = dec(j)/unit%degree
-                     ok(j) = selection_function(pos=pos,sam=sam(j))
+                     ok(j) = .true.
+                     call selection_function(pos=pos,sam=sam(j),selected=ok(j))
                      if (ok(j)) then
                         base%pos%ra = ra(j)
                         base%pos%dec = dec(j)
                         base%pos%dc = dc(j)
                         call sky_galaxy(j)%make_from_sam(sam(j),base,groupid,galaxyid)
-                        ok(j) = selection_function(pos=pos,sam=sam(j),sky=sky_galaxy(j))
+                        call selection_function(pos=pos,sam=sam(j),sky=sky_galaxy(j),selected=ok(j))
                         if (ok(j)) then
                            n_galaxies = n_galaxies+1
                            group_nselected = group_nselected+1
@@ -633,7 +642,7 @@ subroutine write_sky_to_hdf5
          totstats%n_groups = 0
          do isubvolume = para%subvolume_min,para%subvolume_max
          
-            call out('Load sky subvolume ',isubvolume)
+            call out('Process subvolume ',isubvolume)
             
             ! galaxies
             open(fid,file=filename_sky_galaxies(isubvolume),action='read',form='unformatted',access='stream')
@@ -712,6 +721,9 @@ subroutine write_sky_to_hdf5
          
       end if
       
+      ! user output
+      call out('Number of galaxies in mock sky: ',totstats%n_galaxies)
+      if (para%make_groups==1) call out('Number of groups in mock sky: ',totstats%n_groups)
       call toc
    
    end subroutine write_sky_to_hdf5

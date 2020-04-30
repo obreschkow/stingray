@@ -25,6 +25,7 @@ module module_global
    type(type_limit),protected   :: limit
    
    ! selection types
+   integer*4,parameter  :: return_position_range = 0
    integer*4,parameter  :: select_by_pos = 1
    integer*4,parameter  :: select_by_sam = 2
    integer*4,parameter  :: select_by_pos_and_sam = 3
@@ -78,10 +79,10 @@ module module_global
       real*4               :: xy_angle = r4    ! [rad]
 
       ! sky parameters
-      integer*4            :: seed  ! seed of random number generator (integer >=1)
-      integer*4            :: translate
-      integer*4            :: rotate
-      integer*4            :: invert
+      integer*4            :: seed = i4  ! seed of random number generator (integer >=1)
+      integer*4            :: translate = i4
+      integer*4            :: rotate = i4
+      integer*4            :: invert = i4
       
       ! observer velocity relative to CMB
       real*4               :: velocity_ra = r4    ! [rad]
@@ -93,8 +94,8 @@ module module_global
       real*4               :: volume_search_level = r4
       
       ! galaxy options
-      integer*4            :: make_groups
-      integer*4            :: line_parameters
+      integer*4            :: make_groups = i4
+      character(len=255)   :: options = c1
       
       ! I/O options
       integer*4            :: merge_output = i4
@@ -114,6 +115,14 @@ module module_global
       real*4   :: dec   ! [rad/deg] declination
    
    end type type_pos
+   
+   type type_range
+   
+      real*4   :: dc(2)    ! [box lengths] range of comoving distance from observer
+      real*4   :: ra(2)    ! [rad/deg] range of right ascension
+      real*4   :: dec(2)   ! [rad/deg] range of declination
+      
+   end type type_range
    
    type type_base
 
