@@ -415,7 +415,7 @@ subroutine make_sky_galaxy(sky_galaxy,sam,base)
    sky_galaxy%mag = convert_absmag2appmag(convert_stellarmass2absmag(mstars,1.0),dl)
       
    ! integrated 21cm flux
-   mHI = (sam%matom_disk+sam%matom_bulge)/1.35 ! [Msun/h] HI mass  
+   mHI = (sam%matom_disk+sam%matom_bulge)/1.35 ! [Msun/h] HI mass (without Helium)
    sky_galaxy%hiline_flux_int = real(convert_luminosity2flux(real(mHI/para%h,8)*real(L2MHI,8)*unit%Lsun,dl),4) ! [W/m^2]
    sky_galaxy%hiline_flux_int_vel = convert_intflux2velintflux(sky_galaxy%hiline_flux_int,0.21106114,sky_galaxy%zobs)
    

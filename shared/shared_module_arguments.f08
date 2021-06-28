@@ -243,12 +243,12 @@ subroutine get_task_value(value)
    type is (integer(kind=int64));   read(task_value,*,iostat=status) value
    type is (real(kind=real32));     read(task_value,*,iostat=status) value
    type is (real(kind=real64));     read(task_value,*,iostat=status) value
-   type is (real(kind=real128));    read(task_value,*,iostat=status) value
+   !type is (real(kind=real128));    read(task_value,*,iostat=status) value ! not supported by all compilers
    type is (logical);               read(task_value,*,iostat=status) value
    type is (character(*));          read(task_value,*,iostat=status) value
    type is (complex(kind=real32));  read(task_value,*,iostat=status) value
    type is (complex(kind=real64));  read(task_value,*,iostat=status) value
-   type is (complex(kind=real128)); read(task_value,*,iostat=status) value
+   !type is (complex(kind=real128)); read(task_value,*,iostat=status) value
    class default
       call deverror('unknown variable type')
    end select

@@ -54,15 +54,15 @@ PROGRAMS = stingray
 # "make" builds all
 all: $(PROGRAMS)
 
-stingray.o:    shared_module_core.o \
-               shared_module_arguments.o \
-               shared_module_parameters.o \
-               shared_module_hdf5.o \
-               shared_module_cosmology.o \
-               shared_module_maths.o \
-               shared_module_vectors.o \
-               shared_module_constants.o \
-               shared_module_sort.o \
+stingray.o:    shared/shared_module_core.o \
+               shared/shared_module_arguments.o \
+               shared/shared_module_parameters.o \
+               shared/shared_module_hdf5.o \
+               shared/shared_module_cosmology.o \
+               shared/shared_module_maths.o \
+               shared/shared_module_vectors.o \
+               shared/shared_module_constants.o \
+               shared/shared_module_sort.o \
                module_global.o \
                module_parameters.o \
                module_conversion.o \

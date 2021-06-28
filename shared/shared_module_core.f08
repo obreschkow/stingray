@@ -385,12 +385,12 @@ function val2str(value) result(str)
    type is (integer(kind=16));   write(txt,'(i0)') value
    type is (real(kind=4));       write(txt,'(1pg0)') value
    type is (real(kind=8));       write(txt,'(1pg0)') value
-   type is (real(kind=16));      write(txt,'(1pg0)') value
+   !type is (real(kind=16));      write(txt,'(1pg0)') value ! not supported by all compilers
    type is (logical);            write(txt,'(1l)') value
    type is (character(*));       write(txt,'(a)') value
    type is (complex(kind=4));    write(txt,'(1pg0,sp,1pg0,"i")') value
    type is (complex(kind=8));    write(txt,'(1pg0,sp,1pg0,"i")') value
-   type is (complex(kind=16));   write(txt,'(1pg0,sp,1pg0,"i")') value
+   !type is (complex(kind=16));   write(txt,'(1pg0,sp,1pg0,"i")') value ! not supported by all compilers
    class default
       call deverror('unknown variable type')
    end select
