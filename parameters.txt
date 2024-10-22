@@ -335,7 +335,7 @@ end
 parameterset dev1a
 options                 
 survey                  dev1
-path_input              /Users/do/Data/SURFS/L210_N1536/shark/Shark-TreeFixed-ReincPSO-kappa0p002/
+path_input              /Users/do/Data/SURFS/L210_N1536/shark/Shark_v2_Lagos24/
 path_output             /Users/do/Dropbox/Code/Fortran/stingray/tests/shark2/dev1a
 subvolume_max           0
 randomisation           single
@@ -349,7 +349,7 @@ end
 parameterset dev1b
 options                 
 survey                  dev1
-path_input              /Users/do/Data/SURFS/L210_N1536/shark/Shark-TreeFixed-ReincPSO-kappa0p002/
+path_input              /Users/do/Data/SURFS/L210_N1536/shark/Shark_v2_Lagos24/
 path_output             /Users/do/Dropbox/Code/Fortran/stingray/tests/shark2/dev1b
 subvolume_max           0
 randomisation           single
@@ -360,7 +360,7 @@ end
 parameterset dev1c (used only by core-developers)
 options                 
 survey                  dev1
-path_input              /Users/do/Data/SURFS/L210_N1536/shark/Shark-TreeFixed-ReincPSO-kappa0p002/
+path_input              /Users/do/Data/SURFS/L210_N1536/shark/Shark_v2_Lagos24/
 path_output             /Users/do/Dropbox/Code/Fortran/stingray/tests/shark2/dev1c
 subvolume_max           0
 randomisation           tiles
@@ -371,7 +371,7 @@ end
 parameterset dev1d
 options                 
 survey                  dev1
-path_input              /Users/do/Data/SURFS/L210_N1536/shark/Shark-TreeFixed-ReincPSO-kappa0p002/
+path_input              /Users/do/Data/SURFS/L210_N1536/shark/Shark_v2_Lagos24/
 path_output             /Users/do/Dropbox/Code/Fortran/stingray/tests/shark2/dev1d
 shell_tweaking          n
 subvolume_max           0
@@ -388,7 +388,7 @@ end
 parameterset dev1e
 options                 
 survey                  dev1
-path_input              /Users/do/Data/SURFS/L210_N1536/shark/Shark-TreeFixed-ReincPSO-kappa0p002/
+path_input              /Users/do/Data/SURFS/L210_N1536/shark/Shark_v2_Lagos24/
 path_output             /Users/do/Dropbox/Code/Fortran/stingray/tests/shark2/dev1e
 subvolume_max           0
 randomisation           shells
@@ -404,7 +404,7 @@ end
 parameterset dev2a
 options                 
 survey                  dev2
-path_input              /Users/do/Data/SURFS/L210_N1536/shark/Shark-TreeFixed-ReincPSO-kappa0p002/
+path_input              /Users/do/Data/SURFS/L210_N1536/shark/Shark_v2_Lagos24/
 path_output             /Users/do/Dropbox/Code/Fortran/stingray/tests/shark2/dev2a              
 subvolume_max           0
 snapshot_min            199  to ensure that galaxies do not move
@@ -418,7 +418,7 @@ end
 parameterset dev2b
 options                 
 survey                  dev2
-path_input              /Users/do/Data/SURFS/L210_N1536/shark/Shark-TreeFixed-ReincPSO-kappa0p002/
+path_input              /Users/do/Data/SURFS/L210_N1536/shark/Shark_v2_Lagos24/
 path_output             /Users/do/Dropbox/Code/Fortran/stingray/tests/shark2/dev2b           
 subvolume_max           0
 snapshot_min            199  to ensure that galaxies do not move
@@ -429,7 +429,7 @@ end
 parameterset dev2c
 options                 
 survey                  dev2
-path_input              /Users/do/Data/SURFS/L210_N1536/shark/Shark-TreeFixed-ReincPSO-kappa0p002/
+path_input              /Users/do/Data/SURFS/L210_N1536/shark/Shark_v2_Lagos24/
 path_output             /Users/do/Dropbox/Code/Fortran/stingray/tests/shark2/dev2c              
 subvolume_max           0
 snapshot_min            199  to ensure that galaxies do not move
@@ -440,7 +440,7 @@ end
 parameterset dev2d
 options                 
 survey                  dev2
-path_input              /Users/do/Data/SURFS/L210_N1536/shark/Shark-TreeFixed-ReincPSO-kappa0p002/
+path_input              /Users/do/Data/SURFS/L210_N1536/shark/Shark_v2_Lagos24/
 path_output             /Users/do/Dropbox/Code/Fortran/stingray/tests/shark2/dev2d           
 subvolume_max           0
 snapshot_min            199  to ensure that galaxies do not move
@@ -452,7 +452,7 @@ end
 parameterset dev2e
 options                 
 survey                  dev2
-path_input              /Users/do/Data/SURFS/L210_N1536/shark/Shark-TreeFixed-ReincPSO-kappa0p002/
+path_input              /Users/do/Data/SURFS/L210_N1536/shark/Shark_v2_Lagos24/
 path_output             /Users/do/Dropbox/Code/Fortran/stingray/tests/shark2/dev2e              
 subvolume_max           0
 snapshot_min            199  to ensure that galaxies do not move
