@@ -1,858 +1,497 @@
 ! **********************************************************************************************************************************
-! Shared Fortran module facilitating the handling of vectors
+! Shared Fortran module to read parameter files
 ! Developed by Danail Obreschkow
-! See subroutine example for an illustration of key functionalities
+!
+! Basic structure
+! The parameter file has to be an ascii-file, with one parameter per line, structured as:
+! ----------------------------------------------------------------------
+! # Example file
+! parameter1_name    parameter1_value  optional description
+! parameter2_name    parameter2_value  optional description
+! ...
+! ----------------------------------------------------------------------
+! Empty lines and lines starting with "#" are ignored, as well as all the text that follows the parameter values in the same line
+! (e.g. "optional description" in the example above). 
+!
+! Advanced structure
+! It is possible do define different parameter-sets in a single parameter file, using the following syntax:
+! ----------------------------------------------------------------------
+! parameterset abc
+! parameter1_name    parameter1_value
+! parameter2_name    parameter2_value
+! end
+!
+! parameterset xyz
+! parameter1_name    parameter1_value
+! parameter3_name    parameter3_value
+! end
+!
+! # default parameters
+! parameter2_name    parameter2_value
+! parameter3_name    parameter3_value
+! parameter4_name    parameter4_value
+! ----------------------------------------------------------------------
+! If the protected variable parameterset is non-empty, e.g. parameterset='abc', the parameters listed in this parameterset, e.g.
+! between the lines "parameterset abc" and "end" overwrite the default parameters specified outside the parameterset. The user can
+! mark at most one parameterset in the parameterfile as the default parameterset using an asterix, e.g. "parameterset* abc". This
+! parameterset is taken as the default, if the variable parameterset is empty. If no parameterset is marked as default and if the
+! variable parameterset is empty, all parameters in parametersets are ignored. Multiple parametersets of the same name are allowed,
+! as long as they do not repeat parameters.
+!
+! Example code:
+! character(255)  :: parameter_filename
+! character(255)  :: parameter_set
+! real            :: x
+! integer         :: y
+! character(20)   :: s
+! logical         :: l
+! call get_option_value(parameter_filename,'-parameterfile','parameters.txt')
+! call set_parameterfile(trim(parameter_filename))
+! call get_option_value(parameter_set,'-parameterset','')
+! call set_parameterset(parameter_set)
+! call read_parameters
+! call set_auto_string('auto')
+! call set_auto_parameter('parameter1_name',0.5) ! this value will be assigned if parameter1 is set to 'auto' in the parameter file
+! call get_parameter_value(x,'parameter1_name',0.3,min=0.0,max=1.0) ! 0.3 is the default if the parameter is not present in the file
+! call get_parameter_value(y,'parameter2_name',max=10) ! no default value given => parameter is required
+! call get_parameter_value(s,'parameter3_name','na')
+! call get_parameter_value(l,'parameter4_name',.true.)
+! call require_no_parameters_left ! produces an error, if there are additional parameters
 ! **********************************************************************************************************************************
 
-module shared_module_vectors
+module shared_module_parameters
+
+   use shared_module_core
 
    private
-     
-   public :: vector4             ! 3-vector of real*4 with components x,y,z
-   public :: vector8             ! 3-vector of real*8 with components x,y,z
-   public :: assignment(=)       ! assign component vector to vector class and vice versa
-   public :: operator(==)        ! compare all components of vectors of identical type
-   public :: operator(.ne.)      ! compare all components of vectors of identical type (opposite answer of ==)
-   public :: operator(+)         ! vector addition
-   public :: operator(-)         ! vector subtraction
-   public :: operator(*)         ! scaling of vector elements, element-by-element multiplication
-   public :: operator(/)         ! scaling of vector elements, element-by-element division
-   public :: operator(.dot.)     ! scalar product of two vectors
-   public :: operator(.cross.)   ! cross product of two 3-vectors
-   public :: components          ! function converting a vector into its components
-   public :: component           ! function extracting a single component from a vector
-   public :: norm                ! function returning the norm of a vector
-   public :: unitvector          ! function scaling a vector to a unit vector with the same direction
-   public :: scalar_product      ! scalar_product of two vectors (can also use "u.dot.v")
-   public :: cross_product       ! cross_product of two 3-vectors (can also use "u.cross.v")
-   public :: matmul              ! multiply vector with a square matrix (extends on intrinsic subroutine)
-   public :: example_vectors     ! subroutine showing some example vector calculations
-     
-   type vector4
-      real*4 :: x = 0.0
-      real*4 :: y = 0.0
-      real*4 :: z = 0.0
-   contains
-      procedure :: norm => norm_vector4
-      procedure :: unit => unit_vector4
-   end type vector4
    
-   type vector8
-      real*8 :: x = 0.0_8
-      real*8 :: y = 0.0_8
-      real*8 :: z = 0.0_8
-   contains
-      procedure :: norm => norm_vector8
-      procedure :: unit => unit_vector8
-   end type vector8
+   public   :: set_parameterfile
+   public   :: set_parameterset
+   public   :: read_parameters
+   public   :: get_parameter_value
+   public   :: require_no_parameters_left
+   public   :: parameterfile ! read-only
+   public   :: parameterset ! read-only, optional name of the user-selected parameterset, set via set_parameterset() or "*"
+   public   :: n_parameters ! read-only, number of read parameters, accessible once read_parameters has been called
+   public   :: set_auto_string ! routine to set a default parameter value, e.g. "auto", for parameters specified elsewhere
+   public   :: set_auto_parameter
    
-   interface assignment(=)
-      procedure getcomponents_vector4
-      procedure getcomponents_vector8
-      procedure setcomponents_vector4_from_real4
-      procedure setcomponents_vector4_from_real8
-      procedure setcomponents_vector4_from_int4
-      procedure setcomponents_vector4_from_int8
-      procedure setcomponents_vector8_from_real4
-      procedure setcomponents_vector8_from_real8
-      procedure setcomponents_vector8_from_int4
-      procedure setcomponents_vector8_from_int8
-   end interface assignment(=)
+   ! handling arguments
+   character(len=255),protected  :: parameterfile = ''
+   character(len=255),protected  :: parameterset = ''
+   integer*4,parameter           :: n_parameters_max = 100
+   integer*4,protected           :: n_parameters = 0
+   character(len=255),protected  :: parameter_name(n_parameters_max)
+   character(len=255),protected  :: parameter_value(n_parameters_max)
+   logical*4,protected           :: parameter_used(n_parameters_max)
+   logical*4,protected           :: parameter_has_auto_value(n_parameters_max)
+   integer*4,protected           :: n_used = 0
+   character(len=255),protected  :: used_name(n_parameters_max)
+   character(len=255),protected  :: auto_string = ''
+   logical,protected             :: parameters_handled = .false.
    
-   interface operator(==)
-      procedure compare_vectors4
-      procedure compare_vectors8
-   end interface operator(==)
-     
-   interface operator(.ne.)
-      procedure ncompare_vectors4
-      procedure ncompare_vectors8
-   end interface operator(.ne.)
+   interface get_parameter_value
+      module procedure get_parameter_value_string
+      module procedure get_parameter_value_int4
+      module procedure get_parameter_value_int8
+      module procedure get_parameter_value_real4
+      module procedure get_parameter_value_real8
+      module procedure get_parameter_value_logical
+   end interface get_parameter_value
    
-   interface operator(+)
-      procedure add_vectors4
-      procedure add_vectors8
-   end interface operator(+)
-     
-   interface operator(-)
-      procedure subtract_two_vectors4
-      procedure subtract_two_vectors8
-   end interface operator(-)
-     
-   interface operator(*)
-      procedure multiply_vector4_by_vector4
-      procedure multiply_vector8_by_vector8
-      procedure multiply_real4_with_vector4
-      procedure multiply_real8_with_vector4
-      procedure multiply_int4_with_vector4
-      procedure multiply_int8_with_vector4
-      procedure multiply_vector4_with_real4
-      procedure multiply_vector4_with_real8
-      procedure multiply_vector4_with_int4
-      procedure multiply_vector4_with_int8
-      procedure multiply_real4_with_vector8
-      procedure multiply_real8_with_vector8
-      procedure multiply_int4_with_vector8
-      procedure multiply_int8_with_vector8
-      procedure multiply_vector8_with_real4
-      procedure multiply_vector8_with_real8
-      procedure multiply_vector8_with_int4
-      procedure multiply_vector8_with_int8
-   end interface operator(*)
-     
-   interface operator(/)
-      procedure divide_vector4_by_vector4
-      procedure divide_vector8_by_vector8
-      procedure divide_vector4_by_real4
-      procedure divide_vector4_by_real8
-      procedure divide_vector4_by_int4
-      procedure divide_vector4_by_int8
-      procedure divide_vector8_by_real4
-      procedure divide_vector8_by_real8
-      procedure divide_vector8_by_int4
-      procedure divide_vector8_by_int8
-   end interface operator(/)
-     
-   interface operator(.dot.)
-      procedure scalar_product_vector4
-      procedure scalar_product_vector8
-      procedure scalar_product_array4
-      procedure scalar_product_array8
-      procedure scalar_product_a4v4
-      procedure scalar_product_v4a4
-      procedure scalar_product_a8v8
-      procedure scalar_product_v8a8
-   end interface operator(.dot.)
-     
-   interface operator(.cross.)
-      procedure cross_product_vector4
-      procedure cross_product_vector8
-      procedure cross_product_array4
-      procedure cross_product_array8
-      procedure cross_product_a4v4
-      procedure cross_product_v4a4
-      procedure cross_product_a8v8
-      procedure cross_product_v8a8
-   end interface operator(.cross.)
-   
-   interface norm
-      procedure norm_vector4
-      procedure norm_vector8
-      procedure norm_array4
-      procedure norm_array8
-   end interface norm   
-   
-   interface unitvector
-      procedure unit_vector4
-      procedure unit_vector8
-      procedure unit_array4
-      procedure unit_array8
-   end interface unitvector
-   
-   interface scalar_product
-      procedure scalar_product_vector4
-      procedure scalar_product_vector8
-      procedure scalar_product_array4
-      procedure scalar_product_array8
-      procedure scalar_product_a4v4
-      procedure scalar_product_v4a4
-      procedure scalar_product_a8v8
-      procedure scalar_product_v8a8
-   end interface scalar_product
-   
-   interface cross_product
-      procedure cross_product_vector4
-      procedure cross_product_vector8
-      procedure cross_product_array4
-      procedure cross_product_array8
-      procedure cross_product_a4v4
-      procedure cross_product_v4a4
-      procedure cross_product_a8v8
-      procedure cross_product_v8a8
-   end interface cross_product
-     
-   interface matmul
-      procedure matmul_matrix4_times_vector4
-      procedure matmul_matrix4_times_vector8
-      procedure matmul_matrix8_times_vector4
-      procedure matmul_matrix8_times_vector8
-      procedure matmul_vector4_times_matrix4
-      procedure matmul_vector8_times_matrix4
-      procedure matmul_vector4_times_matrix8
-      procedure matmul_vector8_times_matrix8
-   end interface matmul
-
-   interface components
-      procedure components_vector4
-      procedure components_vector8
-   end interface components
-   
-   interface component
-      procedure component_vector4
-      procedure component_vector8
-   end interface component
-     
 contains
 
-   subroutine example_vectors
-   
-      implicit none
-      type(vector4) :: x,y ! real*4 3-vectors
-      real*4 :: m(3,3),q(3),r(3)
-      
-      write(*,*) 'Assign vectors and print components'
-      q = (/-0.5,6.1,3.2/)    ! representation of vector as standard 3-element array
-      x = q                   ! make a class vector4 object from components
-      write(*,*) q
-      write(*,*) x
-      
-      write(*,*) 'Multiply vector by a constant'
-      write(*,*) 2*q
-      write(*,*) 2*x
-      
-      write(*,*) 'Divide vector by a constant'
-      write(*,*) q/2
-      write(*,*) x/2
-      
-      write(*,*) 'Vector norm'
-      write(*,*) norm(q)
-      write(*,*) norm(x)
-      write(*,*) x%norm()
-      
-      write(*,*) 'Unit vectors'
-      write(*,*) unitvector(q)
-      write(*,*) unitvector(x)
-      write(*,*) x%unit()
-      
-      write(*,*) 'Component-wise multiplication'
-      r = (/4.3,4.1,0.5/)
-      y = r
-      write(*,*) q*r
-      write(*,*) x*y
-      
-      write(*,*) 'Component-wise division'
-      write(*,*) q/r
-      write(*,*) x/y
-      
-      write(*,*) 'Scalar product'
-      write(*,*) q.dot.r
-      write(*,*) x.dot.y
-      
-      write(*,*) 'Vector product'
-      write(*,*) q.cross.r
-      write(*,*) x.cross.y
-      
-      write(*,*) 'Multiply matrix with vector'
-      m = reshape((/1.3,4.2,-2.0,5.1,-2.2,1.0,-0.6,0.8,4.0/),(/3,3/))
-      write(*,*) matmul(m,q)
-      write(*,*) matmul(m,x)
-      
-      write(*,*) 'Multiply vector with matrix'
-      write(*,*) matmul(q,m)
-      write(*,*) matmul(x,m)
-      
-      write(*,*) 'Compare vectors'
-      write(*,*) all(q==r),any(q.ne.r)
-      write(*,*) x==y,x.ne.y
-   
-   end subroutine example_vectors
+subroutine set_parameterfile(txt) ! sets parameter file name
 
-   function components_vector4(v) result(s)
-      type(vector4),intent(in) :: v
-      real*4 :: s(3)
-      s = (/v%x,v%y,v%z/)
-   end function components_vector4
+   implicit none
+   character(*),intent(in) :: txt
+   if (parameters_handled) call deverror('call set_parameterset before calling read_parameters')
+   parameterfile = txt
+
+end subroutine set_parameterfile
+
+subroutine set_parameterset(txt) ! sets parameter set name
+
+   implicit none
+   character(*),intent(in) :: txt
+   if (parameters_handled) call deverror('call set_parameterset before calling read_parameters')
+   parameterset = txt
+
+end subroutine set_parameterset
+
+subroutine set_auto_string(txt)
+
+   implicit none
+   character(*),intent(in) :: txt
+   auto_string = trim(adjustl(txt))
+
+end subroutine set_auto_string
+
+subroutine set_auto_parameter(name,value)
+
+   implicit none
+   character(*),intent(in) :: name
+   class(*),intent(in)     :: value
+   integer*4               :: i
    
-   function components_vector8(v) result(s)
-      type(vector8),intent(in) :: v
-      real*8 :: s(3)
-      s = (/v%x,v%y,v%z/)
-   end function components_vector8
+   if (.not.parameters_handled) call deverror('read_parameters must be called before set_auto_parameter')
+   if (isempty(auto_string)) call deverror('auto_string must be set before calling set_auto_parameter')
    
-   function component_vector4(v,index) result(s)
-      type(vector4),intent(in) :: v
-      integer*4,intent(in):: index
-      real*4 :: s
-      select case(index)
-      case(1)
-         s = v%x
-      case(2)
-         s = v%y
-      case(3)
-         s = v%z
-      case default
-         s = 0
-      end select
-   end function component_vector4
+   i = parameter_index(name,.false.)
    
-   function component_vector8(v,index) result(s)
-      type(vector8),intent(in) :: v
-      integer*4,intent(in):: index
-      real*8 :: s
-      select case(index)
-      case(1)
-         s = v%x
-      case(2)
-         s = v%y
-      case(3)
-         s = v%z
-      case default
-         s = 0
-      end select
-   end function component_vector8
-   
-  subroutine getcomponents_vector4(s,v)
-      class(vector4),intent(in) :: v
-      real*4,intent(out) :: s(3)
-      s = (/v%x,v%y,v%z/)
-   end subroutine getcomponents_vector4
-   
-   subroutine getcomponents_vector8(s,v)
-      class(vector8),intent(in) :: v
-      real*8,intent(out) :: s(3)
-      s = (/v%x,v%y,v%z/)
-   end subroutine getcomponents_vector8
-   
-   subroutine setcomponents_vector4_from_real4(v,s)
-      real*4,intent(in) :: s(3)
-      type(vector4),intent(out) :: v
-      v = vector4(s(1),s(2),s(3))
-   end subroutine setcomponents_vector4_from_real4
-   
-   subroutine setcomponents_vector4_from_real8(v,s)
-      real*8,intent(in) :: s(3)
-      type(vector4),intent(out) :: v
-      v = vector4(real(s(1),4),real(s(2),4),real(s(3),4))
-   end subroutine setcomponents_vector4_from_real8
-   
-   subroutine setcomponents_vector4_from_int4(v,s)
-      integer*4,intent(in) :: s(3)
-      type(vector4),intent(out) :: v
-      v = vector4(real(s(1),4),real(s(2),4),real(s(3),4))
-   end subroutine setcomponents_vector4_from_int4
-   
-   subroutine setcomponents_vector4_from_int8(v,s)
-      integer*8,intent(in) :: s(3)
-      type(vector4),intent(out) :: v
-      v = vector4(real(s(1),4),real(s(2),4),real(s(3),4))
-   end subroutine setcomponents_vector4_from_int8
-   
-   subroutine setcomponents_vector8_from_real4(v,s)
-      real*4,intent(in) :: s(3)
-      type(vector8),intent(out) :: v
-      v = vector8(real(s(1),8),real(s(2),8),real(s(3),8))
-   end subroutine setcomponents_vector8_from_real4
-   
-   subroutine setcomponents_vector8_from_real8(v,s)
-      real*8,intent(in) :: s(3)
-      type(vector8),intent(out) :: v
-      v = vector8(s(1),s(2),s(3))
-   end subroutine setcomponents_vector8_from_real8
-   
-   subroutine setcomponents_vector8_from_int4(v,s)
-      integer*4,intent(in) :: s(3)
-      type(vector8),intent(out) :: v
-      v = vector8(real(s(1),8),real(s(2),8),real(s(3),8))
-   end subroutine setcomponents_vector8_from_int4
-   
-   subroutine setcomponents_vector8_from_int8(v,s)
-      integer*8,intent(in) :: s(3)
-      type(vector8),intent(out) :: v
-      v = vector8(real(s(1),8),real(s(2),8),real(s(3),8))
-   end subroutine setcomponents_vector8_from_int8
-   
-   pure function compare_vectors4(u,v) result(s)
-      class(vector4),intent(in) :: u,v
-      logical :: s
-      s = u%x==v%x .and. u%y==v%y .and. u%z==v%z
-   end function compare_vectors4
-   
-   pure function compare_vectors8(u,v) result(s)
-      class(vector8),intent(in) :: u,v
-      logical :: s
-      s = u%x==v%x .and. u%y==v%y .and. u%z==v%z
-   end function compare_vectors8
-   
-   pure function ncompare_vectors4(u,v) result(s)
-      class(vector4),intent(in) :: u,v
-      logical :: s
-      s = .not.compare_vectors4(u,v)
-   end function ncompare_vectors4
-   
-   pure function ncompare_vectors8(u,v) result(s)
-      class(vector8),intent(in) :: u,v
-      logical :: s
-      s = .not.compare_vectors8(u,v)
-   end function ncompare_vectors8
-   
-   pure function norm_vector4(this) result(n)
-      class(vector4),intent(in) :: this
-      real*4 :: n
-      n = sqrt(this%x**2+this%y**2+this%z**2)
-   end function norm_vector4
-   
-   pure function norm_vector8(this) result(n)
-      class(vector8),intent(in) :: this
-      real*8 :: n
-      n = sqrt(this%x**2+this%y**2+this%z**2)
-   end function norm_vector8
-   
-   pure function norm_array4(this) result(n)
-      real*4,intent(in) :: this(:)
-      real*4 :: n
-      n = sqrt(sum(this**2))
-   end function norm_array4
-   
-   pure function norm_array8(this) result(n)
-      real*8,intent(in) :: this(:)
-      real*8 :: n
-      n = sqrt(sum(this**2))
-   end function norm_array8
-   
-   pure function unit_vector4(this) result(w)
-      class(vector4),intent(in) :: this
-      type(vector4) :: w
-      real*4 :: n
-      n = this%norm()
-      if (n<=epsilon(1.0)) then
-         w = this*0
+   if (i==0) then
+      call error('attempting to assign an automatic value to the parameter "'//trim(name)//&
+      &'", which does not exist in parameterfile')
+   else
+      if (parameter_has_auto_value(i)) then
+         call deverror('the parameter "'//trim(name)//'" can only be set once using set_auto_parameter')
+      else if (parameter_used(i)) then
+         call deverror('the parameter "'//trim(name)//'" has already been used before its call of set_auto_parameter')
       else
-         w = this/n
+         if (trim(parameter_value(i))==trim(auto_string)) then
+            parameter_value(i) = val2str(value)
+            parameter_has_auto_value(i) = .true.
+         end if
       end if
-   end function unit_vector4
+   end if
    
-   pure function unit_vector8(this) result(w)
-      class(vector8),intent(in) :: this
-      type(vector8) :: w
-      real*8 :: n
-      n = this%norm()
-      if (n<=epsilon(1.0_8)) then
-         w = this*0
-      else
-         w = this/n
-      end if
-   end function unit_vector8
+end subroutine set_auto_parameter
+
+subroutine read_parameters
+
+   implicit none
+   character(255)    :: line
+   character(255)    :: name
+   character(255)    :: value
+   integer*4         :: io
+   integer*4         :: i
+   logical           :: reading = .true.
+   logical           :: inside_set = .false.
+   character(255)    :: current_set = ''
+   logical           :: set_found = .false.
+   logical           :: default_parameterset_found = .false.
+   logical           :: parameter_in_default(n_parameters_max)
+   logical           :: parameter_in_set(n_parameters_max)
    
-   pure function unit_array4(v) result(w)
-      real*4,intent(in) :: v(:)
-      real*4,allocatable :: w(:)
-      real*4 :: n
-      allocate(w(size(v)))
-      n = norm(v)
-      if (n<=epsilon(1.0)) then
-         w = v*0
-      else
-         w = v/n
-      end if
-   end function unit_array4
+   if (parameters_handled) call deverror('only call read_parameters once')
+
+   ! check if parameter file exists and if the user has read-access
+   call check_file(parameterfile,'r')
    
-   pure function unit_array8(v) result(w)
-      real*8,intent(in) :: v(:)
-      real*8,allocatable :: w(:)
-      real*8 :: n
-      allocate(w(size(v)))
-      n = norm(v)
-      if (n<=epsilon(1.0_8)) then
-         w = v*0
-      else
-         w = v/n
-      end if
-   end function unit_array8
+   ! reset
+   parameter_used = .false.
+   parameter_has_auto_value = .false.
+   parameter_in_default = .false.
+   parameter_in_set = .false.
    
-   pure function add_vectors4(u,v) result(w)
-      class(vector4),intent(in) :: u,v
-      type(vector4) :: w
-      w = vector4(u%x+v%x,u%y+v%y,u%z+v%z)
-   end function add_vectors4
-   
-   pure function add_vectors8(u,v) result(w)
-      class(vector8),intent(in) :: u,v
-      type(vector8) :: w
-      w = vector8(u%x+v%x,u%y+v%y,u%z+v%z)
-   end function add_vectors8
-   
-   pure function subtract_two_vectors4(u,v) result(w)
-      class(vector4),intent(in) :: u,v
-      type(vector4) :: w
-      w = vector4(u%x-v%x,u%y-v%y,u%z-v%z)
-   end function subtract_two_vectors4
-   
-   pure function subtract_two_vectors8(u,v) result(w)
-      class(vector8),intent(in) :: u,v
-      type(vector8) :: w
-      w = vector8(u%x-v%x,u%y-v%y,u%z-v%z)
-   end function subtract_two_vectors8
-   
-   pure function multiply_vector4_by_vector4(u,v) result(w)
-      class(vector4),intent(in) :: u,v
-      type(vector4) :: w
-      w = vector4(u%x*v%x,u%y*v%y,u%z*v%z)
-   end function multiply_vector4_by_vector4
-   
-   pure function multiply_vector8_by_vector8(u,v) result(w)
-      class(vector8),intent(in) :: u,v
-      type(vector8) :: w
-      w = vector8(u%x*v%x,u%y*v%y,u%z*v%z)
-   end function multiply_vector8_by_vector8
-   
-   pure function multiply_real4_with_vector4(k,v) result(w)
-      real*4,intent(in) :: k
-      class(vector4),intent(in) :: v
-      type(vector4) :: w
-      w = vector4(k*v%x,k*v%y,k*v%z)
-   end function multiply_real4_with_vector4
-   
-   pure function multiply_real8_with_vector4(k,v) result(w)
-      real*8,intent(in) :: k
-      class(vector4),intent(in) :: v
-      type(vector4) :: w
-      w = vector4(real(k,4)*v%x,real(k,4)*v%y,real(k,4)*v%z)
-   end function multiply_real8_with_vector4
-   
-   pure function multiply_int4_with_vector4(k,v) result(w)
-      integer*4,intent(in) :: k
-      class(vector4),intent(in) :: v
-      type(vector4) :: w
-      w = vector4(real(k,4)*v%x,real(k,4)*v%y,real(k,4)*v%z)
-   end function multiply_int4_with_vector4
-   
-   pure function multiply_int8_with_vector4(k,v) result(w)
-      integer*8,intent(in) :: k
-      class(vector4),intent(in) :: v
-      type(vector4) :: w
-      w = vector4(real(k,4)*v%x,real(k,4)*v%y,real(k,4)*v%z)
-   end function multiply_int8_with_vector4
-   
-   pure function multiply_vector4_with_real4(v,k) result(w)
-      real*4,intent(in) :: k
-      class(vector4),intent(in) :: v
-      type(vector4) :: w
-      w = vector4(k*v%x,k*v%y,k*v%z)
-   end function multiply_vector4_with_real4
-   
-   pure function multiply_vector4_with_real8(v,k) result(w)
-      real*8,intent(in) :: k
-      class(vector4),intent(in) :: v
-      type(vector4) :: w
-      w = vector4(real(k,4)*v%x,real(k,4)*v%y,real(k,4)*v%z)
-   end function multiply_vector4_with_real8
-   
-   pure function multiply_vector4_with_int4(v,k) result(w)
-      integer*4,intent(in) :: k
-      class(vector4),intent(in) :: v
-      type(vector4) :: w
-      w = vector4(real(k,4)*v%x,real(k,4)*v%y,real(k,4)*v%z)
-   end function multiply_vector4_with_int4
-   
-   pure function multiply_vector4_with_int8(v,k) result(w)
-      integer*8,intent(in) :: k
-      class(vector4),intent(in) :: v
-      type(vector4) :: w
-      w = vector4(real(k,4)*v%x,real(k,4)*v%y,real(k,4)*v%z)
-   end function multiply_vector4_with_int8
-   
-   pure function multiply_real4_with_vector8(k,v) result(w)
-      real*4,intent(in) :: k
-      class(vector8),intent(in) :: v
-      type(vector8) :: w
-      w = vector8(k*v%x,k*v%y,k*v%z)
-   end function multiply_real4_with_vector8
-   
-   pure function multiply_real8_with_vector8(k,v) result(w)
-      real*8,intent(in) :: k
-      class(vector8),intent(in) :: v
-      type(vector8) :: w
-      w = vector8(real(k,4)*v%x,real(k,4)*v%y,real(k,4)*v%z)
-   end function multiply_real8_with_vector8
-   
-   pure function multiply_int4_with_vector8(k,v) result(w)
-      integer*4,intent(in) :: k
-      class(vector8),intent(in) :: v
-      type(vector8) :: w
-      w = vector8(real(k,4)*v%x,real(k,4)*v%y,real(k,4)*v%z)
-   end function multiply_int4_with_vector8
-   
-   pure function multiply_int8_with_vector8(k,v) result(w)
-      integer*8,intent(in) :: k
-      class(vector8),intent(in) :: v
-      type(vector8) :: w
-      w = vector8(real(k,4)*v%x,real(k,4)*v%y,real(k,4)*v%z)
-   end function multiply_int8_with_vector8
-   
-   pure function multiply_vector8_with_real4(v,k) result(w)
-      real*4,intent(in) :: k
-      class(vector8),intent(in) :: v
-      type(vector8) :: w
-      w = vector8(k*v%x,k*v%y,k*v%z)
-   end function multiply_vector8_with_real4
-   
-   pure function multiply_vector8_with_real8(v,k) result(w)
-      real*8,intent(in) :: k
-      class(vector8),intent(in) :: v
-      type(vector8) :: w
-      w = vector8(real(k,4)*v%x,real(k,4)*v%y,real(k,4)*v%z)
-   end function multiply_vector8_with_real8
-   
-   pure function multiply_vector8_with_int4(v,k) result(w)
-      integer*4,intent(in) :: k
-      class(vector8),intent(in) :: v
-      type(vector8) :: w
-      w = vector8(real(k,4)*v%x,real(k,4)*v%y,real(k,4)*v%z)
-   end function multiply_vector8_with_int4
-   
-   pure function multiply_vector8_with_int8(v,k) result(w)
-      integer*8,intent(in) :: k
-      class(vector8),intent(in) :: v
-      type(vector8) :: w
-      w = vector8(real(k,4)*v%x,real(k,4)*v%y,real(k,4)*v%z)
-   end function multiply_vector8_with_int8
-   
-   pure function divide_vector4_by_vector4(u,v) result(w)
-      class(vector4),intent(in) :: u,v
-      type(vector4) :: w
-      w = vector4(u%x/v%x,u%y/v%y,u%z/v%z)
-   end function divide_vector4_by_vector4
-   
-   pure function divide_vector8_by_vector8(u,v) result(w)
-      class(vector8),intent(in) :: u,v
-      type(vector8) :: w
-      w = vector8(u%x/v%x,u%y/v%y,u%z/v%z)
-   end function divide_vector8_by_vector8
-   
-   pure function divide_vector4_by_real4(v,k) result(w)
-      class(vector4),intent(in) :: v
-      real*4,intent(in) :: k
-      type(vector4) :: w
-      w = vector4(v%x/k,v%y/k,v%z/k)
-   end function divide_vector4_by_real4
-   
-   pure function divide_vector8_by_real4(v,k) result(w)
-      class(vector8),intent(in) :: v
-      real*4,intent(in) :: k
-      type(vector8) :: w
-      w = vector8(v%x/k,v%y/k,v%z/k)
-   end function divide_vector8_by_real4
-   
-   pure function divide_vector4_by_real8(v,k) result(w)
-      class(vector4),intent(in) :: v
-      real*8,intent(in) :: k
-      type(vector4) :: w
-      w = vector4(v%x/real(k,4),v%y/real(k,4),v%z/real(k,4))
-   end function divide_vector4_by_real8
-   
-   pure function divide_vector8_by_real8(v,k) result(w)
-      class(vector8),intent(in) :: v
-      real*8,intent(in) :: k
-      type(vector8) :: w
-      w = vector8(v%x/k,v%y/k,v%z/k)
-   end function divide_vector8_by_real8
-   
-   pure function divide_vector4_by_int4(v,k) result(w)
-      class(vector4),intent(in) :: v
-      integer*4,intent(in) :: k
-      type(vector4) :: w
-      w = vector4(v%x/real(k,4),v%y/real(k,4),v%z/real(k,4))
-   end function divide_vector4_by_int4
-   
-   pure function divide_vector8_by_int4(v,k) result(w)
-      class(vector8),intent(in) :: v
-      integer*4,intent(in) :: k
-      type(vector8) :: w
-      w = vector8(v%x/real(k,8),v%y/real(k,8),v%z/real(k,8))
-   end function divide_vector8_by_int4
-   
-   pure function divide_vector4_by_int8(v,k) result(w)
-      class(vector4),intent(in) :: v
-      integer*8,intent(in) :: k
-      type(vector4) :: w
-      w = vector4(v%x/real(k,4),v%y/real(k,4),v%z/real(k,4))
-   end function divide_vector4_by_int8
-   
-   pure function divide_vector8_by_int8(v,k) result(w)
-      class(vector8),intent(in) :: v
-      integer*8,intent(in) :: k
-      type(vector8) :: w
-      w = vector8(v%x/real(k,8),v%y/real(k,8),v%z/real(k,8))
-   end function divide_vector8_by_int8
-   
-   pure function scalar_product_vector4(u,v) result(w)
-      class(vector4),intent(in) :: u,v
-      real*4 :: w
-      w = u%x*v%x+u%y*v%y+u%z*v%z
-   end function scalar_product_vector4
-   
-   pure function scalar_product_vector8(u,v) result(w)
-      class(vector8),intent(in) :: u,v
-      real*8 :: w
-      w = u%x*v%x+u%y*v%y+u%z*v%z
-   end function scalar_product_vector8
-   
-   pure function scalar_product_array4(u,v) result(w)
-      real*4,intent(in) :: u(:),v(:)
-      real*4 :: w
-      w = sum(u*v)
-   end function scalar_product_array4
-   
-   pure function scalar_product_array8(u,v) result(w)
-      real*8,intent(in) :: u(:),v(:)
-      real*8 :: w
-      w = sum(u*v)
-   end function scalar_product_array8
-   
-   function scalar_product_a4v4(u,v) result(w)
-      real*4,intent(in)          :: u(3)
-      class(vector4),intent(in)  :: v
-      real*4 :: w
-      w = u.dot.components(v)
-   end function scalar_product_a4v4
-   
-   function scalar_product_v4a4(u,v) result(w)
-      class(vector4),intent(in)  :: u
-      real*4,intent(in)          :: v(3)
-      real*4 :: w
-      w = components(u).dot.v
-   end function scalar_product_v4a4
-   
-   function scalar_product_a8v8(u,v) result(w)
-      real*8,intent(in)          :: u(3)
-      class(vector8),intent(in)  :: v
-      real*8 :: w
-      w = u.dot.components(v)
-   end function scalar_product_a8v8
-   
-   function scalar_product_v8a8(u,v) result(w)
-      class(vector8),intent(in)  :: u
-      real*8,intent(in)          :: v(3)
-      real*8 :: w
-      w = components(u).dot.v
-   end function scalar_product_v8a8
-   
-   function cross_product_a4v4(u,v) result(w)
-      real*4,intent(in)          :: u(3)
-      class(vector4),intent(in)  :: v
-      real*4 :: w(3)
-      w = u.cross.components(v)
-   end function cross_product_a4v4
-   
-   function cross_product_v4a4(u,v) result(w)
-      class(vector4),intent(in)  :: u
-      real*4,intent(in)          :: v(3)
-      real*4 :: w(3)
-      w = components(u).cross.v
-   end function cross_product_v4a4
-   
-   function cross_product_a8v8(u,v) result(w)
-      real*8,intent(in)          :: u(3)
-      class(vector8),intent(in)  :: v
-      real*8 :: w(3)
-      w = u.cross.components(v)
-   end function cross_product_a8v8
-   
-   function cross_product_v8a8(u,v) result(w)
-      class(vector8),intent(in)  :: u
-      real*8,intent(in)          :: v(3)
-      real*8 :: w(3)
-      w = components(u).cross.v
-   end function cross_product_v8a8
-   
-   pure function cross_product_vector4(u,v) result(w)
-      class(vector4),intent(in) :: u,v
-      type(vector4) :: w
-      w = vector4(u%y*v%z-u%z*v%y,u%z*v%x-u%x*v%z,u%x*v%y-u%y*v%x)
-   end function cross_product_vector4
-   
-   pure function cross_product_vector8(u,v) result(w)
-      class(vector8),intent(in) :: u,v
-      type(vector8) :: w
-      w = vector8(u%y*v%z-u%z*v%y,u%z*v%x-u%x*v%z,u%x*v%y-u%y*v%x)
-   end function cross_product_vector8
-   
-   pure function cross_product_array4(u,v) result(w)
-      real*4,intent(in) :: u(3),v(3)
-      real*4 :: w(3)
-      w(1) = u(2)*v(3)-u(3)*v(2)
-      w(2) = u(3)*v(1)-u(1)*v(3)
-      w(3) = u(1)*v(2)-u(2)*v(1)
-   end function cross_product_array4
-   
-   pure function cross_product_array8(u,v) result(w)
-      real*8,intent(in) :: u(3),v(3)
-      real*8 :: w(3)
-      w(1) = u(2)*v(3)-u(3)*v(2)
-      w(2) = u(3)*v(1)-u(1)*v(3)
-      w(3) = u(1)*v(2)-u(2)*v(1)
-   end function cross_product_array8
-   
-   pure function matmul_matrix4_times_vector4(m,v) result(w)
-      real*4,intent(in) :: m(3,3)
-      class(vector4),intent(in) :: v
-      type(vector4) :: w
-      real*4 :: q(3)
-      q = matmul(m,(/v%x,v%y,v%z/))
-      w = vector4(q(1),q(2),q(3))
-   end function matmul_matrix4_times_vector4
-   
-   pure function matmul_matrix4_times_vector8(m,v) result(w)
-      real*4,intent(in) :: m(3,3)
-      class(vector8),intent(in) :: v
-      type(vector8) :: w
-      real*8 :: q(3)
-      q = matmul(real(m,8),(/v%x,v%y,v%z/))
-      w = vector8(q(1),q(2),q(3))
-   end function matmul_matrix4_times_vector8
-   
-   pure function matmul_matrix8_times_vector4(m,v) result(w)
-      real*8,intent(in) :: m(3,3)
-      class(vector4),intent(in) :: v
-      type(vector4) :: w
-      real*4 :: q(3)
-      q = matmul(real(m,4),(/v%x,v%y,v%z/))
-      w = vector4(q(1),q(2),q(3))
-   end function matmul_matrix8_times_vector4
-   
-   pure function matmul_matrix8_times_vector8(m,v) result(w)
-      real*8,intent(in) :: m(3,3)
-      class(vector8),intent(in) :: v
-      type(vector8) :: w
-      real*8 :: q(3)
-      q = matmul(m,(/v%x,v%y,v%z/))
-      w = vector8(q(1),q(2),q(3))
-   end function matmul_matrix8_times_vector8
-   
-   pure function matmul_vector4_times_matrix4(u,m) result(w)
-      real*4,intent(in) :: m(3,3)
-      class(vector4),intent(in) :: u
-      type(vector4) :: w
-      real*4 :: q(3)
-      q = matmul((/u%x,u%y,u%z/),m)
-      w = vector4(q(1),q(2),q(3))
-   end function matmul_vector4_times_matrix4
-   
-   pure function matmul_vector8_times_matrix4(u,m) result(w)
-      real*4,intent(in) :: m(3,3)
-      class(vector8),intent(in) :: u
-      type(vector8) :: w
-      real*8 :: q(3)
-      q = matmul((/u%x,u%y,u%z/),real(m,8))
-      w = vector8(q(1),q(2),q(3))
-   end function matmul_vector8_times_matrix4
-   
-   pure function matmul_vector4_times_matrix8(u,m) result(w)
-      real*8,intent(in) :: m(3,3)
-      class(vector4),intent(in) :: u
-      type(vector4) :: w
-      real*4 :: q(3)
-      q = matmul((/u%x,u%y,u%z/),real(m,4))
-      w = vector4(q(1),q(2),q(3))
-   end function matmul_vector4_times_matrix8
-   
-   pure function matmul_vector8_times_matrix8(u,m) result(w)
-      real*8,intent(in) :: m(3,3)
-      class(vector8),intent(in) :: u
-      type(vector8) :: w
-      real*8 :: q(3)
-      q = matmul((/u%x,u%y,u%z/),m)
-      w = vector8(q(1),q(2),q(3))
-   end function matmul_vector8_times_matrix8
+   ! read parameter file line-by-line
+   open(1,file=trim(parameterfile),action='read',form='formatted')
+   do
       
-end module shared_module_vectors
+      read(1,'(A)',IOSTAT=io) line
+      if (io/=0) exit
+      if (.not.(isempty(line).or.(line(1:1)=='#'))) then
+      
+         line = tabs2spaces(line)
+      
+         read(line,*) name
+         
+         if (trim(name)=='end') then
+         
+            if (.not.inside_set) call error('parameterfile: "end" must be preceded by "parameterset"')
+            inside_set = .false.
+            reading = .true.
+         
+         else
+         
+            value = trim(adjustl(line(len(trim(name))+1:len(line))))
+            do i = 2,len(trim(value))
+               if (any(value(i:i)==(/' ','#'/))) then
+                  value = value(1:i-1)
+                  exit
+               end if
+            end do
+            
+            if ((trim(name)=='parameterset').or.(trim(name)=='parameterset*')) then
+            
+               if (inside_set) call error('parameterfile: a new parameterset appears before the parameterset '// &
+               & trim(current_set)//' has been terminated with "end".')
+               if (isempty(value)) call error('parameterfile: each parameterset must have a name')
+               if (trim(name)=='parameterset*') then
+                  if (default_parameterset_found) call error('parameterfile: several parametersets have been '//&
+                  &'specified as default using "*"')
+                  default_parameterset_found = .true.
+                  if (isempty(parameterset)) parameterset = trim(value)
+               end if
+               inside_set = .true.
+               current_set = trim(value)
+               if (trim(value)==trim(parameterset)) then
+                  reading = .true.
+                  set_found = .true.
+               else
+                  reading = .false.
+               end if
+               
+            else
+            
+               if (reading) then
+               
+                  i = parameter_index(trim(name))
+                  if (i==0) then
+                     n_parameters = n_parameters+1
+                     if (n_parameters>n_parameters_max) call error('parameterfile: too many parameters')
+                     i = n_parameters
+                  end if
+                  
+                  if (inside_set) then
+                     if (parameter_in_set(i)) call error('parameterfile: the parameter "'//trim(name)//'" appears more '//&
+                     &'than once in the set '//trim(current_set))
+                     parameter_in_set(i) = .true.
+                  else
+                     if (parameter_in_default(i)) call error('parameterfile: the parameter "'//trim(name)//'" appears more '//&
+                     &'than once (outside parametersets)')
+                     parameter_in_default(i) = .true.
+                  end if
+               
+                  parameter_name(i) = name
+                  if (inside_set) then
+                     parameter_value(i) = value
+                  else
+                     if (.not.parameter_in_set(i)) parameter_value(i) = value
+                  end if
+               
+               end if
+            
+            end if
+         
+         end if
+         
+      end if
+   
+   end do
+   
+   close(1)
+   
+   if (inside_set) call error('parameterfile: the parameterset "'//trim(current_set)//'" must be terminated with "end".')
+   if ((.not.set_found).and.(.not.isempty(parameterset))) call error('parameterset "'//trim(parameterset)//'" not found in '//&
+   &'parameterfile')
+   
+   parameters_handled = .true.
+   
+end subroutine read_parameters
+
+subroutine require_no_parameters_left
+
+   ! check if all parameters have been used
+
+   implicit none
+   integer*4   :: i
+   
+   do i = 1,n_parameters
+      if (.not.parameter_used(i)) call error('parameter "'//trim(parameter_name(i))//'" not used')
+   end do
+   
+end subroutine require_no_parameters_left
+
+function parameter_index(name,required) result(index)
+
+   implicit none
+
+   character(*),intent(in)       :: name
+   logical*4,intent(in),optional :: required
+   integer*4                     :: index
+   integer*4                     :: i
+   
+   index = 0
+   
+   do i = 1,n_parameters
+      if (trim(parameter_name(i))==trim(name)) then
+         if (index>0) call deverror('parameterfile: non-captured repetition of identical parameters')
+         index = i
+      end if
+   end do
+   
+   if (present(required)) then
+      if (required.and.(index==0)) call error('parameter "'//trim(name)//'" is required in parameterfile')
+   end if
+
+end function parameter_index
+
+subroutine get_parameter_value_string(value,name,preset,allowmultiuse,min,max)
+   implicit none
+   character(*),intent(out)            :: value    ! value of parameter
+   character(*),intent(in)             :: name     ! name of parameter
+   character(*),intent(in),optional    :: preset   ! default value, if parameter name not found; if not given, parameter is required
+   logical*4,intent(in),optional       :: allowmultiuse ! if set to true, the same name can be queried multiple times
+   integer*4,intent(in),optional       :: min,max  ! optional values defining the min and max length of the trimmed value
+   integer*4                           :: i
+   character(255)                      :: val
+   
+   call check_multiuse(name,allowmultiuse)
+   i = parameter_index(name,required=.not.present(preset))
+   if (i==0) then
+      val = preset
+   else
+      val = parameter_value(i)
+      parameter_used(i) = .true.
+   end if
+   if (present(min)) then
+      if (len(trim(val))<min) call error('parameter "'//trim(name)//'" must have at least '//val2str(min)//' characters')
+   end if
+   if (present(max)) then
+      if (len(trim(val))>max) call error('parameter "'//trim(name)//'" must have at most '//val2str(max)//' characters')
+   end if
+   value = trim(val)
+   
+end subroutine get_parameter_value_string
+
+subroutine get_parameter_value_int4(value,name,preset,allowmultiuse,min,max)
+   implicit none
+   integer*4,intent(out)         :: value    ! value of parameter
+   character(*),intent(in)       :: name     ! name of parameter
+   integer*4,intent(in),optional :: preset   ! default value, if parameter name not found; if not given, the parameter is required
+   logical*4,intent(in),optional :: allowmultiuse ! if set to true, the same name can be queried multiple times
+   integer*4,intent(in),optional :: min,max  ! optional range required for value
+   integer*4                     :: i,status
+   call check_multiuse(name,allowmultiuse)
+   i = parameter_index(name,required=.not.present(preset))
+   if (i==0) then
+      value = preset
+   else
+      read(parameter_value(i),*,iostat=status) value
+      if (status/=0) call error('non-integer value found for parameter "'//trim(name)//'"')
+      parameter_used(i) = .true.
+   end if
+   if (present(min)) then
+      if (value<min) call error('parameter "'//trim(name)//'" cannot be smaller than '//val2str(min))
+   end if
+   if (present(max)) then
+      if (value>max) call error('parameter "'//trim(name)//'" cannot be larger than '//val2str(max))
+   end if
+end subroutine get_parameter_value_int4
+
+subroutine get_parameter_value_int8(value,name,preset,allowmultiuse,min,max)
+   implicit none
+   integer*8,intent(out)         :: value    ! value of parameter
+   character(*),intent(in)       :: name     ! name of parameter
+   integer*8,intent(in),optional :: preset   ! default value, if parameter name not found; if not given, the parameter is required
+   logical*4,intent(in),optional :: allowmultiuse ! if set to true, the same name can be queried multiple times
+   integer*8,intent(in),optional :: min,max  ! optional range required for value
+   integer*4                     :: i,status
+   call check_multiuse(name,allowmultiuse)
+   i = parameter_index(name,required=.not.present(preset))
+   if (i==0) then
+      value = preset
+   else
+      read(parameter_value(i),*,iostat=status) value
+      if (status/=0) call error('non-integer value found for parameter "'//trim(name)//'"')
+      parameter_used(i) = .true.
+   end if
+   if (present(min)) then
+      if (value<min) call error('parameter "'//trim(name)//'" cannot be smaller than '//val2str(min))
+   end if
+   if (present(max)) then
+      if (value>max) call error('parameter "'//trim(name)//'" cannot be larger than '//val2str(max))
+   end if
+end subroutine get_parameter_value_int8
+
+subroutine get_parameter_value_real4(value,name,preset,allowmultiuse,min,max)
+   implicit none
+   real*4,intent(out)            :: value    ! value of parameter
+   character(*),intent(in)       :: name     ! name of parameter
+   real*4,intent(in),optional    :: preset   ! default value, if parameter name not found; if not given, the parameter is required
+   logical*4,intent(in),optional :: allowmultiuse ! if set to true, the same name can be queried multiple times
+   real*4,intent(in),optional    :: min,max  ! optional range required for value
+   integer*4                     :: i,status
+   call check_multiuse(name,allowmultiuse)
+   i = parameter_index(name,required=.not.present(preset))
+   if (i==0) then
+      value = preset
+   else
+      read(parameter_value(i),*,iostat=status) value
+      if (status/=0) call error('non-numeric value found for parameter "'//trim(name)//'"')
+      parameter_used(i) = .true.
+   end if
+   if (present(min)) then
+      if (value<min) call error('parameter "'//trim(name)//'" cannot be smaller than '//val2str(min))
+   end if
+   if (present(max)) then
+      if (value>max) call error('parameter "'//trim(name)//'" cannot be larger than '//val2str(max))
+   end if
+end subroutine get_parameter_value_real4
+
+subroutine get_parameter_value_real8(value,name,preset,allowmultiuse,min,max)
+   implicit none
+   real*8,intent(out)            :: value    ! value of parameter
+   character(*),intent(in)       :: name     ! name of parameter
+   real*8,intent(in),optional    :: preset   ! default value, if parameter name not found; if not given, the parameter is required
+   logical*4,intent(in),optional :: allowmultiuse ! if set to true, the same name can be queried multiple times
+   real*8,intent(in),optional    :: min,max  ! optional range required for value
+   integer*4                     :: i,status
+   call check_multiuse(name,allowmultiuse)
+   i = parameter_index(name,required=.not.present(preset))
+   if (i==0) then
+      value = preset
+   else
+      read(parameter_value(i),*,iostat=status) value
+      if (status/=0) call error('non-numeric value found for parameter "'//trim(name)//'"')
+      parameter_used(i) = .true.
+   end if
+   if (present(min)) then
+      if (value<min) call error('parameter "'//trim(name)//'" cannot be smaller than '//val2str(min))
+   end if
+   if (present(max)) then
+      if (value>max) call error('parameter "'//trim(name)//'" cannot be larger than '//val2str(max))
+   end if
+end subroutine get_parameter_value_real8
+
+subroutine get_parameter_value_logical(value,name,preset,allowmultiuse)
+   implicit none
+   logical*4,intent(out)         :: value    ! value of parameter
+   character(*),intent(in)       :: name     ! name of parameter
+   logical*4,intent(in),optional :: preset   ! default value, if parameter name not found; if not given, the parameter is required
+   logical*4,intent(in),optional :: allowmultiuse ! if set to true, the same name can be queried multiple times
+   integer*4                     :: i
+   call check_multiuse(name,allowmultiuse)
+   i = parameter_index(name,required=.not.present(preset))
+   if (i==0) then
+      value = preset
+   else
+      if (any(trim(parameter_value(i))==(/'0','F','f','N','n'/))) then
+         value = .false.
+      else if (any(trim(parameter_value(i))==(/'1','T','t','Y','y'/))) then
+         value = .true.
+      else
+         call error('parameter "'//trim(name)//'" only takes logical arguments (0/f/F/n/N and 1/t/T/y/Y).')
+      end if
+      parameter_used(i) = .true.
+   end if
+end subroutine get_parameter_value_logical
+
+subroutine check_multiuse(name,allowmultiuse)
+   implicit none
+   character(*),intent(in)       :: name  ! name of parameter
+   logical*4,intent(in),optional :: allowmultiuse ! if set true, the same name can be queried multiple times
+   integer*4                     :: i,j
+   if (.not.parameters_handled) call deverror('must call read_parameters before using get_parameter_value')
+   j = 0
+   do i = 1,n_used
+      if (trim(used_name(i))==trim(adjustl(name))) then
+         j = i
+         exit
+      end if
+   end do
+   if (j==0) then
+      n_used = n_used+1
+      if (n_used>n_parameters_max) call deverror('unknown error in check_multiused')
+      used_name(n_used) = trim(adjustl(name))
+   else
+      if (present(allowmultiuse)) then
+         if (.not.allowmultiuse) call deverror('Parameter '//trim(adjustl(name))//' used multiple times.')
+      else
+         call deverror('Parameter '//trim(adjustl(name))//' used multiple times.')
+      end if
+   end if
+end subroutine check_multiuse
+
+end module shared_module_parameters

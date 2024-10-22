@@ -1,858 +1,718 @@
 ! **********************************************************************************************************************************
-! Shared Fortran module facilitating the handling of vectors
+! Shared Fortran module with essential routines also used by other shared modules
 ! Developed by Danail Obreschkow
-! See subroutine example for an illustration of key functionalities
+!
+! This this is the only shared module, also used by other shared modules. It guarantees consistency between the other shared
+! modules, e.g. in the way screen/logfile output is handled and variables are converted.
 ! **********************************************************************************************************************************
 
-module shared_module_vectors
+module shared_module_core
 
    private
-     
-   public :: vector4             ! 3-vector of real*4 with components x,y,z
-   public :: vector8             ! 3-vector of real*8 with components x,y,z
-   public :: assignment(=)       ! assign component vector to vector class and vice versa
-   public :: operator(==)        ! compare all components of vectors of identical type
-   public :: operator(.ne.)      ! compare all components of vectors of identical type (opposite answer of ==)
-   public :: operator(+)         ! vector addition
-   public :: operator(-)         ! vector subtraction
-   public :: operator(*)         ! scaling of vector elements, element-by-element multiplication
-   public :: operator(/)         ! scaling of vector elements, element-by-element division
-   public :: operator(.dot.)     ! scalar product of two vectors
-   public :: operator(.cross.)   ! cross product of two 3-vectors
-   public :: components          ! function converting a vector into its components
-   public :: component           ! function extracting a single component from a vector
-   public :: norm                ! function returning the norm of a vector
-   public :: unitvector          ! function scaling a vector to a unit vector with the same direction
-   public :: scalar_product      ! scalar_product of two vectors (can also use "u.dot.v")
-   public :: cross_product       ! cross_product of two 3-vectors (can also use "u.cross.v")
-   public :: matmul              ! multiply vector with a square matrix (extends on intrinsic subroutine)
-   public :: example_vectors     ! subroutine showing some example vector calculations
-     
-   type vector4
-      real*4 :: x = 0.0
-      real*4 :: y = 0.0
-      real*4 :: z = 0.0
-   contains
-      procedure :: norm => norm_vector4
-      procedure :: unit => unit_vector4
-   end type vector4
-   
-   type vector8
-      real*8 :: x = 0.0_8
-      real*8 :: y = 0.0_8
-      real*8 :: z = 0.0_8
-   contains
-      procedure :: norm => norm_vector8
-      procedure :: unit => unit_vector8
-   end type vector8
-   
-   interface assignment(=)
-      procedure getcomponents_vector4
-      procedure getcomponents_vector8
-      procedure setcomponents_vector4_from_real4
-      procedure setcomponents_vector4_from_real8
-      procedure setcomponents_vector4_from_int4
-      procedure setcomponents_vector4_from_int8
-      procedure setcomponents_vector8_from_real4
-      procedure setcomponents_vector8_from_real8
-      procedure setcomponents_vector8_from_int4
-      procedure setcomponents_vector8_from_int8
-   end interface assignment(=)
-   
-   interface operator(==)
-      procedure compare_vectors4
-      procedure compare_vectors8
-   end interface operator(==)
-     
-   interface operator(.ne.)
-      procedure ncompare_vectors4
-      procedure ncompare_vectors8
-   end interface operator(.ne.)
-   
-   interface operator(+)
-      procedure add_vectors4
-      procedure add_vectors8
-   end interface operator(+)
-     
-   interface operator(-)
-      procedure subtract_two_vectors4
-      procedure subtract_two_vectors8
-   end interface operator(-)
-     
-   interface operator(*)
-      procedure multiply_vector4_by_vector4
-      procedure multiply_vector8_by_vector8
-      procedure multiply_real4_with_vector4
-      procedure multiply_real8_with_vector4
-      procedure multiply_int4_with_vector4
-      procedure multiply_int8_with_vector4
-      procedure multiply_vector4_with_real4
-      procedure multiply_vector4_with_real8
-      procedure multiply_vector4_with_int4
-      procedure multiply_vector4_with_int8
-      procedure multiply_real4_with_vector8
-      procedure multiply_real8_with_vector8
-      procedure multiply_int4_with_vector8
-      procedure multiply_int8_with_vector8
-      procedure multiply_vector8_with_real4
-      procedure multiply_vector8_with_real8
-      procedure multiply_vector8_with_int4
-      procedure multiply_vector8_with_int8
-   end interface operator(*)
-     
-   interface operator(/)
-      procedure divide_vector4_by_vector4
-      procedure divide_vector8_by_vector8
-      procedure divide_vector4_by_real4
-      procedure divide_vector4_by_real8
-      procedure divide_vector4_by_int4
-      procedure divide_vector4_by_int8
-      procedure divide_vector8_by_real4
-      procedure divide_vector8_by_real8
-      procedure divide_vector8_by_int4
-      procedure divide_vector8_by_int8
-   end interface operator(/)
-     
-   interface operator(.dot.)
-      procedure scalar_product_vector4
-      procedure scalar_product_vector8
-      procedure scalar_product_array4
-      procedure scalar_product_array8
-      procedure scalar_product_a4v4
-      procedure scalar_product_v4a4
-      procedure scalar_product_a8v8
-      procedure scalar_product_v8a8
-   end interface operator(.dot.)
-     
-   interface operator(.cross.)
-      procedure cross_product_vector4
-      procedure cross_product_vector8
-      procedure cross_product_array4
-      procedure cross_product_array8
-      procedure cross_product_a4v4
-      procedure cross_product_v4a4
-      procedure cross_product_a8v8
-      procedure cross_product_v8a8
-   end interface operator(.cross.)
-   
-   interface norm
-      procedure norm_vector4
-      procedure norm_vector8
-      procedure norm_array4
-      procedure norm_array8
-   end interface norm   
-   
-   interface unitvector
-      procedure unit_vector4
-      procedure unit_vector8
-      procedure unit_array4
-      procedure unit_array8
-   end interface unitvector
-   
-   interface scalar_product
-      procedure scalar_product_vector4
-      procedure scalar_product_vector8
-      procedure scalar_product_array4
-      procedure scalar_product_array8
-      procedure scalar_product_a4v4
-      procedure scalar_product_v4a4
-      procedure scalar_product_a8v8
-      procedure scalar_product_v8a8
-   end interface scalar_product
-   
-   interface cross_product
-      procedure cross_product_vector4
-      procedure cross_product_vector8
-      procedure cross_product_array4
-      procedure cross_product_array8
-      procedure cross_product_a4v4
-      procedure cross_product_v4a4
-      procedure cross_product_a8v8
-      procedure cross_product_v8a8
-   end interface cross_product
-     
-   interface matmul
-      procedure matmul_matrix4_times_vector4
-      procedure matmul_matrix4_times_vector8
-      procedure matmul_matrix8_times_vector4
-      procedure matmul_matrix8_times_vector8
-      procedure matmul_vector4_times_matrix4
-      procedure matmul_vector8_times_matrix4
-      procedure matmul_vector4_times_matrix8
-      procedure matmul_vector8_times_matrix8
-   end interface matmul
 
-   interface components
-      procedure components_vector4
-      procedure components_vector8
-   end interface components
+   ! normally accessed routines/variables ******************************************************************************************
    
-   interface component
-      procedure component_vector4
-      procedure component_vector8
-   end interface component
-     
+   ! initialise screen/logfile output
+   public   :: set_logfile_name ! routine to set logfile_name programmatically
+   public   :: set_verbose ! routine to set verbose programmatically
+   public   :: set_version ! routine to set version programmatically
+   public   :: set_help ! routine to set help programmatically
+   public   :: set_copyright ! routine to set copyright programmatically
+   
+   ! write to screen/logfile
+   public   :: start_output ! starts screen/log output, writes title
+   public   :: stop_output ! stops screen/log output, writes total wall time
+   public   :: out ! write genering text with optional numeric value
+   public   :: hline ! write horizontal line
+   public   :: error ! write error message and stop
+   public   :: deverror ! write developer error message and stop
+   public   :: warning ! write warning message, but continue program
+   public   :: progress ! write progress in percent
+   public   :: tic ! draw horizontal line and start timer (normally used at the beginning of a program section)
+   public   :: toc ! write wall time since last call of tic and draw horizontal line (used at the end of a program section)
+
+   ! string handling
+   public   :: isempty ! logical function checking if a string is empty
+   public   :: replace_text ! replace all occurrences of a pattern in a string
+   public   :: lowercase ! turn a string into a lower case string
+   public   :: remove_tabs ! removes tabs from a string
+   public   :: tabs2spaces ! replaces all tabs by spaces in a character string
+   public   :: timestamp ! character function returning the current date+time as a character string
+   public   :: last_character ! function returning the last non-empty character of a string
+   public   :: execname ! character function returning the name of the executable
+   
+   ! file handling
+   public   :: exists ! logical function checks if file or path exists
+   public   :: check_file ! subroutine checks if file or path exists, if not produce error (optionally checks permissions)
+   public   :: make_path ! makes new directory and produces error if not allowed
+   public   :: remove_path ! deletes directory (inclusive subdirectories) and produces error if not allowed
+   public   :: dir ! make file path with separators; do not call by multiple threads simultaneously
+   public   :: delete_file ! deletes a file, if the user has the rights to do so; other wise produce an error
+   
+   ! conversion functions
+   public   :: val2str ! converts any numeric type into character string; do not call by multiple threads simultaneously
+   public   :: log2int ! converts logical type into int*4 of value 0 or 1
+   public   :: int2log ! converts an integer (0/1) into a logical*4, produces error message if not 0/1
+   public   :: sec2time ! converts seconds into human-readable time string
+   
+   ! miscellaneous
+   public   :: version ! read-only character string containing the version
+   public   :: help ! read-only character string containing help text
+   public   :: copyright ! read-only character string containing the copyright text
+   public   :: nil ! subroutine with no effect, but 20 optional arguments; used to suppress compiler warnings for unused arguments
+   public   :: separator ! single character '/' or '\' used to separate (sub)directories and files
+   
+   ! rarely accessed routines/variables ********************************************************************************************
+   public   :: set_logfile_unit ! routine to set the logfile_unit programmatically (default, see below)
+   public   :: start_logfile ! starts a logfile; only called once per program (e.g. via start_output)
+   public   :: verbose ! read-only logical flag specifying if an output is displayed on screen; normally specified using -verbose
+   public   :: logfile_name ! read-only string of the logfile name, set using set_logfile_name
+   public   :: logfile_open ! read-only logical flag specifying if the logfile has been initialised
+   public   :: logfile_unit ! read-only integer giving the I/O-unit used for the logfile, set using set_logfile_unit
+   public   :: time_start ! wall time when start_output was called
+   
+   ! handling screen/logfile outputs
+   logical*4,parameter           :: stop_at_warnings = .false.
+   integer*4,protected           :: logfile_unit = 999 ! file unit for log-file
+   logical*4,protected           :: verbose = .true. ! logical flag to produce screen output; set programmatically via set_verbose
+   character(len=255),protected  :: logfile_name = '' ! logfile name; can be set programmatically using set_logfile
+   logical*4,protected           :: logfile_open = .false.
+   integer*8,protected           :: time_start = -1
+   integer*8,protected           :: time_tic = -1
+   character(*),parameter        :: hline_str = repeat('-',60)
+   logical*4,protected           :: just_made_hline = .false.
+   logical*4,protected           :: once_made_hline = .false.
+   character(len=255),protected  :: version = '0.0'
+   character(len=255),protected  :: help = 'Consult the README file for additional information.'
+   character(len=255),protected  :: copyright = 'Developed by Danail Obreschkow (danail.obreschkow@icrar.org).'
+   logical,protected             :: has_stopped = .false.
+   
+   ! constants
+   character(1),parameter        :: separator = '/'
+   
 contains
 
-   subroutine example_vectors
-   
-      implicit none
-      type(vector4) :: x,y ! real*4 3-vectors
-      real*4 :: m(3,3),q(3),r(3)
-      
-      write(*,*) 'Assign vectors and print components'
-      q = (/-0.5,6.1,3.2/)    ! representation of vector as standard 3-element array
-      x = q                   ! make a class vector4 object from components
-      write(*,*) q
-      write(*,*) x
-      
-      write(*,*) 'Multiply vector by a constant'
-      write(*,*) 2*q
-      write(*,*) 2*x
-      
-      write(*,*) 'Divide vector by a constant'
-      write(*,*) q/2
-      write(*,*) x/2
-      
-      write(*,*) 'Vector norm'
-      write(*,*) norm(q)
-      write(*,*) norm(x)
-      write(*,*) x%norm()
-      
-      write(*,*) 'Unit vectors'
-      write(*,*) unitvector(q)
-      write(*,*) unitvector(x)
-      write(*,*) x%unit()
-      
-      write(*,*) 'Component-wise multiplication'
-      r = (/4.3,4.1,0.5/)
-      y = r
-      write(*,*) q*r
-      write(*,*) x*y
-      
-      write(*,*) 'Component-wise division'
-      write(*,*) q/r
-      write(*,*) x/y
-      
-      write(*,*) 'Scalar product'
-      write(*,*) q.dot.r
-      write(*,*) x.dot.y
-      
-      write(*,*) 'Vector product'
-      write(*,*) q.cross.r
-      write(*,*) x.cross.y
-      
-      write(*,*) 'Multiply matrix with vector'
-      m = reshape((/1.3,4.2,-2.0,5.1,-2.2,1.0,-0.6,0.8,4.0/),(/3,3/))
-      write(*,*) matmul(m,q)
-      write(*,*) matmul(m,x)
-      
-      write(*,*) 'Multiply vector with matrix'
-      write(*,*) matmul(q,m)
-      write(*,*) matmul(x,m)
-      
-      write(*,*) 'Compare vectors'
-      write(*,*) all(q==r),any(q.ne.r)
-      write(*,*) x==y,x.ne.y
-   
-   end subroutine example_vectors
+! screen/logfile output ************************************************************************************************************
 
-   function components_vector4(v) result(s)
-      type(vector4),intent(in) :: v
-      real*4 :: s(3)
-      s = (/v%x,v%y,v%z/)
-   end function components_vector4
+subroutine start_output(title)
+
+   implicit none
+   character(*),intent(in),optional :: title
    
-   function components_vector8(v) result(s)
-      type(vector8),intent(in) :: v
-      real*8 :: s(3)
-      s = (/v%x,v%y,v%z/)
-   end function components_vector8
+   if (time_start.ne.-1) call deverror('start_output cannot be called more than once')
    
-   function component_vector4(v,index) result(s)
-      type(vector4),intent(in) :: v
-      integer*4,intent(in):: index
-      real*4 :: s
-      select case(index)
-      case(1)
-         s = v%x
-      case(2)
-         s = v%y
-      case(3)
-         s = v%z
-      case default
-         s = 0
-      end select
-   end function component_vector4
+   if (.not.isempty(logfile_name)) call start_logfile
    
-   function component_vector8(v,index) result(s)
-      type(vector8),intent(in) :: v
-      integer*4,intent(in):: index
-      real*8 :: s
-      select case(index)
-      case(1)
-         s = v%x
-      case(2)
-         s = v%y
-      case(3)
-         s = v%z
-      case default
-         s = 0
-      end select
-   end function component_vector8
+   call hline
+   if (present(title)) then
+      if (.not.isempty(title)) call out(title)
+   else
+      call out('Running '//execname()//' version '//trim(version)//'.')
+   end if
+   call system_clock(time_start)
+
+end subroutine start_output
+
+subroutine stop_output(delete_logfile)
+
+   ! close output on screen/logfile and write total time taken
+
+   implicit none
+   logical*4,intent(in),optional :: delete_logfile ! if true and if a logfile exists, it will be deleted
+   integer*8                     :: time_close
+   integer*8                     :: time_rate
    
-  subroutine getcomponents_vector4(s,v)
-      class(vector4),intent(in) :: v
-      real*4,intent(out) :: s(3)
-      s = (/v%x,v%y,v%z/)
-   end subroutine getcomponents_vector4
+   if (time_start==-1) call deverror('stop_output cannot be called without first calling start_output')
    
-   subroutine getcomponents_vector8(s,v)
-      class(vector8),intent(in) :: v
-      real*8,intent(out) :: s(3)
-      s = (/v%x,v%y,v%z/)
-   end subroutine getcomponents_vector8
+   call system_clock(time_close,time_rate)
    
-   subroutine setcomponents_vector4_from_real4(v,s)
-      real*4,intent(in) :: s(3)
-      type(vector4),intent(out) :: v
-      v = vector4(s(1),s(2),s(3))
-   end subroutine setcomponents_vector4_from_real4
+   call out('TOTAL WALL TIME: '//sec2time(real(time_close-time_start,8)/time_rate))
+   call hline
    
-   subroutine setcomponents_vector4_from_real8(v,s)
-      real*8,intent(in) :: s(3)
-      type(vector4),intent(out) :: v
-      v = vector4(real(s(1),4),real(s(2),4),real(s(3),4))
-   end subroutine setcomponents_vector4_from_real8
-   
-   subroutine setcomponents_vector4_from_int4(v,s)
-      integer*4,intent(in) :: s(3)
-      type(vector4),intent(out) :: v
-      v = vector4(real(s(1),4),real(s(2),4),real(s(3),4))
-   end subroutine setcomponents_vector4_from_int4
-   
-   subroutine setcomponents_vector4_from_int8(v,s)
-      integer*8,intent(in) :: s(3)
-      type(vector4),intent(out) :: v
-      v = vector4(real(s(1),4),real(s(2),4),real(s(3),4))
-   end subroutine setcomponents_vector4_from_int8
-   
-   subroutine setcomponents_vector8_from_real4(v,s)
-      real*4,intent(in) :: s(3)
-      type(vector8),intent(out) :: v
-      v = vector8(real(s(1),8),real(s(2),8),real(s(3),8))
-   end subroutine setcomponents_vector8_from_real4
-   
-   subroutine setcomponents_vector8_from_real8(v,s)
-      real*8,intent(in) :: s(3)
-      type(vector8),intent(out) :: v
-      v = vector8(s(1),s(2),s(3))
-   end subroutine setcomponents_vector8_from_real8
-   
-   subroutine setcomponents_vector8_from_int4(v,s)
-      integer*4,intent(in) :: s(3)
-      type(vector8),intent(out) :: v
-      v = vector8(real(s(1),8),real(s(2),8),real(s(3),8))
-   end subroutine setcomponents_vector8_from_int4
-   
-   subroutine setcomponents_vector8_from_int8(v,s)
-      integer*8,intent(in) :: s(3)
-      type(vector8),intent(out) :: v
-      v = vector8(real(s(1),8),real(s(2),8),real(s(3),8))
-   end subroutine setcomponents_vector8_from_int8
-   
-   pure function compare_vectors4(u,v) result(s)
-      class(vector4),intent(in) :: u,v
-      logical :: s
-      s = u%x==v%x .and. u%y==v%y .and. u%z==v%z
-   end function compare_vectors4
-   
-   pure function compare_vectors8(u,v) result(s)
-      class(vector8),intent(in) :: u,v
-      logical :: s
-      s = u%x==v%x .and. u%y==v%y .and. u%z==v%z
-   end function compare_vectors8
-   
-   pure function ncompare_vectors4(u,v) result(s)
-      class(vector4),intent(in) :: u,v
-      logical :: s
-      s = .not.compare_vectors4(u,v)
-   end function ncompare_vectors4
-   
-   pure function ncompare_vectors8(u,v) result(s)
-      class(vector8),intent(in) :: u,v
-      logical :: s
-      s = .not.compare_vectors8(u,v)
-   end function ncompare_vectors8
-   
-   pure function norm_vector4(this) result(n)
-      class(vector4),intent(in) :: this
-      real*4 :: n
-      n = sqrt(this%x**2+this%y**2+this%z**2)
-   end function norm_vector4
-   
-   pure function norm_vector8(this) result(n)
-      class(vector8),intent(in) :: this
-      real*8 :: n
-      n = sqrt(this%x**2+this%y**2+this%z**2)
-   end function norm_vector8
-   
-   pure function norm_array4(this) result(n)
-      real*4,intent(in) :: this(:)
-      real*4 :: n
-      n = sqrt(sum(this**2))
-   end function norm_array4
-   
-   pure function norm_array8(this) result(n)
-      real*8,intent(in) :: this(:)
-      real*8 :: n
-      n = sqrt(sum(this**2))
-   end function norm_array8
-   
-   pure function unit_vector4(this) result(w)
-      class(vector4),intent(in) :: this
-      type(vector4) :: w
-      real*4 :: n
-      n = this%norm()
-      if (n<=epsilon(1.0)) then
-         w = this*0
-      else
-         w = this/n
+   if (present(delete_logfile)) then
+      if (delete_logfile) then
+         if (logfile_open) then
+            call delete_file(logfile_name)
+         end if
       end if
-   end function unit_vector4
+   end if
    
-   pure function unit_vector8(this) result(w)
-      class(vector8),intent(in) :: this
-      type(vector8) :: w
-      real*8 :: n
-      n = this%norm()
-      if (n<=epsilon(1.0_8)) then
-         w = this*0
-      else
-         w = this/n
+   logfile_open = .false.
+
+end subroutine stop_output
+
+subroutine set_verbose(value)
+
+   implicit none
+   logical*4,intent(in) :: value
+   verbose = value
+
+end subroutine set_verbose
+
+subroutine set_logfile_name(txt)
+
+   implicit none
+   character(*),intent(in) :: txt
+   logfile_name = txt
+
+end subroutine set_logfile_name
+
+subroutine set_logfile_unit(unit)
+
+   implicit none
+   integer*4,intent(in) :: unit
+   logfile_unit = unit
+
+end subroutine set_logfile_unit
+
+subroutine set_version(txt)
+
+   implicit none
+   character(*),intent(in) :: txt
+   version = trim(txt)
+   
+end subroutine set_version
+
+subroutine set_help(txt)
+
+   implicit none
+   character(*),intent(in) :: txt
+   help = trim(txt)
+   
+end subroutine set_help
+
+subroutine set_copyright(txt)
+
+   implicit none
+   character(*),intent(in) :: txt
+   copyright = trim(txt)
+   
+end subroutine set_copyright
+
+subroutine start_logfile
+
+   implicit none
+   integer*4   :: i
+   
+   ! basic checks
+   if (logfile_open) call deverror('do not call start_logfile more than once')
+   if (isempty(logfile_name)) call deverror('do not call start_logfile before defining a non-empty logfile_name')
+   
+   ! check if path exists and has read+write permission
+   do i = len(trim(logfile_name)),2,-1
+      if (logfile_name(i:i)==separator) then
+         if (exists(logfile_name(1:i))) then
+            call check_file(logfile_name(1:i),'rw')
+         else
+            call make_path(logfile_name(1:i))
+            call check_file(logfile_name(1:i),'rw')
+         end if
+         exit
       end if
-   end function unit_vector8
+   end do
    
-   pure function unit_array4(v) result(w)
-      real*4,intent(in) :: v(:)
-      real*4,allocatable :: w(:)
-      real*4 :: n
-      allocate(w(size(v)))
-      n = norm(v)
-      if (n<=epsilon(1.0)) then
-         w = v*0
+   ! open log file
+   !$OMP CRITICAL (subroutine_start_logfile)
+   open(logfile_unit,file=trim(logfile_name),action='write',status='replace',form='formatted')
+   close(logfile_unit)
+   logfile_open = .true.
+   !$OMP END CRITICAL (subroutine_start_logfile)
+
+end subroutine start_logfile
+
+subroutine out(txt,value)
+
+   ! write text to screen and/or logfile
+
+   implicit none
+   character(*),intent(in)       :: txt
+   class(*),intent(in),optional  :: value    ! optional numeric value to be appended to txt
+   character(len=255)            :: string
+   
+   !$OMP CRITICAL (subroutine_out)
+   if (.not.has_stopped) then ! to avoid multiple error messages in multi-threading
+   
+      ! convert input arguments into a single string
+      if (present(value)) then
+         string = txt//val2str(value)
       else
-         w = v/n
+         string = txt
       end if
-   end function unit_array4
-   
-   pure function unit_array8(v) result(w)
-      real*8,intent(in) :: v(:)
-      real*8,allocatable :: w(:)
-      real*8 :: n
-      allocate(w(size(v)))
-      n = norm(v)
-      if (n<=epsilon(1.0_8)) then
-         w = v*0
-      else
-         w = v/n
-      end if
-   end function unit_array8
-   
-   pure function add_vectors4(u,v) result(w)
-      class(vector4),intent(in) :: u,v
-      type(vector4) :: w
-      w = vector4(u%x+v%x,u%y+v%y,u%z+v%z)
-   end function add_vectors4
-   
-   pure function add_vectors8(u,v) result(w)
-      class(vector8),intent(in) :: u,v
-      type(vector8) :: w
-      w = vector8(u%x+v%x,u%y+v%y,u%z+v%z)
-   end function add_vectors8
-   
-   pure function subtract_two_vectors4(u,v) result(w)
-      class(vector4),intent(in) :: u,v
-      type(vector4) :: w
-      w = vector4(u%x-v%x,u%y-v%y,u%z-v%z)
-   end function subtract_two_vectors4
-   
-   pure function subtract_two_vectors8(u,v) result(w)
-      class(vector8),intent(in) :: u,v
-      type(vector8) :: w
-      w = vector8(u%x-v%x,u%y-v%y,u%z-v%z)
-   end function subtract_two_vectors8
-   
-   pure function multiply_vector4_by_vector4(u,v) result(w)
-      class(vector4),intent(in) :: u,v
-      type(vector4) :: w
-      w = vector4(u%x*v%x,u%y*v%y,u%z*v%z)
-   end function multiply_vector4_by_vector4
-   
-   pure function multiply_vector8_by_vector8(u,v) result(w)
-      class(vector8),intent(in) :: u,v
-      type(vector8) :: w
-      w = vector8(u%x*v%x,u%y*v%y,u%z*v%z)
-   end function multiply_vector8_by_vector8
-   
-   pure function multiply_real4_with_vector4(k,v) result(w)
-      real*4,intent(in) :: k
-      class(vector4),intent(in) :: v
-      type(vector4) :: w
-      w = vector4(k*v%x,k*v%y,k*v%z)
-   end function multiply_real4_with_vector4
-   
-   pure function multiply_real8_with_vector4(k,v) result(w)
-      real*8,intent(in) :: k
-      class(vector4),intent(in) :: v
-      type(vector4) :: w
-      w = vector4(real(k,4)*v%x,real(k,4)*v%y,real(k,4)*v%z)
-   end function multiply_real8_with_vector4
-   
-   pure function multiply_int4_with_vector4(k,v) result(w)
-      integer*4,intent(in) :: k
-      class(vector4),intent(in) :: v
-      type(vector4) :: w
-      w = vector4(real(k,4)*v%x,real(k,4)*v%y,real(k,4)*v%z)
-   end function multiply_int4_with_vector4
-   
-   pure function multiply_int8_with_vector4(k,v) result(w)
-      integer*8,intent(in) :: k
-      class(vector4),intent(in) :: v
-      type(vector4) :: w
-      w = vector4(real(k,4)*v%x,real(k,4)*v%y,real(k,4)*v%z)
-   end function multiply_int8_with_vector4
-   
-   pure function multiply_vector4_with_real4(v,k) result(w)
-      real*4,intent(in) :: k
-      class(vector4),intent(in) :: v
-      type(vector4) :: w
-      w = vector4(k*v%x,k*v%y,k*v%z)
-   end function multiply_vector4_with_real4
-   
-   pure function multiply_vector4_with_real8(v,k) result(w)
-      real*8,intent(in) :: k
-      class(vector4),intent(in) :: v
-      type(vector4) :: w
-      w = vector4(real(k,4)*v%x,real(k,4)*v%y,real(k,4)*v%z)
-   end function multiply_vector4_with_real8
-   
-   pure function multiply_vector4_with_int4(v,k) result(w)
-      integer*4,intent(in) :: k
-      class(vector4),intent(in) :: v
-      type(vector4) :: w
-      w = vector4(real(k,4)*v%x,real(k,4)*v%y,real(k,4)*v%z)
-   end function multiply_vector4_with_int4
-   
-   pure function multiply_vector4_with_int8(v,k) result(w)
-      integer*8,intent(in) :: k
-      class(vector4),intent(in) :: v
-      type(vector4) :: w
-      w = vector4(real(k,4)*v%x,real(k,4)*v%y,real(k,4)*v%z)
-   end function multiply_vector4_with_int8
-   
-   pure function multiply_real4_with_vector8(k,v) result(w)
-      real*4,intent(in) :: k
-      class(vector8),intent(in) :: v
-      type(vector8) :: w
-      w = vector8(k*v%x,k*v%y,k*v%z)
-   end function multiply_real4_with_vector8
-   
-   pure function multiply_real8_with_vector8(k,v) result(w)
-      real*8,intent(in) :: k
-      class(vector8),intent(in) :: v
-      type(vector8) :: w
-      w = vector8(real(k,4)*v%x,real(k,4)*v%y,real(k,4)*v%z)
-   end function multiply_real8_with_vector8
-   
-   pure function multiply_int4_with_vector8(k,v) result(w)
-      integer*4,intent(in) :: k
-      class(vector8),intent(in) :: v
-      type(vector8) :: w
-      w = vector8(real(k,4)*v%x,real(k,4)*v%y,real(k,4)*v%z)
-   end function multiply_int4_with_vector8
-   
-   pure function multiply_int8_with_vector8(k,v) result(w)
-      integer*8,intent(in) :: k
-      class(vector8),intent(in) :: v
-      type(vector8) :: w
-      w = vector8(real(k,4)*v%x,real(k,4)*v%y,real(k,4)*v%z)
-   end function multiply_int8_with_vector8
-   
-   pure function multiply_vector8_with_real4(v,k) result(w)
-      real*4,intent(in) :: k
-      class(vector8),intent(in) :: v
-      type(vector8) :: w
-      w = vector8(k*v%x,k*v%y,k*v%z)
-   end function multiply_vector8_with_real4
-   
-   pure function multiply_vector8_with_real8(v,k) result(w)
-      real*8,intent(in) :: k
-      class(vector8),intent(in) :: v
-      type(vector8) :: w
-      w = vector8(real(k,4)*v%x,real(k,4)*v%y,real(k,4)*v%z)
-   end function multiply_vector8_with_real8
-   
-   pure function multiply_vector8_with_int4(v,k) result(w)
-      integer*4,intent(in) :: k
-      class(vector8),intent(in) :: v
-      type(vector8) :: w
-      w = vector8(real(k,4)*v%x,real(k,4)*v%y,real(k,4)*v%z)
-   end function multiply_vector8_with_int4
-   
-   pure function multiply_vector8_with_int8(v,k) result(w)
-      integer*8,intent(in) :: k
-      class(vector8),intent(in) :: v
-      type(vector8) :: w
-      w = vector8(real(k,4)*v%x,real(k,4)*v%y,real(k,4)*v%z)
-   end function multiply_vector8_with_int8
-   
-   pure function divide_vector4_by_vector4(u,v) result(w)
-      class(vector4),intent(in) :: u,v
-      type(vector4) :: w
-      w = vector4(u%x/v%x,u%y/v%y,u%z/v%z)
-   end function divide_vector4_by_vector4
-   
-   pure function divide_vector8_by_vector8(u,v) result(w)
-      class(vector8),intent(in) :: u,v
-      type(vector8) :: w
-      w = vector8(u%x/v%x,u%y/v%y,u%z/v%z)
-   end function divide_vector8_by_vector8
-   
-   pure function divide_vector4_by_real4(v,k) result(w)
-      class(vector4),intent(in) :: v
-      real*4,intent(in) :: k
-      type(vector4) :: w
-      w = vector4(v%x/k,v%y/k,v%z/k)
-   end function divide_vector4_by_real4
-   
-   pure function divide_vector8_by_real4(v,k) result(w)
-      class(vector8),intent(in) :: v
-      real*4,intent(in) :: k
-      type(vector8) :: w
-      w = vector8(v%x/k,v%y/k,v%z/k)
-   end function divide_vector8_by_real4
-   
-   pure function divide_vector4_by_real8(v,k) result(w)
-      class(vector4),intent(in) :: v
-      real*8,intent(in) :: k
-      type(vector4) :: w
-      w = vector4(v%x/real(k,4),v%y/real(k,4),v%z/real(k,4))
-   end function divide_vector4_by_real8
-   
-   pure function divide_vector8_by_real8(v,k) result(w)
-      class(vector8),intent(in) :: v
-      real*8,intent(in) :: k
-      type(vector8) :: w
-      w = vector8(v%x/k,v%y/k,v%z/k)
-   end function divide_vector8_by_real8
-   
-   pure function divide_vector4_by_int4(v,k) result(w)
-      class(vector4),intent(in) :: v
-      integer*4,intent(in) :: k
-      type(vector4) :: w
-      w = vector4(v%x/real(k,4),v%y/real(k,4),v%z/real(k,4))
-   end function divide_vector4_by_int4
-   
-   pure function divide_vector8_by_int4(v,k) result(w)
-      class(vector8),intent(in) :: v
-      integer*4,intent(in) :: k
-      type(vector8) :: w
-      w = vector8(v%x/real(k,8),v%y/real(k,8),v%z/real(k,8))
-   end function divide_vector8_by_int4
-   
-   pure function divide_vector4_by_int8(v,k) result(w)
-      class(vector4),intent(in) :: v
-      integer*8,intent(in) :: k
-      type(vector4) :: w
-      w = vector4(v%x/real(k,4),v%y/real(k,4),v%z/real(k,4))
-   end function divide_vector4_by_int8
-   
-   pure function divide_vector8_by_int8(v,k) result(w)
-      class(vector8),intent(in) :: v
-      integer*8,intent(in) :: k
-      type(vector8) :: w
-      w = vector8(v%x/real(k,8),v%y/real(k,8),v%z/real(k,8))
-   end function divide_vector8_by_int8
-   
-   pure function scalar_product_vector4(u,v) result(w)
-      class(vector4),intent(in) :: u,v
-      real*4 :: w
-      w = u%x*v%x+u%y*v%y+u%z*v%z
-   end function scalar_product_vector4
-   
-   pure function scalar_product_vector8(u,v) result(w)
-      class(vector8),intent(in) :: u,v
-      real*8 :: w
-      w = u%x*v%x+u%y*v%y+u%z*v%z
-   end function scalar_product_vector8
-   
-   pure function scalar_product_array4(u,v) result(w)
-      real*4,intent(in) :: u(:),v(:)
-      real*4 :: w
-      w = sum(u*v)
-   end function scalar_product_array4
-   
-   pure function scalar_product_array8(u,v) result(w)
-      real*8,intent(in) :: u(:),v(:)
-      real*8 :: w
-      w = sum(u*v)
-   end function scalar_product_array8
-   
-   function scalar_product_a4v4(u,v) result(w)
-      real*4,intent(in)          :: u(3)
-      class(vector4),intent(in)  :: v
-      real*4 :: w
-      w = u.dot.components(v)
-   end function scalar_product_a4v4
-   
-   function scalar_product_v4a4(u,v) result(w)
-      class(vector4),intent(in)  :: u
-      real*4,intent(in)          :: v(3)
-      real*4 :: w
-      w = components(u).dot.v
-   end function scalar_product_v4a4
-   
-   function scalar_product_a8v8(u,v) result(w)
-      real*8,intent(in)          :: u(3)
-      class(vector8),intent(in)  :: v
-      real*8 :: w
-      w = u.dot.components(v)
-   end function scalar_product_a8v8
-   
-   function scalar_product_v8a8(u,v) result(w)
-      class(vector8),intent(in)  :: u
-      real*8,intent(in)          :: v(3)
-      real*8 :: w
-      w = components(u).dot.v
-   end function scalar_product_v8a8
-   
-   function cross_product_a4v4(u,v) result(w)
-      real*4,intent(in)          :: u(3)
-      class(vector4),intent(in)  :: v
-      real*4 :: w(3)
-      w = u.cross.components(v)
-   end function cross_product_a4v4
-   
-   function cross_product_v4a4(u,v) result(w)
-      class(vector4),intent(in)  :: u
-      real*4,intent(in)          :: v(3)
-      real*4 :: w(3)
-      w = components(u).cross.v
-   end function cross_product_v4a4
-   
-   function cross_product_a8v8(u,v) result(w)
-      real*8,intent(in)          :: u(3)
-      class(vector8),intent(in)  :: v
-      real*8 :: w(3)
-      w = u.cross.components(v)
-   end function cross_product_a8v8
-   
-   function cross_product_v8a8(u,v) result(w)
-      class(vector8),intent(in)  :: u
-      real*8,intent(in)          :: v(3)
-      real*8 :: w(3)
-      w = components(u).cross.v
-   end function cross_product_v8a8
-   
-   pure function cross_product_vector4(u,v) result(w)
-      class(vector4),intent(in) :: u,v
-      type(vector4) :: w
-      w = vector4(u%y*v%z-u%z*v%y,u%z*v%x-u%x*v%z,u%x*v%y-u%y*v%x)
-   end function cross_product_vector4
-   
-   pure function cross_product_vector8(u,v) result(w)
-      class(vector8),intent(in) :: u,v
-      type(vector8) :: w
-      w = vector8(u%y*v%z-u%z*v%y,u%z*v%x-u%x*v%z,u%x*v%y-u%y*v%x)
-   end function cross_product_vector8
-   
-   pure function cross_product_array4(u,v) result(w)
-      real*4,intent(in) :: u(3),v(3)
-      real*4 :: w(3)
-      w(1) = u(2)*v(3)-u(3)*v(2)
-      w(2) = u(3)*v(1)-u(1)*v(3)
-      w(3) = u(1)*v(2)-u(2)*v(1)
-   end function cross_product_array4
-   
-   pure function cross_product_array8(u,v) result(w)
-      real*8,intent(in) :: u(3),v(3)
-      real*8 :: w(3)
-      w(1) = u(2)*v(3)-u(3)*v(2)
-      w(2) = u(3)*v(1)-u(1)*v(3)
-      w(3) = u(1)*v(2)-u(2)*v(1)
-   end function cross_product_array8
-   
-   pure function matmul_matrix4_times_vector4(m,v) result(w)
-      real*4,intent(in) :: m(3,3)
-      class(vector4),intent(in) :: v
-      type(vector4) :: w
-      real*4 :: q(3)
-      q = matmul(m,(/v%x,v%y,v%z/))
-      w = vector4(q(1),q(2),q(3))
-   end function matmul_matrix4_times_vector4
-   
-   pure function matmul_matrix4_times_vector8(m,v) result(w)
-      real*4,intent(in) :: m(3,3)
-      class(vector8),intent(in) :: v
-      type(vector8) :: w
-      real*8 :: q(3)
-      q = matmul(real(m,8),(/v%x,v%y,v%z/))
-      w = vector8(q(1),q(2),q(3))
-   end function matmul_matrix4_times_vector8
-   
-   pure function matmul_matrix8_times_vector4(m,v) result(w)
-      real*8,intent(in) :: m(3,3)
-      class(vector4),intent(in) :: v
-      type(vector4) :: w
-      real*4 :: q(3)
-      q = matmul(real(m,4),(/v%x,v%y,v%z/))
-      w = vector4(q(1),q(2),q(3))
-   end function matmul_matrix8_times_vector4
-   
-   pure function matmul_matrix8_times_vector8(m,v) result(w)
-      real*8,intent(in) :: m(3,3)
-      class(vector8),intent(in) :: v
-      type(vector8) :: w
-      real*8 :: q(3)
-      q = matmul(m,(/v%x,v%y,v%z/))
-      w = vector8(q(1),q(2),q(3))
-   end function matmul_matrix8_times_vector8
-   
-   pure function matmul_vector4_times_matrix4(u,m) result(w)
-      real*4,intent(in) :: m(3,3)
-      class(vector4),intent(in) :: u
-      type(vector4) :: w
-      real*4 :: q(3)
-      q = matmul((/u%x,u%y,u%z/),m)
-      w = vector4(q(1),q(2),q(3))
-   end function matmul_vector4_times_matrix4
-   
-   pure function matmul_vector8_times_matrix4(u,m) result(w)
-      real*4,intent(in) :: m(3,3)
-      class(vector8),intent(in) :: u
-      type(vector8) :: w
-      real*8 :: q(3)
-      q = matmul((/u%x,u%y,u%z/),real(m,8))
-      w = vector8(q(1),q(2),q(3))
-   end function matmul_vector8_times_matrix4
-   
-   pure function matmul_vector4_times_matrix8(u,m) result(w)
-      real*8,intent(in) :: m(3,3)
-      class(vector4),intent(in) :: u
-      type(vector4) :: w
-      real*4 :: q(3)
-      q = matmul((/u%x,u%y,u%z/),real(m,4))
-      w = vector4(q(1),q(2),q(3))
-   end function matmul_vector4_times_matrix8
-   
-   pure function matmul_vector8_times_matrix8(u,m) result(w)
-      real*8,intent(in) :: m(3,3)
-      class(vector8),intent(in) :: u
-      type(vector8) :: w
-      real*8 :: q(3)
-      q = matmul((/u%x,u%y,u%z/),m)
-      w = vector8(q(1),q(2),q(3))
-   end function matmul_vector8_times_matrix8
       
-end module shared_module_vectors
+      ! output on screen
+      if (verbose) write(*,'(A)') trim(string)
+
+      ! output to logfile      
+      if (logfile_open) then
+         open(logfile_unit,file=trim(logfile_name),action='write',status='old',position='append',form='formatted')
+         write(logfile_unit,'(A)') trim(string)
+         close(logfile_unit)
+      end if
+   
+      just_made_hline = .false.
+      
+   end if
+   !$OMP END CRITICAL (subroutine_out)
+         
+end subroutine out
+
+subroutine hline
+
+   ! outputs a horizontal line, unless such a line has just been written
+
+   implicit none
+   if (.not.just_made_hline) then
+      call out(hline_str)
+      just_made_hline = .true.
+      once_made_hline = .true.
+   end if
+   
+end subroutine hline
+
+subroutine error(txt,value,showhelp)
+
+   ! write error message and stop code
+
+   implicit none
+   character(*),intent(in)       :: txt
+   class(*),intent(in),optional  :: value
+   logical*4,intent(in),optional   :: showhelp
+   
+   call out('ERROR: '//txt,value)
+   if (present(showhelp)) then
+      if ((showhelp).and.(.not.isempty(help))) call out(help)
+   end if
+   if (once_made_hline) call hline
+   has_stopped = .true.
+   stop
+   
+end subroutine error
+
+subroutine deverror(txt,value)
+
+   ! write error message and stop code
+
+   implicit none
+   character(*),intent(in)       :: txt
+   class(*),intent(in),optional  :: value
+   
+   call out('DEVELOPEPR ERROR: '//txt,value)
+   if (once_made_hline) call hline
+   has_stopped = .true.
+   stop
+   
+end subroutine deverror
+
+subroutine warning(txt,value)
+
+   ! write warning; the code is stopped if stop_at_warnings==.true.
+
+   implicit none
+   character(*),intent(in)       :: txt
+   class(*),intent(in),optional  :: value
+   
+   if (.not.once_made_hline) call hline
+   call out('WARNING: '//trim(txt),value)
+   if (stop_at_warnings) then
+      call hline
+      has_stopped = .true.
+      stop
+   end if
+   
+end subroutine warning
+
+subroutine progress(fraction,fmt)
+
+   ! write progress in percent
+
+   implicit none
+   real*4,intent(in)                :: fraction
+   character(*),intent(in),optional :: fmt ! optional number format
+   character(len=20)                :: fmt_
+   character(len=30)                :: str
+   
+   fmt_ = 'F6.2'
+   if (present(fmt)) fmt_=fmt
+   write(str,'(A,'//fmt_//',A)') 'Progress: ',fraction*100,'%'
+   call out(trim(str))
+
+end subroutine progress
+
+
+subroutine tic(title,value)
+
+   ! start timer for program part, denoted with a horizontal line in the output
+   
+   implicit none
+   character(*),optional,intent(in) :: title
+   class(*),intent(in),optional     :: value
+   
+   call hline
+   if (present(title)) call out(trim(title),value)
+   call system_clock(time_tic)
+   
+end subroutine tic  
+
+subroutine toc
+
+   ! stop timer for program part, denoted with a horizontal line in the output
+
+   implicit none
+   integer*8 :: toc_time
+   integer*8 :: time_rate
+   
+   if (time_tic==-1) call deverror('every call of toc must be preceded by a call of tic.')
+   
+   call system_clock(toc_time,time_rate)
+   call out('Wall time: '//sec2time(real(toc_time-time_tic,8)/time_rate))
+   call hline
+   time_tic = -1
+   
+end subroutine toc
+
+
+! **********************************************************************************************************************************
+! conversion functions *************************************************************************************************************
+! **********************************************************************************************************************************
+
+function val2str(value) result(str)
+
+   ! IMPORTANT: must be called without trim or adjust, e.g. use val2str(char), not val2str(trim(char))
+
+   implicit none
+   class(*),intent(in)        :: value ! value in any intrinsic numeric type, passed as unlimited polymorphic variable
+   character(len=255)         :: txt
+   character(:),allocatable   :: str
+
+   select type (value)
+   type is (integer(kind=4));    write(txt,'(i0)') value
+   type is (integer(kind=8));    write(txt,'(i0)') value
+   type is (integer(kind=16));   write(txt,'(i0)') value
+   type is (real(kind=4));       write(txt,'(1pg0)') value
+   type is (real(kind=8));       write(txt,'(1pg0)') value
+   !type is (real(kind=16));      write(txt,'(1pg0)') value ! not supported by all compilers
+   type is (logical);            write(txt,'(1l)') value
+   type is (character(*));       write(txt,'(a)') value
+   type is (complex(kind=4));    write(txt,'(1pg0,sp,1pg0,"i")') value
+   type is (complex(kind=8));    write(txt,'(1pg0,sp,1pg0,"i")') value
+   !type is (complex(kind=16));   write(txt,'(1pg0,sp,1pg0,"i")') value ! not supported by all compilers
+   class default
+      call deverror('unknown variable type')
+   end select
+
+   str = trim(txt)
+   
+end function val2str
+
+pure elemental integer*4 function log2int(a)
+
+   logical*4,intent(in) :: a
+   
+   if (a) then
+      log2int = 1
+   else
+      log2int = 0
+   end if
+   
+end function log2int
+
+pure elemental logical*4 function int2log(a)
+
+   integer*4,intent(in)  :: a
+   if (a==0) then
+      int2log = .false.
+   else
+      int2log = .true.
+   end if
+   
+end function int2log
+
+function sec2time(secs) result(strout)
+
+   ! convertes seconds into human-readable text format
+
+   implicit none
+   real*8,intent(in)          :: secs
+   real*4                     :: seconds
+   integer*4                  :: minutes,hours,days
+   character(100)             :: str
+   character(1)               :: zero
+   character(:),allocatable   :: strout
+   minutes = int(secs/60,4)
+   hours = int(secs/3600,4)
+   days = int(secs/86400,4)
+   seconds = real(secs-minutes*60,4)
+   minutes = minutes-hours*60
+   hours = hours-days*24
+   if (seconds<1) then
+      zero = '0'
+   else
+      zero = ''
+   end if
+   if (days>0) then
+      write(str,'(I0,A,I0,A,I0,A,F0.2,A)') days,'d ',hours,'h ', minutes,'m '//trim(zero),seconds,'s'
+   else if (hours>0) then
+      write(str,'(I0,A,I0,A,F0.2,A)') hours,'h ',minutes,'m '//trim(zero),seconds,'s'
+   else if (minutes>0) then
+      write(str,'(I0,A,F0.2,A)') minutes,'m '//trim(zero),seconds,'s'
+   else
+      write(str,'(A,F0.2,A)') trim(zero),seconds,'s'
+   end if
+   
+   strout = trim(str)
+   
+end function sec2time
+
+
+! **********************************************************************************************************************************
+! file handling ********************************************************************************************************************
+! **********************************************************************************************************************************
+
+logical*4 function exists(filename)
+   
+   implicit none
+   character(len=*),intent(in)      :: filename ! path of file name
+   
+   if (isempty(filename)) call error('attempting to check existence of empty filename')
+   inquire(file=trim(filename), exist=exists)
+   
+end function exists
+
+subroutine check_file(filename,permission)
+
+   implicit none
+   character(*),intent(in)          :: filename ! path or file name
+   character(*),intent(in),optional :: permission ! requested permission, e.g, 'r', 'w', 'rw', 'rwx'
+   integer*4                        :: status
+   character(4)                     :: kind
+   
+   ! decide if filename is a file or a path
+   if (last_character(filename)==separator) then
+      kind = 'path'
+   else
+      kind = 'file'
+   end if
+   
+   ! check existence
+   if (.not.exists(filename)) call error(kind//' does not exist: '//trim(filename))
+   
+   ! optional check of permissions
+   if (present(permission)) then
+      status = access(trim(filename),trim(permission))
+      if (status.ne.0) call error('you do not have '//trim(permission)//' rights for '//kind//': '//trim(filename))
+   end if
+   
+end subroutine check_file
+
+subroutine make_path(path)
+
+   implicit none
+   character(*),intent(in) :: path
+   integer*4               :: status
+   
+   status = system('mkdir -p '//trim(path))
+   if (status.ne.0) call error('you do not have permission to create the directory: '//trim(path))
+   
+end subroutine make_path
+
+subroutine remove_path(path)
+
+   implicit none
+   character(*),intent(in) :: path
+   integer*4               :: status
+   
+   status = system('rm -rf '//trim(path))
+   if (status.ne.0) call error('you do not have permission to remove the directory: '//trim(path))
+   
+end subroutine remove_path
+
+function dir(s1,s2,s3,s4,s5,s6,s7,s8,s9,ispath) result(out)
+
+   ! IMPORTANT: must be called without trim or adjust, e.g. use dir(str1,str2), not dir(trim(str1),str2)
+
+   implicit none
+   class(*),intent(in)           :: s1
+   class(*),intent(in),optional  :: s2,s3,s4,s5,s6,s7,s8,s9
+   logical,intent(in),optional   :: ispath
+   character(255)                :: str
+   character(:),allocatable      :: out
+   
+   ! concatenate pieces
+   str = val2str(s1)
+   if (present(s2)) str = trim(str)//separator//trim(val2str(s2))
+   if (present(s3)) str = trim(str)//separator//trim(val2str(s3))
+   if (present(s4)) str = trim(str)//separator//trim(val2str(s4))
+   if (present(s5)) str = trim(str)//separator//trim(val2str(s5))
+   if (present(s6)) str = trim(str)//separator//trim(val2str(s6))
+   if (present(s7)) str = trim(str)//separator//trim(val2str(s7))
+   if (present(s8)) str = trim(str)//separator//trim(val2str(s8))
+   if (present(s9)) str = trim(str)//separator//trim(val2str(s9))
+   
+   ! terminate paths on a single [separator]
+   if (present(ispath)) then
+      if (ispath) str = trim(str)//separator
+   end if
+   
+   ! avoid double separator
+   str = replace_text(str,separator//separator,separator)
+   
+   ! produce output of correct size
+   out = trim(str)
+      
+end function dir
+
+subroutine delete_file(filename)
+
+   implicit none
+   character(*),intent(in) :: filename
+   integer*4               :: status
+   
+   call check_file(filename,'rw')
+   status = system('rm -r '//trim(filename))
+   if (status.ne.0) call error('could not delete file ',trim(filename))
+   
+end subroutine delete_file
+
+
+! **********************************************************************************************************************************
+! character string handling ********************************************************************************************************
+! **********************************************************************************************************************************
+
+logical*4 function isempty(str)
+
+   implicit none
+   character(*),intent(in) :: str
+   isempty = len(trim(str))==0
+   
+end function isempty
+
+function replace_text (string,pattern,replacement)  result(out)
+   
+   implicit none
+   character(*),intent(in)    :: string      ! input string
+   character(*),intent(in)    :: pattern     ! pattern to be replaced
+   character(*),intent(in)    :: replacement ! replacement text
+   character(:),allocatable   :: out
+   integer*4                  :: i,np,nr
+   
+   out = string
+   np = len(pattern)
+   nr = len(replacement)
+   
+   do
+      i = index(out,pattern)
+      if (i==0) exit
+      out = out(:i-1)//replacement//out(i+np:)
+   end do
+   
+end function replace_text
+
+function lowercase(str_in) result(str_out)
+
+   ! changes a strong to lower case
+
+   implicit none
+   character(*), intent(in) :: str_in
+   character(len(str_in))      :: str_out
+   integer :: ic, i
+
+   character(26), parameter :: cap = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
+   character(26), parameter :: low = 'abcdefghijklmnopqrstuvwxyz'
+
+   str_out = str_in
+   do i = 1, len_trim(str_in)
+      ic = index(cap, str_in(i:i))
+      if (ic > 0) str_out(i:i) = low(ic:ic)
+   end do
+
+end function lowercase
+
+function remove_tabs(str) result(out)
+
+   implicit none
+   character(*),intent(in)    :: str      ! input string
+   character(:),allocatable   :: out
+   
+   out = replace_text(str,achar(9),'')
+
+end function remove_tabs
+
+function tabs2spaces(str) result(out)
+
+   implicit none
+   character(*),intent(in)    :: str      ! input string
+   character(:),allocatable   :: out
+   
+   out = replace_text(str,achar(9),' ')
+
+end function tabs2spaces
+
+character(1) function last_character(str)
+
+   ! returns the right-most non empty character of a string
+   implicit none
+   character(*),intent(in)    :: str
+   integer*4                  :: l
+   l = len(trim(str))
+   last_character = str(l:l)
+
+end function
+
+function timestamp() result(str)
+
+   ! human readable time stamp
+   implicit none
+   integer*4         :: t(8)
+   character(len=23) :: str
+   call date_and_time(VALUES=t)
+   write(str,'(I0,A,I0.2,A,I0.2,A,I0.2,A,I0.2,A,I0.2,A,I0.3)') t(1),'/',t(2),'/',t(3),'-',t(5),':',t(6),':',t(7),'.',t(8)
+   
+end function timestamp
+
+function execname() result(str)
+
+   implicit none
+   character(:),allocatable   :: str
+   character(255)             :: name
+   integer*4                  :: i,j
+   
+   call get_command_argument(0,name)
+   j = 0
+   do i = len(trim(name)),1,-1
+      if (name(i:i)==separator) then
+         j = i+1
+         exit
+      end if
+   end do
+   
+   if (j==0) then
+      str = trim(name)
+   else
+      str = name(j:len(trim(name)))
+   end if
+
+end function execname
+
+
+! **********************************************************************************************************************************
+! miscellaneous ********************************************************************************************************************
+! **********************************************************************************************************************************
+
+subroutine nil(x1,x2,x3,x4,x5,x6,x7,x8,x9,x10,x11,x12,x13,x14,x15,x16,x17,x18,x19,x20)
+   ! call this routine with unused function arguments to avoid compiler warnings
+   class(*),optional :: x1,x2,x3,x4,x5,x6,x7,x8,x9,x10,x11,x12,x13,x14,x15,x16,x17,x18,x19,x20
+   if (.false.) then
+      select type(x1);  end select;    select type(x2);  end select
+      select type(x3);  end select;    select type(x4);  end select
+      select type(x5);  end select;    select type(x6);  end select
+      select type(x7);  end select;    select type(x8);  end select
+      select type(x9);  end select;    select type(x10); end select
+      select type(x11); end select;    select type(x12); end select
+      select type(x13); end select;    select type(x14); end select
+      select type(x15); end select;    select type(x16); end select
+      select type(x17); end select;    select type(x18); end select
+      select type(x19); end select;    select type(x20); end select
+   end if
+end subroutine nil
+
+end module shared_module_core
