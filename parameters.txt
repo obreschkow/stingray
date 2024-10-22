@@ -1,0 +1,462 @@
+# This file specifies the parameters used to generate the mock sky.
+#
+# Automatic values:
+# Parameters given a value 'auto' are understood to be set automatically.
+# The rules for making these parameters must be set programmatically in the function
+# "make_auto_parameters" of the user module "module_user_routines_...".
+# If parameters are set in the user module, but also have a value (other than 'auto') in this parameter file,
+# the value of the parameter file takes priority over the automatic assignment.
+#
+# Parameter sets:
+# Stingray allows the definition of sets of different parameters listed in a single parameter file.
+# A parameter set starts with a line "parameterset [name]" and ends with a line "end". By default, only parameters listed outside
+# a parameter set are used. To use the parameters of a specific set, stingray must be called with the option "-parameterset [name]".
+# In this case, the parameters listed inside a parameter set take priority over those listed outside the parameter set.
+# Parameters not specified in a parameter set are set to their default value given outside the parameter set. The user can mark
+# at most one parameterset in the parameterfile as the default parameterset using an asterix: "parameterset* abc". This
+# parameterset is taken as the default, if the option "-parameterset" is not provided.
+#
+# Comments:
+# Empty lines, as well as line parts starting with the symbol '#' are ignored. Thus '#' can be used for comments. Also note
+# that the text following the parameter values in the same line is ignored and can be used to describe the parameter.
+
+
+# DEFAULT PARAMETERS (used if no parameter set is specified, when executing stingray)
+
+# Name of mock survey (for this name, selection rules must be defined in the module "module_user_selection_...")
+# The output files will have the filename 'path_output/mocksky_[survey]_[seed].hdf5'
+survey                  example
+
+# Path and file names
+path_output             example
+path_input              data/shark/
+filename_sky            mocksky        Filename of output file, without extension '.hdf5' and without subvolume index
+
+# Snapshot parameters
+length_unit             auto           [m] SI-value of comoving length unit
+box_side                auto           [length_unit] comoving side-length of simulation box in multiples of length_unit
+snapshot_min            auto           index of earliest snapshot used for the mock sky
+snapshot_max            auto           index of latest snapshot used for the mock sky
+subvolume_min           auto           index of first subvolume used for the mock sky
+subvolume_max           auto           index of last subvolume used for the mock sky
+
+# Cosmology
+h                       auto           dimensionless Hubble parameter H0=h*100 km/s/Mpc
+omega_l                 auto           dimensionless energy density parameter of dark energy relative to closure density
+omega_m                 auto           dimensionless energy density parameter of all matter relative to closure density
+omega_b                 auto           dimensionless energy density parameter of baryonic matter relative to closure density
+
+# Mapping of box-coordinates on to sky-coordinates
+
+# 1) Randomisation of cosmic structure
+# In stingray, there are three main ways of mapping simulation boxes onto a mock sky. These are specified using the parameter
+# "randomisation", which can take the following three values
+# + "single" produces a single regular tiling array. Each tile uses the *same* symmetry operations (translation+inversion) and the
+#   whole array uses a fixed rotation from the continuous SO(3) group. These three symmetry operations are either chosen randomly or
+#   set to a particular value, depending on the settings below
+# + "tiles" also produces a single regular tiling array, but each tile can have different random symmetry operations
+#   (translations, inversions and *discrete* 90-degree rotations). Additionally, the whole array can be rotated using a single
+#   rotation from the continuous SO(3) group. It is possible to fix the symmetry operation of the central tile, containing the
+#   observer, using the parameters "fix_observer_position" and "fix_observer_rotation".
+# + "shells" produces an onion-layered structure of shells, whose thickness is equal to a box side length. Each shell can have
+#   different symmetry operations (translations, inversions and rotations from the continuous SO(3) group). Each shell contains
+#   is own Cartesian array of tiles. It is possible to fix the symmetry operation of the central shell, containing the observer,
+#   using the parameters "fix_observer_position" and "fix_observer_rotation".
+# Note that, in all cases, the tiling array is made in such away that the observer sits at the centre of a tile. This represents no
+# restriction, since translations of the tiling array can always be mimicked by translations of the structure within the tiles.
+randomisation           tiles          choose between "single", "tiles", "shells".
+shell_tweaking          y              logical flag specifying if the shell radii can be slightly adjusted to match snapshot
+#                                      boundaries; only used if randomisation="shells"
+prng                    F77            type of pseudo-random number generator; choose "F77" or "F95". The GNU F77 PRNG generates a
+#                                      low-discrepancy sequence, which has poorer randomness properties than F95, but is strictly
+#                                      independent of the compiler, whereas F95 can depend on the latter at fixed seed.
+seed                    1              seed for the random number generator (must be a positive integer)
+translate               y              logical flag specifying if random translations are applied
+rotate                  y              logical flag specifying if random rotations are applied
+invert                  y              logical flag specifying if random inversions are applied
+
+# 2) Fixation of observer position (overwrites parameter 'translate' for central tile/shell)
+# In most mock skies this option is not used, but it can be applied, for instance, to force the observer into a void or into
+# a cluster of galaxies; if fix_observer_position is set to "n", the values of observer_x, observer_y and observer_z are ignored.
+# Note that if fix_observer_position is set to "y", no inversion is applied to the central tile/shell, even if invert='y'.
+fix_observer_position   n              logical flag allowing to fix the observer at a specific location in the simulation box
+observer_x              0              [length unit] x-position of observer in simulation box
+observer_y              0              [length unit] y-position of observer in simulation box
+observer_z              0              [length unit] z-position of observer in simulation box
+
+# 3) Fixation of observer rotation (overwrites parameter 'rotate' for central tile/shell)
+# In most mock skies this option is not used, but it can be applied, for instance, to produce pencil beams without random
+# symmetry operations (also set translate, rotate, invert to "n" in this case); if fix_observer_rotation is set to "n",
+# the values of zaxis_ra, zaxis_dec and xy_angle are ignored.
+fix_observer_rotation   n
+xaxis_ra                0              [deg] Right ascension in the mock sky of the x-axis of the tiling grid
+xaxis_dec               0              [deg] Declination in the mock sky of the x-axis of the tiling grid
+yz_angle                0              [deg] Rotation of the sky around the x axis in the (y,z)-plane
+
+# Observer velocity relative to CMB (default values are based on the WMAP dipole in J2000 coordinates, arxiv 0803.0732)
+velocity_norm           369.0          [km/s] observer velocity relative to CMB rest-frame
+velocity_ra             167.93         [deg] RA coordinate to which the observer is moving relative to CMB rest-frame
+velocity_dec            -6.9269        [deg] Dec coordinate to which the observer is moving relative to CMB rest-frame
+
+# Tiling options, defining how accurately the edges of the survey volume are checked when tiling the volume
+search_angle            0.5            [deg] typical angle in which overlaps between survey volume and tiling grid are searched
+volume_search_level     0              [-] value >=0, giving the number of search points (2^#)^3 inside each tile
+
+# Processing level
+# The parameter "options" consists of a comma-separated list of keywords *without* spaces. These keywords are
+# interpreted in the custom module "module_user_routines_..." using the logical function option(string), which is TRUE, iff
+# the keyword "string" exists in the "options" parameter. The "options" can be left empty.
+# For the semi-analytic model shark, the currently available keywords are:
+# + line_shapes: generate shape-parameters for atomic and molecular emission lines
+# + luminosities: generate CO and AGN luminosities (requires the files CO_SLED.hdf5) with the shark outputs
+options                 
+make_groups             y              logical flag specifying if groups are produced
+
+# Output file options
+merge_output            y              logical flag specifying whether the output file should be merged or left split by subvolume
+keep_tmp                n              logical flag specifying if the temporary binary output files are kept, if run was successful
+keep_log                y              logical flag specifying if the logfile is kept, if run was successful
+
+# Developer options
+# Core-developers can use the optional parameter "devoptions" to specify a list of keywords for checking/developing purposes. This
+# parameter should not be present in standard runs. Available keywords are:
+# + yzgrid: reposition the galaxies from the cubic box to a patter in the yz-plane; allows visualising the transformations
+# + yztranslation: limit translations to the yz-plane, orthogonal to the x-axis
+# + xrotation: limit rotations to rotations about the x-axis
+
+
+# PARAMETER SETS
+
+parameterset dsa-wide-mac
+survey                  dsa-wide
+path_input              /Users/do/Data/SURFS/L210_N1536/shark/Shark-TreeFixed-ReincPSO-kappa0p002/
+path_output             /Users/do/Data/SURFS/L210_N1536/stingray/
+seed                    1
+randomisation           tiles
+filename_sky            mocksky_dsa_wide_1
+options                 luminosities,line_shapes
+merge_output            n
+end
+
+parameterset dsa-pulsar-mac
+survey                  dsa-pulsar
+path_input              /Users/do/Data/SURFS/L210_N1536/shark/Shark-TreeFixed-ReincPSO-kappa0p002/
+path_output             /Users/do/Data/SURFS/L210_N1536/stingray/
+seed                    1
+randomisation           shells
+filename_sky            mocksky_dsa_pulsar_1
+options                 luminosities,line_shapes
+end
+
+parameterset dsa-deep-mac
+survey                  dsa-deep
+path_input              /Users/do/Data/SURFS/L210_N1536/shark/Shark-TreeFixed-ReincPSO-kappa0p002/
+path_output             /Users/do/Data/SURFS/L210_N1536/stingray/
+seed                    1
+randomisation           shells
+filename_sky            mocksky_dsa_deep_1
+options                 luminosities,line_shapes
+end
+
+parameterset dsa-wide-hyades
+survey                  dsa-wide
+path_input              /mnt/su3ctm/clagos/SHARK_Out/medi-SURFS/Shark-TreeFixed-ReincPSO-kappa0p002/
+path_output             /mnt/su3ctm/dobreschkow/stingray/
+seed                    1
+filename_sky            mocksky_dsa_wide_1
+options                 luminosities,line_shapes
+end
+
+parameterset dsa-pulsar-hyades
+survey                  dsa-pulsar
+path_input              /mnt/su3ctm/clagos/SHARK_Out/medi-SURFS/Shark-TreeFixed-ReincPSO-kappa0p002/
+path_output             /mnt/su3ctm/dobreschkow/stingray/
+seed                    1
+filename_sky            mocksky_dsa_pulsar_1
+options                 luminosities,line_shapes
+end
+
+parameterset dsa-deep-hyades
+survey                  dsa-deep
+path_input              /mnt/su3ctm/clagos/SHARK_Out/medi-SURFS/Shark-TreeFixed-ReincPSO-kappa0p002/
+path_output             /mnt/su3ctm/dobreschkow/stingray/
+seed                    1
+filename_sky            mocksky_dsa_deep_1
+options                 luminosities,line_shapes
+end
+
+parameterset wallaby-micro-mac
+survey                  wallaby-micro
+path_input              /Users/do/Data/SURFS/L40_N512/shark/Shark-TreeFixed-ReincPSO-kappa0p002/
+path_output             /Users/do/Data/SURFS/L40_N512/stingray/
+seed                    1
+randomisation           tiles
+filename_sky            mocksky_wallaby_micro_1
+options                 luminosities,line_shapes
+end
+
+parameterset wallaby-medi-mac
+survey                  wallaby-medi
+path_input              /Users/do/Data/SURFS/L210_N1536/shark/Shark-TreeFixed-ReincPSO-kappa0p002/
+path_output             /Users/do/Data/SURFS/L210_N1536/stingray/
+seed                    1
+randomisation           tiles
+filename_sky            mocksky_wallaby_medi_1
+options                 luminosities,line_shapes
+end
+
+parameterset wallaby-micro-hyades_1
+survey                  wallaby-micro
+path_input              /mnt/su3ctm/clagos/SHARK_Out/micro-SURFS/Shark-TreeFixed-ReincPSO-kappa0p002/
+path_output             /mnt/su3ctm/dobreschkow/stingray/
+seed                    1
+randomisation           tiles
+filename_sky            mocksky_wallaby_micro_1
+options                 luminosities,line_shapes
+end
+
+parameterset wallaby-medi-hyades_1
+survey                  wallaby-medi
+path_input              /mnt/su3ctm/clagos/SHARK_Out/medi-SURFS/Shark-TreeFixed-ReincPSO-kappa0p002/
+path_output             /mnt/su3ctm/dobreschkow/stingray/
+seed                    1
+randomisation           tiles
+filename_sky            mocksky_wallaby_medi_1
+options                 luminosities,line_shapes
+end
+
+parameterset wallaby-micro-hyades_2
+survey                  wallaby-micro
+path_input              /mnt/su3ctm/clagos/SHARK_Out/micro-SURFS/Shark-TreeFixed-ReincPSO-kappa0p002/
+path_output             /mnt/su3ctm/dobreschkow/stingray/
+seed                    2
+randomisation           tiles
+filename_sky            mocksky_wallaby_micro_2
+options                 luminosities,line_shapes
+end
+
+parameterset wallaby-medi-hyades_2
+survey                  wallaby-medi
+path_input              /mnt/su3ctm/clagos/SHARK_Out/medi-SURFS/Shark-TreeFixed-ReincPSO-kappa0p002/
+path_output             /mnt/su3ctm/dobreschkow/stingray/
+seed                    2
+randomisation           tiles
+filename_sky            mocksky_wallaby_medi_2
+options                 luminosities,line_shapes
+end
+
+parameterset wallaby-micro-hyades_3
+survey                  wallaby-micro
+path_input              /mnt/su3ctm/clagos/SHARK_Out/micro-SURFS/Shark-TreeFixed-ReincPSO-kappa0p002/
+path_output             /mnt/su3ctm/dobreschkow/stingray/
+seed                    3
+randomisation           tiles
+filename_sky            mocksky_wallaby_micro_3
+options                 luminosities,line_shapes
+end
+
+parameterset wallaby-medi-hyades_3
+survey                  wallaby-medi
+path_input              /mnt/su3ctm/clagos/SHARK_Out/medi-SURFS/Shark-TreeFixed-ReincPSO-kappa0p002/
+path_output             /mnt/su3ctm/dobreschkow/stingray/
+seed                    3
+randomisation           tiles
+filename_sky            mocksky_wallaby_medi_3
+options                 luminosities,line_shapes
+end
+
+parameterset wallaby-micro-hyades_4
+survey                  wallaby-micro
+path_input              /mnt/su3ctm/clagos/SHARK_Out/micro-SURFS/Shark-TreeFixed-ReincPSO-kappa0p002/
+path_output             /mnt/su3ctm/dobreschkow/stingray/
+seed                    4
+randomisation           tiles
+filename_sky            mocksky_wallaby_micro_4
+options                 luminosities,line_shapes
+end
+
+parameterset wallaby-medi-hyades_4
+survey                  wallaby-medi
+path_input              /mnt/su3ctm/clagos/SHARK_Out/medi-SURFS/Shark-TreeFixed-ReincPSO-kappa0p002/
+path_output             /mnt/su3ctm/dobreschkow/stingray/
+seed                    4
+randomisation           tiles
+filename_sky            mocksky_wallaby_medi_4
+options                 luminosities,line_shapes
+end
+
+parameterset wallaby-micro-hyades_5
+survey                  wallaby-micro
+path_input              /mnt/su3ctm/clagos/SHARK_Out/micro-SURFS/Shark-TreeFixed-ReincPSO-kappa0p002/
+path_output             /mnt/su3ctm/dobreschkow/stingray/
+seed                    5
+randomisation           tiles
+filename_sky            mocksky_wallaby_micro_5
+options                 luminosities,line_shapes
+end
+
+parameterset wallaby-medi-hyades_5
+survey                  wallaby-medi
+path_input              /mnt/su3ctm/clagos/SHARK_Out/medi-SURFS/Shark-TreeFixed-ReincPSO-kappa0p002/
+path_output             /mnt/su3ctm/dobreschkow/stingray/
+seed                    5
+randomisation           tiles
+filename_sky            mocksky_wallaby_medi_5
+options                 luminosities,line_shapes
+end
+
+parameterset waves-g23-hyades
+survey                  waves-g23
+path_output             /mnt/su3ctm/clagos/Stingray/output/medi-SURFS/Shark-TreeFixed-ReincPSO-kappa0p002/waves-g23/
+path_input              /mnt/su3ctm/clagos/SHARK_Out/medi-SURFS/Shark-TreeFixed-ReincPSO-kappa0p002/
+end
+
+parameterset gama-hyades
+survey                  gama
+path_output             /mnt/su3ctm/clagos/Stingray/output/medi-SURFS/Shark-TreeFixed-ReincPSO-kappa0p002/gama/
+path_input              /mnt/su3ctm/clagos/SHARK_Out/medi-SURFS/Shark-TreeFixed-ReincPSO-kappa0p002/
+end
+
+parameterset deep-optical-hyades
+survey                  deep-optical
+path_output             /mnt/su3ctm/clagos/Stingray/output/medi-SURFS/Shark-TreeFixed-ReincPSO-kappa0p002/deep-optical/
+path_input              /mnt/su3ctm/clagos/SHARK_Out/medi-SURFS/Shark-TreeFixed-ReincPSO-kappa0p002/
+end
+
+parameterset deep-optical-narrow-hyades
+survey                  deep-optical-narrow
+path_output             /mnt/su3ctm/clagos/Stingray/output/medi-SURFS/Shark-TreeFixed-ReincPSO-kappa0p002/deep-optical-narrow/
+path_input              /mnt/su3ctm/clagos/SHARK_Out/medi-SURFS/Shark-TreeFixed-ReincPSO-kappa0p002/
+end
+
+
+# PARAMETER SETS USED BY DEVELOPERS ONLY
+
+parameterset dev1a
+options                 
+survey                  dev1
+path_input              /Users/do/Data/SURFS/L210_N1536/shark/Shark-TreeFixed-ReincPSO-kappa0p002/
+path_output             /Users/do/Dropbox/Code/Fortran/stingray/tests/shark2/dev1a
+subvolume_max           0
+randomisation           single
+translate               n
+rotate                  n
+invert                  n
+seed                    1
+devoptions              yztranslation,xrotation,yzgrid
+end
+
+parameterset dev1b
+options                 
+survey                  dev1
+path_input              /Users/do/Data/SURFS/L210_N1536/shark/Shark-TreeFixed-ReincPSO-kappa0p002/
+path_output             /Users/do/Dropbox/Code/Fortran/stingray/tests/shark2/dev1b
+subvolume_max           0
+randomisation           single
+seed                    4
+devoptions              yztranslation,xrotation,yzgrid
+end
+
+parameterset dev1c (used only by core-developers)
+options                 
+survey                  dev1
+path_input              /Users/do/Data/SURFS/L210_N1536/shark/Shark-TreeFixed-ReincPSO-kappa0p002/
+path_output             /Users/do/Dropbox/Code/Fortran/stingray/tests/shark2/dev1c
+subvolume_max           0
+randomisation           tiles
+seed                    1
+devoptions              yztranslation,xrotation,yzgrid
+end
+
+parameterset dev1d
+options                 
+survey                  dev1
+path_input              /Users/do/Data/SURFS/L210_N1536/shark/Shark-TreeFixed-ReincPSO-kappa0p002/
+path_output             /Users/do/Dropbox/Code/Fortran/stingray/tests/shark2/dev1d
+shell_tweaking          n
+subvolume_max           0
+randomisation           shells
+seed                    3
+fix_observer_position   y
+observer_x              105 mid plane
+observer_y              138
+observer_z              169
+devoptions              yztranslation,xrotation,yzgrid
+end
+
+
+parameterset dev1e
+options                 
+survey                  dev1
+path_input              /Users/do/Data/SURFS/L210_N1536/shark/Shark-TreeFixed-ReincPSO-kappa0p002/
+path_output             /Users/do/Dropbox/Code/Fortran/stingray/tests/shark2/dev1e
+subvolume_max           0
+randomisation           shells
+shell_tweaking          y
+seed                    3
+fix_observer_position   y
+observer_x              105 mid plane
+observer_y              138
+observer_z              169
+devoptions              yztranslation,xrotation,yzgrid
+end
+
+parameterset dev2a
+options                 
+survey                  dev2
+path_input              /Users/do/Data/SURFS/L210_N1536/shark/Shark-TreeFixed-ReincPSO-kappa0p002/
+path_output             /Users/do/Dropbox/Code/Fortran/stingray/tests/shark2/dev2a              
+subvolume_max           0
+snapshot_min            199  to ensure that galaxies do not move
+randomisation           single
+translate               n
+rotate                  n
+invert                  n
+seed                    1
+end
+
+parameterset dev2b
+options                 
+survey                  dev2
+path_input              /Users/do/Data/SURFS/L210_N1536/shark/Shark-TreeFixed-ReincPSO-kappa0p002/
+path_output             /Users/do/Dropbox/Code/Fortran/stingray/tests/shark2/dev2b           
+subvolume_max           0
+snapshot_min            199  to ensure that galaxies do not move
+randomisation           single
+seed                    2
+end
+
+parameterset dev2c
+options                 
+survey                  dev2
+path_input              /Users/do/Data/SURFS/L210_N1536/shark/Shark-TreeFixed-ReincPSO-kappa0p002/
+path_output             /Users/do/Dropbox/Code/Fortran/stingray/tests/shark2/dev2c              
+subvolume_max           0
+snapshot_min            199  to ensure that galaxies do not move
+randomisation           tiles
+seed                    1
+end
+
+parameterset dev2d
+options                 
+survey                  dev2
+path_input              /Users/do/Data/SURFS/L210_N1536/shark/Shark-TreeFixed-ReincPSO-kappa0p002/
+path_output             /Users/do/Dropbox/Code/Fortran/stingray/tests/shark2/dev2d           
+subvolume_max           0
+snapshot_min            199  to ensure that galaxies do not move
+randomisation           shells
+shell_tweaking          n
+seed                    1
+end
+
+parameterset dev2e
+options                 
+survey                  dev2
+path_input              /Users/do/Data/SURFS/L210_N1536/shark/Shark-TreeFixed-ReincPSO-kappa0p002/
+path_output             /Users/do/Dropbox/Code/Fortran/stingray/tests/shark2/dev2e              
+subvolume_max           0
+snapshot_min            199  to ensure that galaxies do not move
+randomisation           shells
+shell_tweaking          y
+seed                    1
+end
