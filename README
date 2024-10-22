@@ -105,12 +105,14 @@ git clone https://github.com/obreschkow/stingray # install updated version
 cd stingray # change to surfsuite directory
 module load gfortran hdf5 # load required modules
 make system=hyades # compile code
-./stingray version # check version
+
+# Verify installation and stingray version
+./stingray version
 
 # To run a quick test execute the following line (still from within the stingray directory):
 ./stingray
 
-# The sky should contain 502 galaxies in 488 groups. These data is written in the directory "example".
+# The sky should contain 502 galaxies in 488 groups. These data are written in the directory "example".
 # Do *not* keep executing stingray this way, but submit a job to the workload manager.
 
 
@@ -126,12 +128,14 @@ latest_hdf5=$(module avail hdf5 2>&1 | grep -o 'hdf5/[0-9.]\+-api-[a-z0-9]\+' | 
 module load "$latest_hdf5" # load latest HDF5 version
 export HDF5_DIR=$(module show "$latest_hdf5" 2>&1 | grep -o '/[^ ]*/hdf5-[^ ]*' | head -n 1 | sed 's/[")]*$//')
 make # compile code
-./stingray version # check version
+
+# Verify installation and stingray version
+./stingray version
 
 # To run a quick test execute the following line (still from within the stingray directory):
 ./stingray
 
-# The sky should contain 502 galaxies in 488 groups. These data is written in the directory "example".
+# The sky should contain 502 galaxies in 488 groups. These data are written in the directory "example".
 # Do *not* keep executing stingray this way, but submit a job to the workload manager.
 
 
