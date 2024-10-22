@@ -106,7 +106,7 @@ cd stingray # change to surfsuite directory
 module load gfortran hdf5 # load required modules
 make system=hyades # compile code
 
-# Verify installation and stingray version
+# Verify stingray installation and version
 ./stingray version
 
 # To run a quick test execute the following line (still from within the stingray directory):
@@ -129,7 +129,7 @@ module load "$latest_hdf5" # load latest HDF5 version
 export HDF5_DIR=$(module show "$latest_hdf5" 2>&1 | grep -o '/[^ ]*/hdf5-[^ ]*' | head -n 1 | sed 's/[")]*$//')
 make # compile code
 
-# Verify installation and stingray version
+# Verify stingray installation and version
 ./stingray version
 
 # To run a quick test execute the following line (still from within the stingray directory):
