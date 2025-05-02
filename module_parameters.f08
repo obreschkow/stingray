@@ -389,7 +389,7 @@ subroutine write_hdf5_parameters(filename_hdf5)
    call hdf5_write_data(name//'survey',trim(para%survey),'name of simulated survey')
    call hdf5_write_data(name//'path_output',trim(para%path_output))
    call hdf5_write_data(name//'path_input',trim(para%path_input))
-   call hdf5_write_data(name//'para%filename_sky',trim(para%filename_sky), &
+   call hdf5_write_data(name//'filename_sky',trim(para%filename_sky), &
    & 'filename of mock sky file(s), without extension .hdf5 and without subvolume index')
    call hdf5_write_data(name//'box_side',para%box_side, &
    & '[length_unit] comoving side-length of simulation box in multiples of length_unit')

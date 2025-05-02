@@ -15,11 +15,11 @@ program stingray
    implicit none
    
    ! start user interface
-   call set_version('0.40')
+   call set_version('0.41')
    call handle_arguments(require_task=.false.)
    call start_output
    
-   ! read user arguments and parameters
+   ! handle parameters
    call read_parameterfile
    call require_no_options_left
    call set_auto_string('auto')

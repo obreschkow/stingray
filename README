@@ -40,6 +40,7 @@ v0.37 11/12/2020: Fixed illegal tmp file names, added DSA-2000 as examples in sh
 v0.38 18/08/2022: New way of assigning unique galaxy IDs to avoid duplicated indices for duplicated galaxies; bug fix with zobs
 v0.39 21/10/2024: Relax requirement that each group must have exactly one central, to each group must have at most one central
 v0.40 21/10/2024: Updated makefile
+v0.41 02/05/2025: Fixed unwrapping issue and wrong group positions that occasionally occurred in "tiles" randomisation mode
 
 Developed by Danail Obreschkow (danail.obreschkow@icrar.org)
 
@@ -81,7 +82,7 @@ GETTING STARTED
    NB: This command assumes the default parameter file "parameters.txt" to be in the current directory.
        Otherwise you must specify the path+filename of the parameter file using the option -parameterfile ...
        
-The command above should produce a sky containing 502 galaxies in 488 groups. These data is written in the directory "example".
+The command above should produce a sky containing 500 galaxies in 486 groups. These data is written in the directory "example".
 
 To produce your own, custom-made mock sky,
 

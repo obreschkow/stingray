@@ -114,7 +114,7 @@ subroutine selection_example(pos,sam,sky,range,selected)
       ! here add additional, maximal restrictions that require apparent sky properties (sky), as defined in module_user_routines,
       ! possibly combined with position and SAM properties;
       ! if no such restrictions exist, leave this clause empty
-      selected = sky%mag<19.23 .and. sky%zobs<0.1 ! select by apparent magnitude and redshift
+      selected = sky%mag<19.24 .and. sky%zobs<0.1 ! select by apparent magnitude and redshift
       
    end select
    

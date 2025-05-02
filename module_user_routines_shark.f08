@@ -543,7 +543,7 @@ subroutine make_sky_group(sky_group,sam,sky_galaxy,selected,base,groupflag)
                                                          ! selection of the mock sky, as defined in the user module
                                                          ! module_user_selection_[...]
    type(type_base),intent(in)          :: base           ! basic properties (see details in subroutine make_sky_object)
-   integer*4                           :: groupflag      ! indicates of the group is clipped: 0 if group unclipped, >0 if clipped by
+   integer*4,intent(in)                :: groupflag      ! indicates of the group is clipped: 0 if group unclipped, >0 if clipped by
                                                          ! + survey edge (+1)
                                                          ! + snapshot limit (+2)
                                                          ! + tile limit (+4)

@@ -372,9 +372,9 @@ subroutine place_subvolume_into_tile(stamp_index,itile,isnapshot,isubvolume,sam,
    logical                                         :: position_selected
    real*4                                          :: dx
    integer*4                                       :: group_flag
-   real*4                                          :: xsam(3),xtile_min(3),xtile_max(3)
+   real*4                                          :: xsam(3),xtile_min,xtile_max
    real*4,allocatable                              :: xtile(:,:)
-   logical                                         :: wrap_groups
+   logical                                         :: tiling_mode
    logical                                         :: devoption_yzgrid
    
    type type_lim
@@ -411,8 +411,8 @@ subroutine place_subvolume_into_tile(stamp_index,itile,isnapshot,isubvolume,sam,
    !prefixid = int(limit%n_galaxies_per_tile_max,8)*(int(limit%n_subvolumes_max,8)*int(isnapshot,8)+int(isubvolume,8)) ! up to v0.37
    prefixid = int(limit%n_galaxies_per_tile_max,8)*int(stamp_index,8)
    
+   tiling_mode = trim(para%randomisation)=='tiles'
    devoption_yzgrid = devoption('yzgrid')
-   wrap_groups = trim(para%randomisation)=='tiles'
    
    ! make fixed base properties
    base%index%shell = ishell
@@ -462,37 +462,39 @@ subroutine place_subvolume_into_tile(stamp_index,itile,isnapshot,isubvolume,sam,
       end do
       
       ! handle wrapped groups, unwrap if appropriate
+      group%is_at_edge_of%tile = .false.
       do d = 1,3
-         xtile_min(d) = minval(xtile(:,d))
-         xtile_max(d) = maxval(xtile(:,d))
-      end do
-      dx = maxval(xtile_max-xtile_min)
-      if ((dx>limit%group_diameter_max).and.(dx<1.0-limit%group_diameter_max)) then
-         if (.not.devoption_yzgrid) call error('group wider than box side times ',limit%group_diameter_max)
-      end if
-      if (dx>0.5) then ! group is wrapped
-         if (wrap_groups) then ! leave group wrapped, but flag
-            group%is_at_edge_of%tile = .true.
-         else ! unwrap group
-            group%is_at_edge_of%tile = .false.
-            ! translate all members to side of the first galaxy in the group (which is the central if it exists)
-            do d = 1,3
-               xtile(:,d) = modulo(xtile(:,d)+0.5,1.0)+xtile(1,d)-modulo(xtile(1,d)+0.5,1.0)
-            end do
+         xtile_min = minval(xtile(:,d))
+         xtile_max = maxval(xtile(:,d))
+         dx = xtile_max-xtile_min
+         if ((dx>limit%group_diameter_max).and.(dx<1.0-limit%group_diameter_max)) then
+            if (.not.devoption_yzgrid) call error('group wider than box side times ',limit%group_diameter_max)
          end if
-      else
-         group%is_at_edge_of%tile = .false.
-      end if
+         if (dx>0.5) then ! group is wrapped
+            ! translate all members to side of the first galaxy in the group (which is the central if it exists)
+            xtile(:,d) = modulo(xtile(:,d)+0.5,1.0)+xtile(1,d)-modulo(xtile(1,d)+0.5,1.0)
+            group%is_at_edge_of%tile = tiling_mode
+         end if
+      end do
       
       ! map galaxies onto sky and check full selection
       do k = 1,group%n
       
-         base%cartesian = map_tile_onto_sky(xtile(k,:),itile)
-         base%transformation%translation = components(base%cartesian)-xsam
-         call car2sph(base%cartesian,base%spherical)
-      
-         ! check if distance is in the range covered by snapshot isnapshot
          selected = .true.
+         
+         ! remove galaxies outside tile (after unwrapping) in tiling-based randomisation mode
+         if ((group%is_at_edge_of%tile).and.tiling_mode) then
+            if ((minval(xtile(k,:))<0.0).or.(maxval(xtile(k,:))<1.0)) then
+               selected = .false.
+            end if
+         end if
+         
+         ! make sky coordinates
+         base%cartesian = map_tile_onto_sky(xtile(k,:),itile)
+         base%transformation%translation = components(base%cartesian)-xtile(k,:)
+         call car2sph(base%cartesian,base%spherical)
+         
+         ! check if distance is in the range covered by snapshot isnapshot
          if ((base%spherical%dc<snapshot(isnapshot)%dmin).or.(base%spherical%dc>=snapshot(isnapshot)%dmax).or.&
             & (base%spherical%dc<=epsilon(0.0))) then ! exclude objects that exactly coincide with the observer
             group%has_galaxy_outside%snapshot = .true.
