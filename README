@@ -114,7 +114,7 @@ make system=hyades # compile code
 # To run a quick test execute the following line (still from within the stingray directory):
 ./stingray
 
-# The sky should contain 502 galaxies in 488 groups. These data are written in the directory "example".
+# The sky should contain 500 galaxies in 486 groups. These data are written in the directory "example".
 # Do *not* keep executing stingray this way, but submit a job to the workload manager.
 
 
@@ -137,7 +137,7 @@ make # compile code
 # To run a quick test execute the following line (still from within the stingray directory):
 ./stingray
 
-# The sky should contain 502 galaxies in 488 groups. These data are written in the directory "example".
+# The sky should contain 500 galaxies in 486 groups. These data are written in the directory "example".
 # Do *not* keep executing stingray this way, but submit a job to the workload manager.
 
 
