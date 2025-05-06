@@ -105,7 +105,6 @@ cd ~
 rm -rf stingray/ # remove previous surfsuite directory
 git clone https://github.com/obreschkow/stingray # install updated version
 cd stingray # change to surfsuite directory
-module load gfortran hdf5 # load required modules
 make system=hyades # compile code
 
 # Verify stingray installation and version
