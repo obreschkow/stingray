@@ -185,13 +185,24 @@ filename_sky            mocksky_dsa_deep_1
 options                 luminosities,line_shapes
 end
 
-parameterset wallaby-medi-mac-test
+parameterset wallaby-medi-mac-v1
 survey                  wallaby-medi
 path_input              /Users/do/Data/SURFS/L210_N1536/shark/Shark-TreeFixed-ReincPSO-kappa0p002/
 path_output             /Users/do/Data/SURFS/L210_N1536/stingray/
 seed                    1
 randomisation           tiles
-filename_sky            mocksky_wallaby_medi_1_test
+filename_sky            mocksky_wallaby_medi_v1_full
+options                 luminosities,line_shapes
+end
+
+parameterset wallaby-medi-mac-v2
+survey                  wallaby-medi
+path_input              /Users/do/Data/SURFS/L210_N1536/shark/Shark_v2_Lagos24/
+path_output             /Users/do/Data/SURFS/L210_N1536/stingray/
+seed                    1
+randomisation           tiles
+filename_sky            mocksky_wallaby_medi_v2_full
+options                 luminosities,line_shapes
 end
 
 parameterset wallaby-micro-mac

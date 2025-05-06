@@ -389,6 +389,7 @@ subroutine selection_wallaby(dcmin,dcmax,pos,sam,sky,range,selected)
       mhi = (sam%matom_disk+sam%matom_bulge)/para%h/1.35 ! [Msun] HI mass
       selected = mhi>wallaby_fmin*(pos%dc/para%h)**2 ! rough preselection to accelerate computation
    case (select_by_all)
+      if (.not.option('line_shapes')) call error('selection function requires option line_shapes to be TRUE')
       mhi = (sam%matom_disk+sam%matom_bulge)/para%h/1.35
       da = sky%dc/(1+sky%zobs)/para%h*1e3 ! [kpc]
       dhi = 10.0**(0.506*log10(mhi)-3.293)/da/unit%arcsec ! [arcsec] 

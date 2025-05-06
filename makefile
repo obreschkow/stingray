@@ -1,7 +1,7 @@
 # Call as make [sam=shark,...] [system=personal,hyades,...] [mode=standard,dev]
 
 # optional arguments:
-# sam = galaxy formation model; each model requires custom modules "module_user_routines_[sam].f08" and "module_user_selection_[sam].f08"
+# sam = galaxy formation model; each model requires custom modules "module_user_routines_[sam].f90" and "module_user_selection_[sam].f90"
 # system = computing system on which stingray is complied and executed, used to link HDF5 library if not in ${HDF5_DIR}
 # mode = compilation mode; allowed modes are 'default' and 'dev'
 

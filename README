@@ -41,6 +41,7 @@ v0.38 18/08/2022: New way of assigning unique galaxy IDs to avoid duplicated ind
 v0.39 21/10/2024: Relax requirement that each group must have exactly one central, to each group must have at most one central
 v0.40 21/10/2024: Updated makefile
 v0.41 02/05/2025: Fixed unwrapping issue and wrong group positions that occasionally occurred in "tiles" randomisation mode
+v0.42 06/05/2025: Changed filenames from *.f08 to *.f90, despite Fortran 2008 elements, to increase compatibility
 
 Developed by Danail Obreschkow (danail.obreschkow@icrar.org)
 

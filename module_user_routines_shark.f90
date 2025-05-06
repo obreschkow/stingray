@@ -440,7 +440,7 @@ subroutine make_sky_galaxy(sky_galaxy,sam,base)
    ! option "line_shapes"
    if (option('line_shapes')) then
       ! shape parameters of atomic and molecular emission lines
-      call make_line_profiles 
+      call make_line_profiles
    end if
    
 contains
