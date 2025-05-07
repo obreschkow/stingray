@@ -21,7 +21,7 @@ endif
 ifeq ($(system),default)
    LFLAGS = -I${HDF5_DIR}/include -L${HDF5_DIR}/lib -lhdf5_fortran -lhdf5
 else ifeq ($(system),hyades) # ICRAR-Hyades
-   LFLAGS = -lhdf5_fortran -lhdf5
+   LFLAGS = -I${BLDR_HDF5_INCLUDE_PATH} -L${BLDR_HDF5_LIB_PATH} -lhdf5_fortran -lhdf5
 else
    $(error ERROR: unknown system '$(system)')
 endif
