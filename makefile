@@ -1,32 +1,28 @@
-# Call as make [sam=shark,...] [system=personal,hyades,...] [mode=standard,dev]
+# Call as make [sam=shark,...] [mode=standard,dev]
 
 # optional arguments:
 # sam = galaxy formation model; each model requires custom modules "module_user_routines_[sam].f90" and "module_user_selection_[sam].f90"
-# system = computing system on which stingray is complied and executed, used to link HDF5 library if not in ${HDF5_DIR}
 # mode = compilation mode; allowed modes are 'default' and 'dev'
+
+# NB: If the HDF5 library cannot be found by the compiler, try to set the environment variable HDF5_DIR to the
+#     path containing the relevant "include" and "lib" subdirectories.
 
 ifndef sam
    sam = shark
-endif
-
-ifndef system
-   system = default
 endif
 
 ifndef mode
    mode = default
 endif
 
-# library flags (depend on the "system" option)
-ifeq ($(system),default)
-   LFLAGS = -I${HDF5_DIR}/include -L${HDF5_DIR}/lib -lhdf5_fortran -lhdf5
-else ifeq ($(system),hyades) # ICRAR-Hyades
-   LFLAGS = -I${BLDR_HDF5_INCLUDE_PATH} -L${BLDR_HDF5_LIB_PATH} -lhdf5_fortran -lhdf5
-else
-   $(error ERROR: unknown system '$(system)')
+# HDF5 library flags
+ifeq ($(HDF5_DIR),) # HDF5_DIR is not set
+    LFLAGS = -lhdf5_fortran -lhdf5
+else # HDF5_DIR is set
+    LFLAGS = -I$(HDF5_DIR)/include -L$(HDF5_DIR)/lib -lhdf5_fortran -lhdf5
 endif
 
-# standard compiler flags (depend on the "mode" option)
+# Other compiler flags
 ifeq ($(mode),default)
    CFLAGS = -O3 -fopenmp -ffree-line-length-0
 else ifeq ($(mode),dev)
