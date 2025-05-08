@@ -5,7 +5,7 @@
 # mode = compilation mode; allowed modes are 'default' and 'dev'
 
 # NB: If the HDF5 library cannot be found by the compiler, try to set the environment variables
-#     HDF5_LIB and HDF5_INC to the paths needed for the compiler flags -I and -L
+#     HDF5_INC and HDF5_LIB to the paths needed for the compiler flags -I and -L
 
 ifndef sam
    sam = shark
