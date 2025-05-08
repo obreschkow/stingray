@@ -4,8 +4,8 @@
 # sam = galaxy formation model; each model requires custom modules "module_user_routines_[sam].f90" and "module_user_selection_[sam].f90"
 # mode = compilation mode; allowed modes are 'default' and 'dev'
 
-# NB: If the HDF5 library cannot be found by the compiler, try to set the environment variable HDF5_DIR to the
-#     path containing the relevant "include" and "lib" subdirectories.
+# NB: If the HDF5 library cannot be found by the compiler, try to set the environment variables
+#     HDF5_LIB and HDF5_INC to the paths needed for the compiler flags -I and -L
 
 ifndef sam
    sam = shark
@@ -16,10 +16,12 @@ ifndef mode
 endif
 
 # HDF5 library flags
-ifeq ($(HDF5_DIR),) # HDF5_DIR is not set
-    LFLAGS = -lhdf5_fortran -lhdf5
-else # HDF5_DIR is set
-    LFLAGS = -I$(HDF5_DIR)/include -L$(HDF5_DIR)/lib -lhdf5_fortran -lhdf5
+LFLAGS = -lhdf5_fortran -lhdf5
+ifneq ($(HDF5_LIB),)
+    LFLAGS += -L$(HDF5_LIB)
+endif
+ifneq ($(HDF5_INC),)
+    LFLAGS += -I$(HDF5_INC)
 endif
 
 # Other compiler flags
