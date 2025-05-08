@@ -103,6 +103,7 @@ QUICK START ON ICRAR-HYADES
 # To install and compile stingray in your home directory, run the following code in the remote terminal:
 cd ~
 export HDF5_INC="/usr/include/hdf5/serial"
+export HDF5_LIB="/usr/lib/x86_64-linux-gnu/hdf5/serial"
 rm -rf stingray/ # remove previous surfsuite directory
 git clone https://github.com/obreschkow/stingray # install updated version
 cd stingray # change to surfsuite directory
