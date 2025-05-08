@@ -105,7 +105,7 @@ cd ~
 rm -rf stingray/ # remove previous surfsuite directory
 git clone https://github.com/obreschkow/stingray # install updated version
 cd stingray # change to surfsuite directory
-make system=hyades # compile code
+make # compile code
 
 # Verify stingray installation and version
 ./stingray version
