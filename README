@@ -49,16 +49,15 @@ Developed by Danail Obreschkow (danail.obreschkow@icrar.org)
 GETTING STARTED
 =================================================================================================================================
 
-1) Prerequisites:
+1) Prerequisites. Depending on the system you may need to do some of the following:
    a) make sure gfortran is installed (code tested for GNU Fortran 9.3.0) and available;
       on some systems, it may be necessary to load the compiler using something like
       > module load gfortran
    b) make sure that HDF5 is installed (version 1.10.1 or higher) and available;
       on some systems, it may be necessary to load the library using something like
       > module load gfortran hdf5
-   c) set the environment variable HDF5_DIR to the directory containing the HDF5 module ($DF5_DIR/include and $HDF5_DIR}/lib),
-      e.g. use
-      > export HDF5_DIR=...
+   c) set the environment variables HDF5_INC and HDF5_LIB to the directories containing the HDF5 module, e.g.
+      > export HDF5_INC="/path/to/HDF5/inc"
 
 2) In terminal, download Stingray
    > git clone https://github.com/obreschkow/stingray
