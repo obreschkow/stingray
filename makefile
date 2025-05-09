@@ -97,7 +97,7 @@ stingray: 	   shared_module_core.o \
 # used in order to list additional object files on which the
 # executable depends
 %: %.o
-	$(FC) $(FCFLAGS) -o $@ $^
+	$(FC) -o $@ $^ $(FCFLAGS)
 
 # General rules for building prog.o from prog.f90 or prog.F90; $< is
 # used in order to list only the first prerequisite (the source file)
