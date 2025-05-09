@@ -107,6 +107,7 @@ export HDF5_LIB="/usr/lib/x86_64-linux-gnu/hdf5/serial"
 rm -rf stingray/ # remove previous surfsuite directory
 git clone https://github.com/obreschkow/stingray # install updated version
 cd stingray # change to surfsuite directory
+find . -exec touch {} \; #update timestamps to avoid occasional syncing warnings
 make # compile code
 
 # Verify stingray installation and version
