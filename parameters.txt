@@ -207,8 +207,8 @@ end
 
 parameterset wallaby-micro-mac
 survey                  wallaby-micro
-path_input              /Users/do/Data/SURFS/L40_N512/shark/Shark-TreeFixed-ReincPSO-kappa0p002/
-path_output             /Users/do/Data/SURFS/L40_N512/stingray/
+path_input              /Users/do/Data/SURFS/L40_N512/shark/Sharkv2-Lagos23/
+path_output             /Users/do/Data/SURFS/L40_N512/stingray/SharkV2/
 seed                    1
 randomisation           tiles
 filename_sky            mocksky_wallaby_micro_1
@@ -217,11 +217,11 @@ end
 
 parameterset wallaby-medi-mac
 survey                  wallaby-medi
-path_input              /Users/do/Data/SURFS/L210_N1536/shark/Shark-TreeFixed-ReincPSO-kappa0p002/
-path_output             /Users/do/Data/SURFS/L210_N1536/stingray/
-seed                    1
+path_input              /Users/do/Data/SURFS/L210_N1536/shark/Sharkv2-Lagos23/
+path_output             /Users/do/Data/SURFS/L210_N1536/stingray/SharkV2/
+seed                    5
 randomisation           tiles
-filename_sky            mocksky_wallaby_medi_1
+filename_sky            mocksky_wallaby_medi_5
 options                 luminosities,line_shapes
 end
 

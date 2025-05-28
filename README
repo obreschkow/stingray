@@ -104,10 +104,10 @@ QUICK START ON ICRAR-HYADES
 cd ~
 export HDF5_INC="/usr/include/hdf5/serial"
 export HDF5_LIB="/usr/lib/x86_64-linux-gnu/hdf5/serial"
-rm -rf stingray/ # remove previous surfsuite directory
+rm -rf stingray/ # remove previous stingray directory
 git clone https://github.com/obreschkow/stingray # install updated version
-cd stingray # change to surfsuite directory
-find . -exec touch {} \; #update timestamps to avoid occasional syncing warnings
+cd stingray
+sleep 0.1 # short pause to avoid occasional syncing warnings
 make # compile code
 
 # Verify stingray installation and version
@@ -125,9 +125,9 @@ QUICK START ON PAWSEY-SETONIX
 
 # To install and compile stingray in your home directory, run the following code in the remote terminal:
 cd ~
-rm -rf stingray/ # remove previous surfsuite directory
+rm -rf stingray/ # remove previous stingray directory
 git clone https://github.com/obreschkow/stingray # install updated version
-cd stingray # change to surfsuite directory
+cd stingray
 latest_hdf5=$(module avail hdf5 2>&1 | grep -o 'hdf5/[0-9.]\+-api-[a-z0-9]\+' | sort -V | tail -n 1)
 module load "$latest_hdf5" # load latest HDF5 version
 export HDF5_DIR=$(module show "$latest_hdf5" 2>&1 | grep -o '/[^ ]*/hdf5-[^ ]*' | head -n 1 | sed 's/[")]*$//')
