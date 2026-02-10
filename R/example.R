@@ -1,5 +1,5 @@
 # stingray path
-setwd('/Users/00077389/Dropbox/Code/Fortran/stingray/stingray')
+setwd('~/Dropbox/Code/Fortran/stingray/stingray')
 
 # libraries
 library(cooltools)
