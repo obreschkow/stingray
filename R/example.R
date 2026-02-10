@@ -24,11 +24,9 @@ col = color[mock$galaxies$dc/dc.max*999+1]
 spheres3d(x, col = col, radius=3)
 spheres3d(0, 0, 0, col = 'black', radius=6)
 
-# add grid
-rgl.hold()
+# add spherical grid
 rgl.sphgrid(radius=dc.max, radaxis=FALSE, longtype='D', col.long='grey', col.lat='grey', add=TRUE)
 rgl.camera(c(0,0,1e4),fov = 4)
-rgl.draw()
 
-# add tiles to plot
+# add tiles
 draw.tiling(mock$mapping$tiles, mock$mapping$shells, mock$parameters$box_side, col='black')
